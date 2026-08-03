@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Stripboard.Application/Stripboard.Application.csproj" />
+    <Project Path="src/Stripboard.CallSheets/Stripboard.CallSheets.csproj" />
+    <Project Path="src/Stripboard.Domain/Stripboard.Domain.csproj" />
+    <Project Path="src/Stripboard.Infrastructure/Stripboard.Infrastructure.csproj" />
+    <Project Path="src/Stripboard.Mcp.Locations/Stripboard.Mcp.Locations.csproj" />
+    <Project Path="src/Stripboard.Mcp.People/Stripboard.Mcp.People.csproj" />
+    <Project Path="src/Stripboard.Mcp.Schedule/Stripboard.Mcp.Schedule.csproj" />
+    <Project Path="src/Stripboard.Mcp.Weather/Stripboard.Mcp.Weather.csproj" />
+    <Project Path="src/Stripboard.Solver/Stripboard.Solver.csproj" />
+    <Project Path="src/Stripboard.Web/Stripboard.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Stripboard.Domain.Tests/Stripboard.Domain.Tests.csproj" />
+    <Project Path="tests/Stripboard.Mcp.Contract.Tests/Stripboard.Mcp.Contract.Tests.csproj" />
+    <Project Path="tests/Stripboard.Solver.Tests/Stripboard.Solver.Tests.csproj" />
+  </Folder>
+</Solution>

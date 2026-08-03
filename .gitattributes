@@ -1,0 +1,30 @@
+# Line endings are normalized to LF in the repository and checked out natively.
+# The solution builds on Windows and runs in Linux containers on Cloud Run, so anything
+# a shell or a container executes is pinned to LF explicitly.
+* text=auto
+
+*.sh        text eol=lf
+*.bash      text eol=lf
+Dockerfile  text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Better diffs for the languages in this repository.
+*.cs     text diff=csharp
+*.py     text diff=python
+*.md     text diff=markdown
+*.csproj text
+*.slnx   text
+*.props  text
+
+# Binaries: never touch.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.dll  binary
+*.exe  binary
+*.pdb  binary

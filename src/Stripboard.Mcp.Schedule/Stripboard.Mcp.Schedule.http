@@ -1,0 +1,6 @@
+@Stripboard.Mcp.Schedule_HostAddress = http://localhost:5067
+
+GET {{Stripboard.Mcp.Schedule_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

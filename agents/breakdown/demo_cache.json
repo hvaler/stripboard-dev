@@ -1,0 +1,77 @@
+{
+  "scenes": [
+    {
+      "number": 1,
+      "set_location": "221B BAKER STREET",
+      "int_ext": "EXT",
+      "day_night": "DAY",
+      "eighths": 2,
+      "synopsis": "EXT. 221B BAKER STREET - DAY",
+      "cast": [],
+      "elements": [
+        {
+          "name": "Fog Machine Smoke",
+          "category": "Fx"
+        },
+        {
+          "name": "Hansom Cab Carriage",
+          "category": "Vehicle"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "set_location": "221B BAKER STREET - SITTING ROOM",
+      "int_ext": "INT",
+      "day_night": "DAY",
+      "eighths": 5,
+      "synopsis": "INT. 221B BAKER STREET - SITTING ROOM - DAY",
+      "cast": [
+        "Sherlock Holmes",
+        "Dr. John Watson",
+        "Prof. James Moriarty"
+      ],
+      "elements": [
+        {
+          "name": "Ciphered Document",
+          "category": "Prop"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "set_location": "COVENT GARDEN MARKET",
+      "int_ext": "EXT",
+      "day_night": "DAY",
+      "eighths": 2,
+      "synopsis": "EXT. COVENT GARDEN MARKET - DAY",
+      "cast": [
+        "Dr. John Watson",
+        "Irene Adler"
+      ],
+      "elements": []
+    },
+    {
+      "number": 4,
+      "set_location": "TOWER BRIDGE WAREHOUSE",
+      "int_ext": "INT",
+      "day_night": "NIGHT",
+      "eighths": 4,
+      "synopsis": "INT. TOWER BRIDGE WAREHOUSE - NIGHT",
+      "cast": [
+        "Sherlock Holmes",
+        "Prof. James Moriarty"
+      ],
+      "elements": [
+        {
+          "name": "Webley Revolver",
+          "category": "Prop"
+        },
+        {
+          "name": "Fog Machine Smoke",
+          "category": "Fx"
+        }
+      ]
+    }
+  ]
+}

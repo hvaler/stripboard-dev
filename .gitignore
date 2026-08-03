@@ -1,0 +1,45 @@
+# === Internal development ecosystem — not part of the product (ADR-007) ===
+_hilo/
+_patron/
+Documentos_Base/
+ecosystem.config.json
+
+# Agent tooling & workspace config (development tooling, not product)
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+.agents/
+.gemini/
+.claude/
+.windsurf/
+.cursor/
+.cursorrules
+
+# Internal project documentation & specs (Spanish)
+BRIEF_STRIPBOARD.md
+RUNBOOK.md
+EVOLUTIVOS.md
+
+# === .NET ===
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+*.trx
+coverage.cobertura.xml
+
+# === Python (agents/) ===
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# === Secrets and environment — live in Secret Manager ===
+.env
+*.env
+appsettings.*.local.json
+
+# === OS ===
+.DS_Store
+Thumbs.db
