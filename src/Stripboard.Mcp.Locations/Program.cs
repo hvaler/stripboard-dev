@@ -1,12 +1,16 @@
+using Microsoft.EntityFrameworkCore;
+using Stripboard.Infrastructure.Persistence;
+using Stripboard.Mcp.Locations.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<StripboardDbContext>(options =>
+    options.UseInMemoryDatabase("StripboardLocationsMcpDb"));
+builder.Services.AddScoped<LocationsMcpService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -14,28 +18,27 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
+// MCP Tool Endpoints for mcp-locations (§6 / ADR-004)
+app.MapPost("/mcp/tools/get_location", async (GetLocationRequest request, LocationsMcpService service) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    var info = await service.GetLocationAsync(request.LocationName);
+    return info != null ? Results.Ok(info) : Results.NotFound();
+});
 
-app.MapGet("/weatherforecast", () =>
+app.MapPost("/mcp/tools/get_permits", async (GetPermitsRequest request, LocationsMcpService service) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    var permits = await service.GetPermitsAsync(request.LocationName);
+    return Results.Ok(permits);
+});
+
+app.MapPost("/mcp/tools/check_access", async (CheckAccessRequest request, LocationsMcpService service) =>
+{
+    var access = await service.CheckAccessAsync(request.LocationName, request.Date);
+    return Results.Ok(access);
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+public record GetLocationRequest(string LocationName);
+public record GetPermitsRequest(string LocationName);
+public record CheckAccessRequest(string LocationName, DateOnly Date);

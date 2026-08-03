@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Stripboard.Application\Stripboard.Application.csproj" />
+    <ProjectReference Include="..\Stripboard.Infrastructure\Stripboard.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
