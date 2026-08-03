@@ -2,6 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Stripboard.Domain\Stripboard.Domain.csproj" />
+    <ProjectReference Include="..\Stripboard.Application\Stripboard.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.OrTools" />
   </ItemGroup>
 
   <PropertyGroup>
