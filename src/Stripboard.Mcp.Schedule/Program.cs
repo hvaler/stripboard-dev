@@ -1,12 +1,24 @@
+using Microsoft.EntityFrameworkCore;
+using Stripboard.Application.Common.Interfaces;
+using Stripboard.Application.Common.Models;
+using Stripboard.Infrastructure.Persistence;
+using Stripboard.Mcp.Schedule.Services;
+using Stripboard.Solver;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// Register EF Core DbContext
+builder.Services.AddDbContext<StripboardDbContext>(options =>
+    options.UseInMemoryDatabase("StripboardScheduleMcpDb"));
+
+// Register Solver & Schedule Service
+builder.Services.AddScoped<IScheduleSolver, CpSatScheduleSolver>();
+builder.Services.AddScoped<ScheduleMcpService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -14,28 +26,40 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
+// MCP Tool Endpoints (§6 / ADR-004)
+app.MapPost("/mcp/tools/get_schedule", async (GetScheduleRequest request, ScheduleMcpService service) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    var version = await service.GetScheduleAsync(request.VersionId);
+    return version != null ? Results.Ok(version) : Results.NotFound();
+});
 
-app.MapGet("/weatherforecast", () =>
+app.MapPost("/mcp/tools/create_schedule", async (SolverInput input, ScheduleMcpService service) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    var result = await service.CreateScheduleAsync(input);
+    return Results.Ok(result);
+});
+
+app.MapPost("/mcp/tools/commit_schedule", async (CommitScheduleRequest request, ScheduleMcpService service) =>
+{
+    try
+    {
+        var committedVersion = await service.CommitScheduleAsync(request.ScheduleId, request.ProducerId);
+        return Results.Ok(committedVersion);
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(ex.Message);
+    }
+});
+
+app.MapPost("/mcp/tools/validate_rules", async (ValidateRulesRequest request, ScheduleMcpService service) =>
+{
+    var anomalies = await service.ValidateRulesAsync(request.ScheduleId);
+    return Results.Ok(anomalies);
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+public record GetScheduleRequest(Guid VersionId);
+public record CommitScheduleRequest(Guid ScheduleId, string ProducerId);
+public record ValidateRulesRequest(Guid ScheduleId);
