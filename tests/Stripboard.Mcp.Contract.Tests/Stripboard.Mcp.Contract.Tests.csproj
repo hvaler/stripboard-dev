@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Stripboard.Mcp.Schedule\Stripboard.Mcp.Schedule.csproj" />
     <ProjectReference Include="..\..\src\Stripboard.Mcp.People\Stripboard.Mcp.People.csproj" />
     <ProjectReference Include="..\..\src\Stripboard.Mcp.Locations\Stripboard.Mcp.Locations.csproj" />
+    <ProjectReference Include="..\..\src\Stripboard.Mcp.Weather\Stripboard.Mcp.Weather.csproj" />
   </ItemGroup>
 
 </Project>
