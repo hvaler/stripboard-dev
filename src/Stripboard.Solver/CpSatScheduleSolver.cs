@@ -2,6 +2,7 @@ using Google.OrTools.Sat;
 using Stripboard.Application.Common.Interfaces;
 using Stripboard.Application.Common.Models;
 using Stripboard.Domain.Entities;
+using Stripboard.Domain.Enums;
 using Stripboard.Domain.Services;
 
 namespace Stripboard.Solver;
@@ -177,7 +178,7 @@ public class CpSatScheduleSolver : IScheduleSolver
 
                     // Validate meal penalty for the day
                     double workedHours = totalMinutes / 60.0;
-                    var mealAnomaly = _unionRulesService.ValidateMealPenalty(shootDay, workedHours);
+                    var mealAnomaly = _unionRulesService.ValidateMealPenalty(shootDay, TimeSpan.FromHours(workedHours));
                     if (mealAnomaly != null)
                     {
                         detectedAnomalies.Add(mealAnomaly);
