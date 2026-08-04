@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Stripboard.Application\Stripboard.Application.csproj" />
     <ProjectReference Include="..\Stripboard.Infrastructure\Stripboard.Infrastructure.csproj" />
     <ProjectReference Include="..\Stripboard.Mcp.Schedule\Stripboard.Mcp.Schedule.csproj" />
+    <ProjectReference Include="..\Stripboard.CallSheets\Stripboard.CallSheets.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

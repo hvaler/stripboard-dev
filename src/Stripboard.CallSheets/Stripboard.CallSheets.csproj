@@ -1,7 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="QuestPDF" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Stripboard.Application\Stripboard.Application.csproj" />
+    <ProjectReference Include="..\Stripboard.Domain\Stripboard.Domain.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Stripboard.Infrastructure.Persistence;
 using Stripboard.Mcp.Schedule.Services;
+using Stripboard.CallSheets.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,7 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddDbContext<StripboardDbContext>(options =>
     options.UseInMemoryDatabase("StripboardWebDb"));
 builder.Services.AddScoped<ScheduleMcpService>();
+builder.Services.AddSingleton<CallSheetPdfGenerator>();
 
 var app = builder.Build();
 
