@@ -7,13 +7,8 @@ ecosystem.config.json
 # Agent tooling & workspace config (development tooling, not product)
 AGENTS.md
 GEMINI.md
-CLAUDE.md
 .agents/
 .gemini/
-.claude/
-.windsurf/
-.cursor/
-.cursorrules
 
 # Internal project documentation & specs (Spanish)
 BRIEF_STRIPBOARD.md

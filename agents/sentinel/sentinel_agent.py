@@ -6,9 +6,12 @@ from grafana_mcp_client import GrafanaMcpClient
 
 class ConflictSentinelAgent:
     """
-    Conflict Sentinel Watcher Agent (Python ADK / §6 / ADR-008).
-    Monitors schedule integrity across MCP servers, queries Grafana Cloud MCP Server,
-    and raises Disruption events when conflicts occur.
+    Conflict Sentinel: detects schedule conflicts (cast availability, weather on
+    exteriors, permit windows) and raises Disruption events (§6 / ADR-008).
+
+    NOT IMPLEMENTED YET: the ADK/LLM reasoning layer and real MCP querying. Detection
+    below is deterministic Python over in-memory dicts, and every Grafana call goes
+    through GrafanaMcpClient, which is currently a stub. See EV-19 and EV-29.
     """
     def __init__(self, grafana_client: Optional[GrafanaMcpClient] = None):
         self.grafana = grafana_client or GrafanaMcpClient()

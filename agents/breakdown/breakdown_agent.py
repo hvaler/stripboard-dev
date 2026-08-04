@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from fountain_parser import FountainParser
 from schema import BREAKDOWN_JSON_SCHEMA, validate_breakdown_dict
 
@@ -8,11 +8,15 @@ CACHE_FILE = os.path.join(os.path.dirname(__file__), "demo_cache.json")
 
 class BreakdownAgent:
     """
-    Python ADK Breakdown Agent for screenplay scene & element extraction.
-    Supports structured output validation, retry loop, and local caching for demo runs.
+    Screenplay scene & element extraction, with JSON Schema validation and local
+    caching for demo runs.
+
+    NOT IMPLEMENTED YET: LLM-backed extraction. This class runs a deterministic
+    keyword parser tuned to the demo screenplay; no model is called and no Google
+    Cloud AI SDK is used. Gemini structured-output extraction is tracked as EV-18.
+    Until then this is not an ADK agent and must not be described as one.
     """
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+    def __init__(self):
         self.parser = FountainParser()
 
     def process_fountain_file(self, filepath: str, use_cache: bool = True) -> Dict[str, Any]:
@@ -29,7 +33,7 @@ class BreakdownAgent:
             content = f.read()
 
         raw_scenes = self.parser.parse(content)
-        breakdown_result = self._extract_with_gemini_or_fallback(raw_scenes)
+        breakdown_result = self._extract_deterministic(raw_scenes)
 
         # Validate against JSON Schema
         if not validate_breakdown_dict(breakdown_result):
@@ -41,10 +45,13 @@ class BreakdownAgent:
 
         return breakdown_result
 
-    def _extract_with_gemini_or_fallback(self, raw_scenes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _extract_deterministic(self, raw_scenes: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Calls Gemini API with structured output or fallback to deterministic parser output.
-        Implements schema validation retry loop.
+        Deterministic keyword extraction of cast and elements.
+
+        Placeholder implementation: the character and prop lists below are hardcoded to
+        the demo screenplay and will not generalise to an arbitrary script. Replaced by
+        Gemini structured output (with a schema-validation retry loop) in EV-18.
         """
         extracted_scenes = []
         for raw in raw_scenes:

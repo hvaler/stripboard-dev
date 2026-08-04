@@ -12,7 +12,11 @@ class TestConflictSentinelAgent(unittest.TestCase):
         self.grafana_client = GrafanaMcpClient()
         self.agent = ConflictSentinelAgent(self.grafana_client)
 
-    def test_grafana_mcp_client_queries_tools_and_posts_annotations(self):
+    def test_grafana_mcp_client_stub_returns_canned_responses(self):
+        # This exercises the stub only: no MCP session is opened and no annotation is
+        # sent. It must NOT be read as coverage of the Grafana partner integration.
+        # EV-19 replaces it with a contract test that fails unless the response came
+        # from the network.
         result = self.grafana_client.query_tool("get_alerts", {})
         self.assertEqual(result["status"], "ok")
 

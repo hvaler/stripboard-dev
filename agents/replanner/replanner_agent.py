@@ -4,17 +4,21 @@ from typing import List, Dict, Any, Optional
 
 class ReplannerAgent:
     """
-    Replanner Agent (Python ADK / §6 / ADR-002).
-    Formulates replanning options upon disruption events, calculates cost deltas
-    (extra days, hold days, company moves, overtime estimate), generates English justifications,
-    and registers draft schedule versions in mcp-schedule.
+    Replanner: produces alternative schedule proposals for a disruption (§6 / ADR-002).
+
+    NOT IMPLEMENTED YET: everything of substance. The two proposals below are hardcoded,
+    the cost deltas are literals rather than computed figures, and register_draft_proposal()
+    never contacts mcp-schedule. EV-24 replaces this with an ADK agent that drives the
+    CP-SAT solver and grounds every number it reports in actual solver output.
     """
     def __init__(self, mcp_schedule_url: Optional[str] = None):
         self.mcp_schedule_url = mcp_schedule_url or "http://localhost:5000/mcp/tools"
 
     def generate_replan_proposals(self, disruption: Dict[str, Any], current_schedule: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Generates 2 distinct replanning proposals for a given disruption.
+        STUB. Returns two hardcoded proposals with literal cost figures ($1,500 / $8,500).
+        The only transformation applied to the schedule is swapping the first two scenes;
+        no solver is invoked and no constraint is evaluated.
         """
         trigger_type = disruption.get("trigger_type", "Unknown")
         description = disruption.get("description", "")
@@ -72,7 +76,7 @@ class ReplannerAgent:
 
     def register_draft_proposal(self, proposal: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Registers proposal in mcp-schedule via propose_replan (stub / API call).
+        STUB. Returns a canned success dict; self.mcp_schedule_url is never called.
         """
         return {
             "status": "registered",

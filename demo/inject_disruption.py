@@ -9,15 +9,19 @@ from replanner_agent import ReplannerAgent
 
 def run_disruption_pipeline():
     """
-    Executes the end-to-end demo disruption pipeline (§8 of brief):
+    Executes the demo disruption pipeline (§8 of brief):
     1. Injects actor unavailability (Sherlock Holmes on 2026-08-10).
-    2. Conflict Sentinel detects anomaly and emits Grafana annotation.
-    3. Replanner Agent generates 2 alternative draft schedules with cost deltas.
+    2. Conflict Sentinel detects the anomaly (deterministic rules, no LLM).
+    3. Replanner returns its two hardcoded proposals.
+
+    Runs entirely on stubs and mock data: no Grafana annotation is emitted, no solver
+    is invoked and nothing is persisted. See EV-19, EV-21 and EV-24.
     """
     sys.stdout.reconfigure(encoding='utf-8')
     print("=" * 60)
     print("🎬 STRIPBOARD DEMO PIPELINE: INJECTING DISRUPTION EVENT")
     print("=" * 60)
+    print("NOTE: stub pipeline — mock data, no Grafana call, no solver, no persistence.")
 
     sentinel = ConflictSentinelAgent()
     replanner = ReplannerAgent()
@@ -55,14 +59,13 @@ def run_disruption_pipeline():
         print(f"      • Cost Delta: +${prop['cost_deltas']['estimated_cost_delta_usd']:.2f}")
         print(f"      • Justification: {prop['justification']}")
 
-    print("\n[3/3] Registering draft versions in mcp-schedule...")
+    print("\n[3/3] Draft version registration (STUB — mcp-schedule is not contacted)...")
     for prop in proposals:
         res = replanner.register_draft_proposal(prop)
-        print(f"   -> Version {prop['proposal_id'][:8]} registered status: {res['version_status']}")
+        print(f"   -> Version {prop['proposal_id'][:8]} would be registered as: {res['version_status']}")
 
     print("\n" + "=" * 60)
-    print("✅ DEMO DISRUPTION PIPELINE EXECUTED SUCCESSFULLY")
-    print("   Open Stripboard Web -> Proposals to review and approve as Producer.")
+    print("STUB PIPELINE COMPLETED — no external system was called.")
     print("=" * 60)
     return True
 
