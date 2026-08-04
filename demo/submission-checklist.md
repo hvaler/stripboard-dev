@@ -18,9 +18,9 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 
 | Requirement | Devpost rule | Where we actually are | Status |
 |---|---|---|:---:|
-| **AI stack** | Google Cloud AI only (`google-adk`, `google-genai`, `google-cloud-aiplatform`). No third-party AI APIs. | **No LLM is called anywhere in the repository.** `agents/breakdown` runs hardcoded keyword matching. `google-genai` is listed in `requirements.txt` but never imported. Correspondingly, there is also zero third-party AI — no Anthropic, OpenAI or LangChain. | ❌ |
+| **AI stack** | Google Cloud AI only (`google-adk`, `google-genai`, `google-cloud-aiplatform`). No third-party AI APIs. | `agents/breakdown` calls **Gemini 2.5 Flash on Vertex AI** via `google-genai`, using native structured output (ADR-009). Verified against project `stripboard-hack`; integration tests make real calls. Zero third-party AI — no Anthropic, OpenAI or LangChain. | ✅ |
 | **Partner integration** | Grafana track: must **actively use the Grafana Cloud MCP Server** (`grafana/mcp-grafana`) at runtime. A README reference is explicitly insufficient. | `agents/sentinel/grafana_mcp_client.py` is a stub: no MCP session, no network I/O, canned return values, and a placeholder token. The real service-account token still returns 401 (DT-009). | ❌ |
-| **Runtime usage, not imports** | Repo must show Google Cloud and partner services *called* in code. | Neither is called yet. | ❌ |
+| **Runtime usage, not imports** | Repo must show Google Cloud and partner services *called* in code. | Google Cloud: yes — Vertex AI is called at runtime and the call is covered by tests. Partner (Grafana): not yet. | 🚧 |
 | **Code repository** | Public repo, open-source license file. | Public, `LICENSE` (Apache-2.0) present at repo root. | ✅ |
 | **Project novelty** | Created during the contest period (from 2026-07-27). | First commit 2026-08-03. | ✅ |
 | **Platform** | Must run on web, Android or iOS. | Blazor web app, deployed to Cloud Run. | 🚧 deployment unstable |
@@ -29,8 +29,9 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 | **Demo video** | Public YouTube/Vimeo video ≤ 3 minutes of the working product. | Script drafted (§3). Not recorded. | ❌ |
 | **Text description** | Features, technologies, data sources, learnings. | Draft in §2, currently describes unbuilt features. | 🚧 |
 
-**Blocking for Stage One:** rows 1, 2 and 3. Stage One is pass/fail — until the first three
-rows are ✅, the entry does not reach scoring. Tracked as EV-18 and EV-19.
+**Blocking for Stage One:** the partner integration row. Stage One is pass/fail, and the
+Grafana Cloud MCP client is now the single remaining blocker — tracked as **EV-19**.
+The Google Cloud AI requirement was closed by EV-18 (ADR-009).
 
 ---
 
@@ -62,7 +63,7 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 | **CP-SAT solver engine** — constraints in Google OR-Tools; union rules as pure C# domain code | Yes, and it is the strongest part of the project | ✅ |
 | **Call sheets PDF engine** — QuestPDF, role-scoped | Yes | ✅ |
 | **Human-in-the-loop governance UI** — Blazor, side-by-side proposals, immutable audit trail | UI exists but renders hardcoded data | 🚧 |
-| **LLM breakdown agent** — parses screenplays into structured JSON scene objects | No LLM involved | ❌ |
+| **LLM breakdown agent** — parses screenplays into structured JSON scene objects | Gemini 2.5 Flash on Vertex AI, structured output, validation-retry loop | ✅ |
 | **Conflict Sentinel** — active Grafana Cloud MCP Server client | Stub | ❌ |
 | **Replanner agent** — alternative proposals with computed cost deltas | Two hardcoded proposals, literal figures | ❌ |
 
@@ -86,7 +87,7 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 | Timestamp | Screen focus | Narration | Precondition |
 |---|---|---|---|
 | **0:00 – 0:30** | Architecture diagram & Blazor home | *"Film scheduling is a multi-million dollar puzzle governed by strict union rules. Here, the LLM formulates, the solver decides, and a human approves."* | EV-21 (UI shows real data) |
-| **0:30 – 1:00** | Breakdown & stripboard view | *"Our Breakdown Agent uses Gemini to parse screenplay pages into typed scene objects. Google OR-Tools CP-SAT computes the optimal schedule, enforcing 12-hour turnarounds and minimizing company moves."* | EV-18, EV-21, EV-27 |
+| **0:30 – 1:00** | Breakdown & stripboard view | *"Our Breakdown Agent uses Gemini to parse screenplay pages into typed scene objects. Google OR-Tools CP-SAT computes the optimal schedule, enforcing 12-hour turnarounds and minimizing company moves."* | ~~EV-18~~ ✅ · EV-21, EV-27 |
 | **1:00 – 1:45** | Disruption & sentinel alert | *"The lead actor calls in sick. Our Conflict Sentinel — an active client of the Grafana Cloud MCP Server — detects the blocked scenes and posts an alert annotation to Grafana Cloud."* | **EV-19, EV-20** |
 | **1:45 – 2:30** | Proposals & approval | *"The Replanner formulates two options with real cost deltas. The Producer compares them side by side and commits."* | EV-24 |
 | **2:30 – 3:00** | Call sheets & Grafana dashboard | *"QuestPDF generates role-scoped call sheets, while Shoot Mission Control displays OTLP traces, solver metrics and the disruption timeline."* | EV-20, EV-29 |
@@ -103,7 +104,7 @@ Four criteria, 25% each.
 
 | Criterion | Today | Why |
 |---|:---:|---|
-| Technological implementation | 3/10 | Solver and domain layer are genuinely good; the mandated Google Cloud and Grafana integrations are absent, and the UI is not wired to either. |
+| Technological implementation | 5/10 | Solver, domain layer and the Gemini breakdown are genuinely good; the mandated Grafana integration is still absent and the UI is not wired to any of it. |
 | Design | 4/10 | Complete page inventory, but hardcoded content and a deployment that errors on load. |
 | Potential impact | 8/10 | The problem is real, specific and expensive; the framing is credible to a 1st AD. |
 | Quality of the idea | 9/10 | *"The LLM formulates, the solver decides, a human approves"* is a non-obvious architecture that removes hallucination risk from a domain with legal and financial consequences. |
@@ -112,7 +113,12 @@ Four criteria, 25% each.
 - Deterministic CP-SAT scheduling instead of asking a model to produce a schedule.
 - Union rules as tested domain code (12h turnaround with midnight crossing, meal penalties,
   night→day transitions) rather than as prompt text.
-- 24 xUnit tests and 4 Python tests, green.
+- Gemini structured output for the breakdown, with page length (`eighths`) computed
+  deterministically rather than guessed by the model — the guiding principle applied at the
+  smallest scale.
+- Failure is labelled, not hidden: every breakdown carries `source`/`model`/`attempts`, and
+  the fallback returns empty cast rather than inventing one.
+- 24 xUnit tests and 14 Python tests, green.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 
 **Do not claim:** mutation testing (not configured), Vertex AI Agent Engine, A2A

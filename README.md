@@ -13,7 +13,8 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-orange)
-![Tests](https://img.shields.io/badge/tests-24%20xUnit%20%2B%204%20python-brightgreen)
+![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
+![Tests](https://img.shields.io/badge/tests-24%20xUnit%20%2B%2014%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -24,6 +25,9 @@ below is the target design, not a description of shipped functionality.**
 
 **Working today:**
 
+- **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`), using
+  native structured output against a Pydantic schema, with a validation-feedback retry
+  loop and an explicitly-labelled fallback. See [ADR-009](adr/ADR-009-gemini-structured-output-breakdown.md).
 - Deterministic shooting-schedule solver on Google OR-Tools CP-SAT
   (`src/Stripboard.Solver`), with an exactly-one-day assignment, per-day capacity in
   eighths, and permit-window constraints.
@@ -38,8 +42,7 @@ below is the target design, not a description of shipped functionality.**
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| **No LLM is called anywhere.** Screenplay breakdown is keyword matching hardcoded to the demo script | `agents/breakdown/breakdown_agent.py` | EV-18 |
-| **The Grafana Cloud MCP client is a stub** and performs no network I/O | `agents/sentinel/grafana_mcp_client.py` | EV-19 |
+| **The Grafana Cloud MCP client is a stub** and performs no network I/O — this is the one remaining pass/fail gap | `agents/sentinel/grafana_mcp_client.py` | EV-19 |
 | OpenTelemetry packages are declared but never referenced or initialised | `Directory.Packages.props` | EV-20 |
 | The Grafana Annotations API is never actually called | `agents/sentinel/grafana_mcp_client.py` | EV-20 |
 | The Blazor UI renders hardcoded data; it does not call the solver or the agents | `src/Stripboard.Web/Pages/` | EV-21 |
@@ -78,7 +81,7 @@ entire crew.
    (Gemini →   (formulates    (options +      (role-scoped  (availability,
     typed       constraints)   cost deltas)    PDFs)         locations,
     scenes)         │                                         weather)
-      [ ]          [ ]             [ ]             [✓]          [ ]
+      [✓]          [ ]             [ ]             [✓]          [ ]
                     ▼                                            │
              CP-SAT solver (Google OR-Tools)              Conflict Sentinel
              deterministic, tested                  [✓]   (read-only, typed
@@ -114,7 +117,8 @@ Design principles the implementation is being held to:
 | Services | ASP.NET Core (.NET 10) minimal APIs | ✅ REST · ❌ not MCP yet |
 | Data | EF Core 9 | 🚧 in-memory only, no Cloud SQL |
 | Grafana dashboard | Versioned JSON + provisioning script (`infra/grafana/`) | ✅ working |
-| Agents & orchestration | Gemini, ADK, Vertex AI Agent Engine, A2A | ❌ not implemented |
+| Screenplay breakdown | Gemini 2.5 Flash on Vertex AI (`google-genai`, structured output) | ✅ working |
+| Agent orchestration | ADK, Vertex AI Agent Engine, A2A | ❌ not implemented |
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud | ❌ not wired |
 | Partner integration | Grafana Cloud MCP Server client | ❌ stub, no network I/O |
 | Security | Cloud IAM, per-agent service accounts, Secret Manager | 🚧 script only |
@@ -136,7 +140,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008)
+adr/        Architecture Decision Records (ADR-005, ADR-008, ADR-009)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 
@@ -149,10 +153,8 @@ demo/       Sample screenplay, demo harness, submission notes
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the test suite (24 xUnit + 4 Python tests)
+# Build and run the .NET test suite (24 tests)
 dotnet test Stripboard.slnx
-python -m unittest discover -s agents/breakdown -p "test_*.py"
-python -m unittest discover -s agents/sentinel  -p "test_*.py"
 
 # Run the web UI at http://localhost:5164
 dotnet run --project src/Stripboard.Web
@@ -160,8 +162,38 @@ dotnet run --project src/Stripboard.Web
 # Run a service, e.g. the schedule API
 dotnet run --project src/Stripboard.Mcp.Schedule
 
-# Run the local demo harness (deterministic, no cloud dependencies)
+# Run the local demo harness (stubbed pipeline, no cloud dependencies)
 python demo/run_demo.py
+```
+
+### Screenplay breakdown with Gemini
+
+Requires Google Cloud credentials. Vertex AI is the default backend:
+
+```bash
+pip install -r agents/breakdown/requirements.txt
+
+gcloud auth application-default login
+export GOOGLE_CLOUD_PROJECT=<your-gcp-project>   # needs aiplatform.googleapis.com enabled
+
+# Real extraction — `-v` shows the Vertex AI call and the token count
+python -m agents.breakdown --file demo/screenplay.fountain -v
+
+# A screenplay unrelated to the demo script, to show it generalises
+python -m agents.breakdown --file demo/screenplay-harbour.fountain
+
+# Replay a cached breakdown without calling the model
+python -m agents.breakdown --file demo/screenplay.fountain --offline
+```
+
+Alternatively set `GEMINI_API_KEY` to use the Gemini Developer API instead of Vertex AI.
+
+Python tests (the breakdown integration tests make real Gemini calls, and skip when no
+credentials are configured):
+
+```bash
+python -m unittest discover -s agents/breakdown -p "test_*.py"
+python -m unittest discover -s agents/sentinel  -p "test_*.py"
 ```
 
 Optional, and requiring credentials you must supply yourself:

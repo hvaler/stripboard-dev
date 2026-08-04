@@ -1,6 +1,18 @@
 import re
 from typing import List, Dict, Any
 
+# Roughly 60 characters of screenplay text per eighth of a page. This is a crude
+# proxy for the real measurement, which depends on rendered page layout; it is kept
+# deterministic on purpose so the model never invents scene lengths (EV-18).
+CHARS_PER_EIGHTH = 60
+MIN_EIGHTHS = 2
+
+
+def estimate_eighths(raw_text: str) -> int:
+    """Deterministic page-length estimate for a scene, in eighths of a page."""
+    return max(MIN_EIGHTHS, len(raw_text or "") // CHARS_PER_EIGHTH)
+
+
 class FountainParser:
     """
     Parser for Fountain format screenplays (§5 requirement).

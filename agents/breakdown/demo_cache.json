@@ -1,77 +1,263 @@
 {
-  "scenes": [
-    {
-      "number": 1,
-      "set_location": "221B BAKER STREET",
-      "int_ext": "EXT",
-      "day_night": "DAY",
-      "eighths": 2,
-      "synopsis": "EXT. 221B BAKER STREET - DAY",
-      "cast": [],
-      "elements": [
-        {
-          "name": "Fog Machine Smoke",
-          "category": "Fx"
-        },
-        {
-          "name": "Hansom Cab Carriage",
-          "category": "Vehicle"
-        }
-      ]
+  "breakdowns": {
+    "ca07084d171ec606": {
+      "screenplay": "screenplay.fountain",
+      "breakdown": {
+        "scenes": [
+          {
+            "number": 1,
+            "set_location": "221B BAKER STREET",
+            "int_ext": "EXT",
+            "day_night": "DAY",
+            "eighths": 2,
+            "synopsis": "A hansom cab travels down a foggy Baker Street.",
+            "cast": [],
+            "elements": [
+              {
+                "name": "London fog",
+                "category": "Fx"
+              },
+              {
+                "name": "Hansom cab",
+                "category": "Vehicle"
+              },
+              {
+                "name": "Cobblestone road",
+                "category": "SetDressing"
+              }
+            ]
+          },
+          {
+            "number": 2,
+            "set_location": "221B BAKER STREET - SITTING ROOM",
+            "int_ext": "INT",
+            "day_night": "DAY",
+            "eighths": 5,
+            "synopsis": "Sherlock Holmes and Dr. Watson discuss a ciphered letter in their sitting room.",
+            "cast": [
+              "Sherlock Holmes",
+              "Dr. John Watson"
+            ],
+            "elements": [
+              {
+                "name": "Fireplace",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Ciphered letter",
+                "category": "Prop"
+              },
+              {
+                "name": "Magnifying glass",
+                "category": "Prop"
+              },
+              {
+                "name": "Morning tea set",
+                "category": "Prop"
+              }
+            ]
+          },
+          {
+            "number": 3,
+            "set_location": "COVENT GARDEN MARKET",
+            "int_ext": "EXT",
+            "day_night": "DAY",
+            "eighths": 2,
+            "synopsis": "Dr. Watson and Irene Adler hurry through a crowded market, discussing a lead.",
+            "cast": [
+              "Dr. John Watson",
+              "Irene Adler"
+            ],
+            "elements": [
+              {
+                "name": "Market stalls",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Crowd",
+                "category": "Extra"
+              }
+            ]
+          },
+          {
+            "number": 4,
+            "set_location": "TOWER BRIDGE WAREHOUSE",
+            "int_ext": "INT",
+            "day_night": "NIGHT",
+            "eighths": 4,
+            "synopsis": "Sherlock Holmes confronts Professor Moriarty in a warehouse, drawing his revolver as fog rolls in.",
+            "cast": [
+              "Sherlock Holmes",
+              "Professor Moriarty"
+            ],
+            "elements": [
+              {
+                "name": "Stack of crates",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Revolver",
+                "category": "Prop"
+              },
+              {
+                "name": "Fog effect",
+                "category": "Fx"
+              }
+            ]
+          }
+        ],
+        "source": "gemini",
+        "model": "gemini-2.5-flash",
+        "backend": "vertex-ai",
+        "attempts": 1,
+        "total_tokens": 2315
+      }
     },
-    {
-      "number": 2,
-      "set_location": "221B BAKER STREET - SITTING ROOM",
-      "int_ext": "INT",
-      "day_night": "DAY",
-      "eighths": 5,
-      "synopsis": "INT. 221B BAKER STREET - SITTING ROOM - DAY",
-      "cast": [
-        "Sherlock Holmes",
-        "Dr. John Watson",
-        "Prof. James Moriarty"
-      ],
-      "elements": [
-        {
-          "name": "Ciphered Document",
-          "category": "Prop"
-        }
-      ]
-    },
-    {
-      "number": 3,
-      "set_location": "COVENT GARDEN MARKET",
-      "int_ext": "EXT",
-      "day_night": "DAY",
-      "eighths": 2,
-      "synopsis": "EXT. COVENT GARDEN MARKET - DAY",
-      "cast": [
-        "Dr. John Watson",
-        "Irene Adler"
-      ],
-      "elements": []
-    },
-    {
-      "number": 4,
-      "set_location": "TOWER BRIDGE WAREHOUSE",
-      "int_ext": "INT",
-      "day_night": "NIGHT",
-      "eighths": 4,
-      "synopsis": "INT. TOWER BRIDGE WAREHOUSE - NIGHT",
-      "cast": [
-        "Sherlock Holmes",
-        "Prof. James Moriarty"
-      ],
-      "elements": [
-        {
-          "name": "Webley Revolver",
-          "category": "Prop"
-        },
-        {
-          "name": "Fog Machine Smoke",
-          "category": "Fx"
-        }
-      ]
+    "e9173df78542d189": {
+      "screenplay": "screenplay-harbour.fountain",
+      "breakdown": {
+        "scenes": [
+          {
+            "number": 1,
+            "set_location": "TRAWLER DECK",
+            "int_ext": "EXT",
+            "day_night": "DAWN",
+            "eighths": 4,
+            "synopsis": "Nell Okonkwo hauls a torn fishing net over the gunwale of her trawler, expressing frustration.",
+            "cast": [
+              "Nell Okonkwo"
+            ],
+            "elements": [
+              {
+                "name": "Trawler",
+                "category": "Vehicle"
+              },
+              {
+                "name": "Fishing net",
+                "category": "Prop"
+              },
+              {
+                "name": "Herring gull",
+                "category": "Animal"
+              },
+              {
+                "name": "Water effect",
+                "category": "Fx"
+              }
+            ]
+          },
+          {
+            "number": 2,
+            "set_location": "HARBOUR MASTER OFFICE",
+            "int_ext": "INT",
+            "day_night": "DAY",
+            "eighths": 6,
+            "synopsis": "Nell discusses her damaged nets with Tomas Reyes in the Harbour Master's office and signs a document.",
+            "cast": [
+              "Tomas Reyes",
+              "Nell Okonkwo"
+            ],
+            "elements": [
+              {
+                "name": "Charts",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Thermos",
+                "category": "Prop"
+              },
+              {
+                "name": "Clipboard",
+                "category": "Prop"
+              },
+              {
+                "name": "Desk",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Pen",
+                "category": "Prop"
+              },
+              {
+                "name": "Coffee",
+                "category": "Prop"
+              }
+            ]
+          },
+          {
+            "number": 3,
+            "set_location": "LIGHTHOUSE STAIRS",
+            "int_ext": "EXT",
+            "day_night": "DUSK",
+            "eighths": 3,
+            "synopsis": "Nell climbs the spiral stairs of a lighthouse in the rain and discovers an open padlock on a service hatch.",
+            "cast": [
+              "Nell Okonkwo"
+            ],
+            "elements": [
+              {
+                "name": "Storm lantern",
+                "category": "Prop"
+              },
+              {
+                "name": "Rain effect",
+                "category": "Fx"
+              },
+              {
+                "name": "Rusted padlock",
+                "category": "Prop"
+              }
+            ]
+          },
+          {
+            "number": 4,
+            "set_location": "LIGHTHOUSE LAMP ROOM",
+            "int_ext": "INT",
+            "day_night": "NIGHT",
+            "eighths": 7,
+            "synopsis": "Nell encounters a young stowaway named Mira, who is holding a fishing knife, in the dark lighthouse lamp room.",
+            "cast": [
+              "Mira",
+              "Nell Okonkwo"
+            ],
+            "elements": [
+              {
+                "name": "Lighthouse lens",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Folding cot",
+                "category": "Prop"
+              },
+              {
+                "name": "Radio set",
+                "category": "Prop"
+              },
+              {
+                "name": "Tinned food",
+                "category": "Prop"
+              },
+              {
+                "name": "Fishing knife",
+                "category": "Prop"
+              },
+              {
+                "name": "Storm lantern",
+                "category": "Prop"
+              },
+              {
+                "name": "Foghorn sound",
+                "category": "Sound"
+              }
+            ]
+          }
+        ],
+        "source": "gemini",
+        "model": "gemini-2.5-flash",
+        "backend": "vertex-ai",
+        "attempts": 1,
+        "total_tokens": 2619
+      }
     }
-  ]
+  }
 }

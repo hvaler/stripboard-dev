@@ -1,91 +1,274 @@
-import os
+import hashlib
 import json
-from typing import Dict, Any, List
-from fountain_parser import FountainParser
-from schema import BREAKDOWN_JSON_SCHEMA, validate_breakdown_dict
+import logging
+import os
+from typing import Any, Dict, List, Optional
+
+from fountain_parser import FountainParser, estimate_eighths
+from gemini_client import GeminiClient, GeminiConfigError
+from schema import (
+    BREAKDOWN_JSON_SCHEMA,
+    GeminiBreakdown,
+    validate_breakdown_dict,
+    validate_breakdown_verbose,
+)
+
+logger = logging.getLogger("BreakdownAgent")
 
 CACHE_FILE = os.path.join(os.path.dirname(__file__), "demo_cache.json")
 
+SYSTEM_INSTRUCTION = """You are a script supervisor preparing a production breakdown for a \
+1st Assistant Director. You read screenplay scenes and identify, per scene, which characters \
+appear and which physical elements the production must source.
+
+Rules you must follow:
+- Return every scene you are given, exactly once, keeping the scene numbers unchanged.
+- `cast` lists characters who speak or are explicitly featured in the action, written the way \
+they would appear on a call sheet (e.g. "Sherlock Holmes", not "HOLMES"). Do not invent \
+characters who are only mentioned in dialogue but never present in the scene.
+- `elements` lists concrete, sourceable production items, not abstractions. A revolver, a \
+hansom cab and a fog effect are elements; "tension" and "Victorian atmosphere" are not.
+- `set_location` is the set name only, uppercase, without the INT/EXT prefix or the \
+time-of-day suffix.
+- If the time of day is not stated, infer the most plausible one from the action."""
+
+
+def _screenplay_key(content: str) -> str:
+    """Content hash identifying a screenplay revision in the cache."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+
+
+def _read_cache(key: str) -> Optional[Dict[str, Any]]:
+    if not os.path.exists(CACHE_FILE):
+        return None
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            store = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Ignoring unreadable cache %s: %s", CACHE_FILE, exc)
+        return None
+    entry = store.get("breakdowns", {}).get(key)
+    return entry.get("breakdown") if entry else None
+
+
+def _write_cache(key: str, screenplay: str, breakdown: Dict[str, Any]) -> None:
+    store: Dict[str, Any] = {"breakdowns": {}}
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+            if isinstance(loaded.get("breakdowns"), dict):
+                store = loaded
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    store["breakdowns"][key] = {"screenplay": screenplay, "breakdown": breakdown}
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(store, f, indent=2, ensure_ascii=False)
+
+
 class BreakdownAgent:
     """
-    Screenplay scene & element extraction, with JSON Schema validation and local
-    caching for demo runs.
+    Extracts a typed production breakdown from a screenplay.
 
-    NOT IMPLEMENTED YET: LLM-backed extraction. This class runs a deterministic
-    keyword parser tuned to the demo screenplay; no model is called and no Google
-    Cloud AI SDK is used. Gemini structured-output extraction is tracked as EV-18.
-    Until then this is not an ADK agent and must not be described as one.
+    Cast, elements and synopsis are extracted by Gemini using structured output, with a
+    schema-validation retry loop. Scene headings and `eighths` (a page-length
+    measurement) stay deterministic: the model formulates, deterministic code decides.
+
+    If Gemini is unreachable or keeps returning invalid payloads, the agent degrades to
+    a parser-only breakdown with empty cast/elements and marks the result
+    `source="fallback"` so a caller can never mistake it for a real extraction.
     """
-    def __init__(self):
+
+    def __init__(self, client: Optional[GeminiClient] = None, max_attempts: int = 3):
         self.parser = FountainParser()
+        self.client = client or GeminiClient()
+        self.max_attempts = max_attempts
 
-    def process_fountain_file(self, filepath: str, use_cache: bool = True) -> Dict[str, Any]:
+    def process_fountain_file(
+        self,
+        filepath: str,
+        use_cache: bool = False,
+        allow_fallback: bool = True,
+    ) -> Dict[str, Any]:
         """
-        Parses a Fountain file and extracts structured scene breakdown.
-        """
-        if use_cache and os.path.exists(CACHE_FILE):
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                cached_data = json.load(f)
-                if validate_breakdown_dict(cached_data):
-                    return cached_data
+        Parse a Fountain screenplay and return its breakdown.
 
+        `use_cache` is off by default: a cached breakdown must never silently stand in
+        for a live extraction. It exists so a demo can be replayed offline.
+        """
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
 
-        raw_scenes = self.parser.parse(content)
-        breakdown_result = self._extract_deterministic(raw_scenes)
+        # The cache is keyed by screenplay content, so replaying it can never hand back
+        # a different film's breakdown, and editing the script invalidates the entry.
+        key = _screenplay_key(content)
 
-        # Validate against JSON Schema
-        if not validate_breakdown_dict(breakdown_result):
+        if use_cache:
+            cached = _read_cache(key)
+            if cached is not None and validate_breakdown_dict(cached):
+                cached["source"] = "cache"
+                logger.info("Loaded breakdown from cache for %s (key %s)", os.path.basename(filepath), key)
+                return cached
+            logger.info("No cached breakdown for %s (key %s)", os.path.basename(filepath), key)
+
+        raw_scenes = self.parser.parse(content)
+        if not raw_scenes:
+            raise ValueError(f"No scene headings found in {filepath}.")
+
+        result = self._extract(raw_scenes, allow_fallback=allow_fallback)
+
+        if not validate_breakdown_dict(result):
             raise ValueError("Extracted screenplay breakdown failed JSON Schema validation.")
 
-        # Save to cache
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(breakdown_result, f, indent=2)
+        # Only a real extraction is worth caching. Caching a fallback would let an
+        # empty breakdown masquerade as a good one on the next run.
+        if use_cache and result.get("source") == "gemini":
+            _write_cache(key, os.path.basename(filepath), result)
 
-        return breakdown_result
+        return result
+
+    # --- extraction ---------------------------------------------------------------
+
+    def _extract(self, raw_scenes: List[Dict[str, Any]], allow_fallback: bool) -> Dict[str, Any]:
+        try:
+            return self._extract_with_gemini(raw_scenes)
+        except Exception as exc:
+            if isinstance(exc, GeminiConfigError):
+                logger.warning("Gemini not configured: %s", exc)
+            else:
+                logger.warning("Gemini extraction failed: %s: %s", type(exc).__name__, exc)
+            if not allow_fallback:
+                raise
+            return self._extract_deterministic(raw_scenes)
+
+    def _extract_with_gemini(self, raw_scenes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Structured-output extraction with a schema-validation retry loop: on a rejected
+        payload the validation errors are fed back to the model on the next attempt.
+        """
+        prompt = self._build_prompt(raw_scenes)
+        by_number = {s["number"]: s for s in raw_scenes}
+        last_errors: List[str] = []
+
+        for attempt in range(1, self.max_attempts + 1):
+            attempt_prompt = prompt
+            if last_errors:
+                attempt_prompt = (
+                    f"{prompt}\n\nYour previous answer was rejected by schema validation:\n"
+                    + "\n".join(f"- {e}" for e in last_errors)
+                    + "\n\nReturn a corrected breakdown for all scenes."
+                )
+
+            generated = self.client.generate_structured(
+                prompt=attempt_prompt,
+                response_schema=GeminiBreakdown,
+                system_instruction=SYSTEM_INSTRUCTION,
+            )
+
+            candidate, missing = self._merge(generated.parsed, by_number)
+            ok, errors = validate_breakdown_verbose(candidate)
+            if missing:
+                ok = False
+                errors = [
+                    f"You omitted scene number(s) {missing}. Return every scene you were given."
+                ] + errors
+            if ok:
+                candidate.update(
+                    source="gemini",
+                    model=generated.model,
+                    backend=generated.backend,
+                    attempts=attempt,
+                    total_tokens=generated.total_tokens,
+                )
+                logger.info(
+                    "Gemini breakdown OK on attempt %d/%d (%s, %s, %d tokens)",
+                    attempt, self.max_attempts, generated.model, generated.backend,
+                    generated.total_tokens,
+                )
+                return candidate
+
+            last_errors = errors
+            logger.warning(
+                "Attempt %d/%d rejected: %s", attempt, self.max_attempts, "; ".join(errors[:5])
+            )
+
+        raise ValueError(
+            f"Gemini returned a schema-invalid breakdown {self.max_attempts} times. "
+            f"Last errors: {'; '.join(last_errors[:5])}"
+        )
+
+    def _merge(self, parsed: GeminiBreakdown, by_number: Dict[int, Dict[str, Any]]):
+        """
+        Combine the model's semantic extraction with the parser's deterministic facts.
+        `eighths` always comes from the script text, never from the model.
+
+        Returns (breakdown, missing_scene_numbers).
+        """
+        scenes: List[Dict[str, Any]] = []
+        for scene in (parsed.scenes if parsed else []):
+            raw = by_number.get(scene.number)
+            if raw is None:
+                # Model invented a scene number that was not in the input; drop it.
+                continue
+            scenes.append({
+                "number": scene.number,
+                "set_location": scene.set_location,
+                "int_ext": scene.int_ext,
+                "day_night": scene.day_night,
+                "eighths": estimate_eighths(raw.get("raw_content", "")),
+                "synopsis": scene.synopsis,
+                "cast": list(scene.cast),
+                "elements": [{"name": e.name, "category": e.category} for e in scene.elements],
+            })
+
+        scenes.sort(key=lambda s: s["number"])
+        missing = sorted(set(by_number) - {s["number"] for s in scenes})
+        return {"scenes": scenes}, missing
 
     def _extract_deterministic(self, raw_scenes: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Deterministic keyword extraction of cast and elements.
-
-        Placeholder implementation: the character and prop lists below are hardcoded to
-        the demo screenplay and will not generalise to an arbitrary script. Replaced by
-        Gemini structured output (with a schema-validation retry loop) in EV-18.
+        Parser-only fallback. Scene headings and lengths are real; cast and elements are
+        left empty because identifying them without a model would mean guessing.
         """
-        extracted_scenes = []
+        scenes = []
         for raw in raw_scenes:
-            cast = []
-            elements = []
-
             text = raw.get("raw_content", "")
-            if "HOLMES" in text.upper():
-                cast.append("Sherlock Holmes")
-            if "WATSON" in text.upper():
-                cast.append("Dr. John Watson")
-            if "IRENE" in text.upper():
-                cast.append("Irene Adler")
-            if "MORIARTY" in text.upper():
-                cast.append("Prof. James Moriarty")
+            day_night = raw.get("day_night", "DAY")
+            if day_night not in ("DAY", "NIGHT", "DAWN", "DUSK"):
+                day_night = "DAY"
+            int_ext = raw.get("int_ext", "INT")
+            if int_ext not in ("INT", "EXT", "INT/EXT"):
+                int_ext = "INT"
 
-            if "cipher" in text.lower() or "letter" in text.lower():
-                elements.append({"name": "Ciphered Document", "category": "Prop"})
-            if "revolver" in text.lower():
-                elements.append({"name": "Webley Revolver", "category": "Prop"})
-            if "fog" in text.lower():
-                elements.append({"name": "Fog Machine Smoke", "category": "Fx"})
-            if "cab" in text.lower() or "carriage" in text.lower():
-                elements.append({"name": "Hansom Cab Carriage", "category": "Vehicle"})
-
-            extracted_scenes.append({
+            body = [ln for ln in text.splitlines()[1:] if ln.strip()]
+            scenes.append({
                 "number": raw["number"],
                 "set_location": raw["set_location"],
-                "int_ext": raw["int_ext"],
-                "day_night": raw["day_night"],
-                "eighths": max(2, len(text) // 60),
-                "synopsis": text.splitlines()[0] if text else "Scene action",
-                "cast": cast,
-                "elements": elements
+                "int_ext": int_ext,
+                "day_night": day_night,
+                "eighths": estimate_eighths(text),
+                "synopsis": body[0].strip() if body else "Scene action",
+                "cast": [],
+                "elements": [],
             })
 
-        return {"scenes": extracted_scenes}
+        logger.warning("Returning parser-only breakdown: cast and elements are EMPTY.")
+        return {"scenes": scenes, "source": "fallback", "model": None, "attempts": 0}
+
+    # --- prompt -------------------------------------------------------------------
+
+    @staticmethod
+    def _build_prompt(raw_scenes: List[Dict[str, Any]]) -> str:
+        payload = [
+            {
+                "number": s["number"],
+                "heading": f"{s['int_ext']}. {s['set_location']} - {s.get('day_night', 'DAY')}",
+                "text": s.get("raw_content", ""),
+            }
+            for s in raw_scenes
+        ]
+        return (
+            "Break down the following screenplay scenes for production.\n\n"
+            f"{json.dumps(payload, indent=2, ensure_ascii=False)}"
+        )
