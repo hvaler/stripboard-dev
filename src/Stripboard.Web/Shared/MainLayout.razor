@@ -1,0 +1,18 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 navbar navbar-expand-md navbar-dark bg-dark">
+            <span class="navbar-brand text-white fw-bold">🎬 Stripboard Mission Control</span>
+            <span class="badge bg-success ms-auto">Producer Mode (Human-in-the-Loop)</span>
+        </div>
+
+        <article class="content px-4 py-3">
+            @Body
+        </article>
+    </main>
+</div>

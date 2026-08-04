@@ -1,0 +1,79 @@
+@page "/audittrail"
+@using Microsoft.EntityFrameworkCore
+@using Stripboard.Infrastructure.Persistence
+@using Stripboard.Domain.Entities
+@inject StripboardDbContext DbContext
+
+<PageTitle>Audit Trail — Stripboard</PageTitle>
+
+<h1 class="mb-4">📜 Governance Audit Trail</h1>
+
+<p class="text-muted">
+    Complete immutable trail tracing the decision chain: 
+    <strong>Disruption (Sentinel) → Re-plan Proposal (Agent) → Approval (Human Producer)</strong>.
+</p>
+
+<div class="table-responsive shadow-sm rounded">
+    <table class="table table-hover table-striped align-middle mb-0">
+        <thead class="table-dark">
+            <tr>
+                <th>Timestamp (UTC)</th>
+                <th>Event Type</th>
+                <th>Actor / Identity</th>
+                <th>Details & Narrative</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (events.Count == 0)
+            {
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">No audit events recorded yet.</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var ev in events)
+                {
+                    <tr>
+                        <td class="text-nowrap small text-secondary">@ev.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>
+                            <span class="badge @GetBadgeClass(ev.EventType)">@ev.EventType</span>
+                        </td>
+                        <td><strong>@ev.Actor</strong></td>
+                        <td>@ev.Details</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<AuditEvent> events = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        events = await DbContext.AuditEvents
+            .OrderByDescending(e => e.Timestamp)
+            .ToListAsync();
+
+        if (events.Count == 0)
+        {
+            // Seed sample audit trail for demo
+            events = new List<AuditEvent>
+            {
+                new AuditEvent(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-10), "DisruptionDetected", "ConflictSentinel", "Actor Illness detected for Sherlock Holmes on 2026-08-10.", Guid.NewGuid()),
+                new AuditEvent(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-8), "ProposalGenerated", "ReplannerAgent", "Generated Option A (Interior Cover) and Option B (Standby Rest Day).", Guid.NewGuid()),
+                new AuditEvent(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-2), "ScheduleCommitted", "Producer (Hugo Valer)", "Approved Option A. Version committed.", Guid.NewGuid())
+            };
+        }
+    }
+
+    private string GetBadgeClass(string eventType) => eventType switch
+    {
+        "DisruptionDetected" => "bg-danger",
+        "ProposalGenerated" => "bg-warning text-dark",
+        "ScheduleCommitted" => "bg-success",
+        _ => "bg-secondary"
+    };
+}

@@ -1,0 +1,38 @@
+@page "/"
+
+<PageTitle>Stripboard — Autonomous Line Producer</PageTitle>
+
+<div class="jumbotron p-5 mb-4 bg-dark text-white rounded-3 shadow-sm">
+    <div class="container-fluid py-3">
+        <h1 class="display-5 fw-bold">🎬 Stripboard</h1>
+        <p class="col-md-9 fs-5 text-light">
+            Autonomous line producer for film shoots. Multi-agent network breaking down screenplays,
+            scheduling with Google OR-Tools CP-SAT, monitoring union rules & disruptions via Grafana Cloud, and replanning.
+        </p>
+        <div class="d-flex gap-3 mt-4">
+            <a class="btn btn-primary btn-lg fw-bold" href="proposals" role="button">⚖️ Review Proposals</a>
+            <a class="btn btn-outline-light btn-lg" href="audittrail" role="button">📜 View Audit Trail</a>
+        </div>
+    </div>
+</div>
+
+<div class="row align-items-md-stretch g-4">
+    <div class="col-md-4">
+        <div class="h-100 p-4 bg-light border rounded-3 shadow-sm">
+            <h3>🤖 Multi-Agent Architecture</h3>
+            <p>Breakdown Agent, Scheduler Engine (CP-SAT), Conflict Sentinel Watcher, and Replanner Agent working together.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="h-100 p-4 bg-light border rounded-3 shadow-sm">
+            <h3>🛡️ Union Rules & Governance</h3>
+            <p>Enforces 12-hour turnaround between wrap and call, meal penalties, and night-to-day rest transitions.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="h-100 p-4 bg-light border rounded-3 shadow-sm">
+            <h3>📊 Grafana Mission Control</h3>
+            <p>Real-time disruption monitoring and active Grafana Cloud MCP Server integration (§6 / ADR-008).</p>
+        </div>
+    </div>
+</div>
