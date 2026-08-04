@@ -13,6 +13,12 @@ public class ShootDay
     public TimeOnly EstimatedWrapTime { get; private set; }
     public List<Guid> StripIds { get; private set; } = new();
 
+    /// <summary>
+    /// The schedule version this day belongs to. Null for days not tied to a version,
+    /// such as the transient ShootDay the solver builds to validate turnaround.
+    /// </summary>
+    public Guid? ScheduleVersionId { get; private set; }
+
     private ShootDay() { }
 
     public ShootDay(
@@ -22,7 +28,8 @@ public class ShootDay
         string locationName,
         TimeOnly callTime,
         TimeOnly estimatedWrapTime,
-        IEnumerable<Guid>? stripIds = null)
+        IEnumerable<Guid>? stripIds = null,
+        Guid? scheduleVersionId = null)
     {
         if (dayNumber <= 0)
             throw new ArgumentOutOfRangeException(nameof(dayNumber), "Day number must be positive.");
@@ -34,6 +41,7 @@ public class ShootDay
         CallTime = callTime;
         EstimatedWrapTime = estimatedWrapTime;
         StripIds = stripIds?.ToList() ?? new List<Guid>();
+        ScheduleVersionId = scheduleVersionId;
     }
 
     /// <summary>

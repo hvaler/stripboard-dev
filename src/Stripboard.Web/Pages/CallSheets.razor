@@ -1,123 +1,188 @@
 @page "/callsheets"
+@using Microsoft.EntityFrameworkCore
+@using Stripboard.Application.Common.Models
 @using Stripboard.CallSheets.Services
+@using Stripboard.Domain.Entities
+@using Stripboard.Domain.Enums
+@using Stripboard.Infrastructure.Persistence
+@using Stripboard.Infrastructure.Services
+@inject StripboardDbContext DbContext
+@inject ScheduleService Schedules
 @inject CallSheetPdfGenerator PdfGenerator
 @inject IJSRuntime JS
 
 <PageTitle>Call Sheets — Stripboard</PageTitle>
 
-<h1 class="mb-4">📋 Call Sheet Distribution & Role Access</h1>
+<h1 class="mb-3">📋 Call Sheet Distribution &amp; Role Access</h1>
 
 <p class="text-muted">
-    View and download personalized daily Call Sheets generated in cascade upon schedule commitment.
+    Call sheets are generated from the committed schedule and scoped to the recipient: each
+    person only sees the days and scenes they are actually called for.
 </p>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label fw-bold">Select Person / Role:</label>
-                <select class="form-select" @bind="selectedPerson">
-                    <option value="Sherlock Holmes">Sherlock Holmes (Lead Cast — 06:00 AM Call)</option>
-                    <option value="Prof. James Moriarty">Prof. James Moriarty (Supporting Cast — 07:30 AM Call)</option>
-                    <option value="Director of Photography">Director of Photography (Crew — 05:30 AM Call)</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold">Shoot Date:</label>
-                <input type="date" class="form-control" value="2026-08-10" />
-            </div>
-            <div class="col-md-5 d-flex gap-2">
-                <button class="btn btn-primary fw-bold" @onclick="DownloadPdf">
-                    ⬇️ Download Call Sheet (PDF)
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Preview Card -->
-<div class="card shadow-sm border-secondary">
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Preview: Call Sheet for @selectedPerson</h5>
-        <span class="badge bg-info text-dark">CONFIDENTIAL</span>
-    </div>
-    <div class="card-body">
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <h6>🎬 Production: <strong>SHERLOCK HOLMES: THE DEVIL'S MILE</strong></h6>
-                <h6>📅 Date: <strong>2026-08-10 (Day 1 of 5)</strong></h6>
-                <h6>⏰ Call Time: <strong class="text-danger">@GetCallTime()</strong></h6>
-            </div>
-            <div class="col-md-6 text-end">
-                <h6>🌅 Sunrise: <strong>05:42 AM</strong> | 🌇 Sunset: <strong>08:35 PM</strong></h6>
-                <h6>☁️ Weather: <strong>22°C, Sunny (10% precip)</strong></h6>
-                <h6>📍 Location: <strong>221B BAKER STREET, LONDON</strong></h6>
+@if (board is null)
+{
+    <div class="alert alert-warning">No committed schedule yet, so there is nothing to distribute.</div>
+}
+else
+{
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Recipient</label>
+                    <select class="form-select" @bind="selectedPersonId">
+                        @foreach (var person in people)
+                        {
+                            <option value="@person.Id">@person.Name — @person.Role</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Shoot day</label>
+                    <select class="form-select" @bind="selectedDayNumber">
+                        @foreach (var day in board.Days)
+                        {
+                            <option value="@day.DayNumber">Day @day.DayNumber — @day.Date.ToString("yyyy-MM-dd")</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-5 d-flex gap-2">
+                    <button class="btn btn-primary fw-bold" @onclick="DownloadPdf" disabled="@(CalledScenes.Count == 0)">
+                        ⬇️ Download call sheet (PDF)
+                    </button>
+                </div>
             </div>
         </div>
-
-        <table class="table table-bordered table-striped align-middle">
-            <thead class="table-primary">
-                <tr>
-                    <th>Scene #</th>
-                    <th>Set / Location</th>
-                    <th>INT/EXT</th>
-                    <th>D/N</th>
-                    <th>Cast</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>#1</strong></td>
-                    <td>221B BAKER STREET — SITTING ROOM</td>
-                    <td><span class="badge bg-secondary">INT</span></td>
-                    <td><span class="badge bg-warning text-dark">DAY</span></td>
-                    <td>Sherlock Holmes, Dr. John Watson</td>
-                </tr>
-                <tr>
-                    <td><strong>#2</strong></td>
-                    <td>221B BAKER STREET — FOYER</td>
-                    <td><span class="badge bg-secondary">INT</span></td>
-                    <td><span class="badge bg-dark">NIGHT</span></td>
-                    <td>Sherlock Holmes, Prof. James Moriarty</td>
-                </tr>
-            </tbody>
-        </table>
     </div>
-</div>
+
+    <div class="card shadow-sm border-secondary">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Preview — @(SelectedPerson?.Name ?? "—")</h5>
+            <span class="badge bg-info text-dark">CONFIDENTIAL</span>
+        </div>
+        <div class="card-body">
+            @if (SelectedDay is null)
+            {
+                <p class="mb-0 text-muted">Select a shoot day.</p>
+            }
+            else if (CalledScenes.Count == 0)
+            {
+                <div class="alert alert-secondary mb-0">
+                    <strong>@SelectedPerson?.Name is not called on day @SelectedDay.DayNumber.</strong>
+                    This is the role scoping working: no sheet is issued for a day someone is not on.
+                </div>
+            }
+            else
+            {
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>📅 Date: <strong>@SelectedDay.Date.ToString("yyyy-MM-dd")</strong>
+                            (Day @SelectedDay.DayNumber of @board.Days.Count)</h6>
+                        <h6>⏰ Call time: <strong class="text-danger">@SelectedDay.CallTime.ToString("HH:mm")</strong>
+                            · Est. wrap <strong>@SelectedDay.WrapTime.ToString("HH:mm")</strong></h6>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h6>📍 Location: <strong>@string.Join(" · ", SelectedDay.Locations)</strong></h6>
+                        <h6 class="text-muted">🌤️ Sunrise/sunset and weather: not connected yet (EV-20)</h6>
+                    </div>
+                </div>
+
+                <table class="table table-bordered table-striped align-middle">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Scene</th><th>Set / Location</th><th>INT/EXT</th><th>D/N</th><th>Pages</th><th>Cast</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var scene in CalledScenes)
+                        {
+                            <tr>
+                                <td><strong>#@scene.Number</strong></td>
+                                <td>@scene.SetLocation</td>
+                                <td><span class="badge bg-secondary">@scene.IntExt.ToString().ToUpperInvariant()</span></td>
+                                <td><span class="badge bg-dark">@scene.DayNight.ToString().ToUpperInvariant()</span></td>
+                                <td>@scene.Eighths/8</td>
+                                <td>@string.Join(", ", scene.Cast)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
 
 @code {
-    private string selectedPerson = "Sherlock Holmes";
+    private ScheduleBoard? board;
+    private List<Person> people = new();
+    private Guid selectedPersonId;
+    private int selectedDayNumber;
 
-    private string GetCallTime() => selectedPerson switch
+    private Person? SelectedPerson => people.FirstOrDefault(p => p.Id == selectedPersonId);
+    private BoardDay? SelectedDay => board?.Days.FirstOrDefault(d => d.DayNumber == selectedDayNumber);
+
+    /// <summary>
+    /// Scenes on the selected day that this person is called for. Crew are called for the
+    /// whole day; cast only for their own scenes.
+    /// </summary>
+    private IReadOnlyList<BoardScene> CalledScenes
     {
-        "Sherlock Holmes" => "06:00 AM",
-        "Prof. James Moriarty" => "07:30 AM",
-        _ => "05:30 AM"
-    };
+        get
+        {
+            if (SelectedDay is null || SelectedPerson is null)
+            {
+                return Array.Empty<BoardScene>();
+            }
+
+            return SelectedPerson.IsCast
+                ? SelectedDay.Scenes.Where(s => s.Cast.Contains(SelectedPerson.Name)).ToList()
+                : SelectedDay.Scenes;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        board = await Schedules.GetActiveBoardAsync();
+        people = await DbContext.People.AsNoTracking().OrderBy(p => p.Role).ThenBy(p => p.Name).ToListAsync();
+
+        selectedPersonId = people.FirstOrDefault()?.Id ?? Guid.Empty;
+        selectedDayNumber = board?.Days.FirstOrDefault()?.DayNumber ?? 0;
+    }
 
     private async Task DownloadPdf()
     {
-        var data = new CallSheetData(
-            ProductionTitle: "SHERLOCK HOLMES: THE DEVIL'S MILE",
-            ShootDate: new DateOnly(2026, 8, 10),
-            DayNumber: 1,
-            TotalDays: 5,
-            PersonName: selectedPerson,
-            RoleTitle: selectedPerson.Contains("Director") ? "Crew" : "Cast",
-            IndividualCallTime: GetCallTime(),
-            SunriseTime: "05:42 AM",
-            SunsetTime: "08:35 PM",
-            WeatherSummary: "22°C, Sunny (10% precip)",
-            PrimaryLocation: "221B BAKER STREET, LONDON",
-            Scenes: new List<CallSheetSceneItem>
-            {
-                new(1, "221B BAKER STREET — SITTING ROOM", "INT", "DAY", "Sherlock Holmes, Dr. John Watson", "Cast #1, #2"),
-                new(2, "221B BAKER STREET — FOYER", "INT", "NIGHT", "Sherlock Holmes, Prof. James Moriarty", "Cast #1, #3")
-            }
-        );
+        if (SelectedDay is null || SelectedPerson is null || board is null)
+        {
+            return;
+        }
 
-        byte[] pdfBytes = PdfGenerator.GenerateCallSheetPdf(data);
-        string base64 = Convert.ToBase64String(pdfBytes);
-        await JS.InvokeVoidAsync("eval", $"const a = document.createElement('a'); a.href = 'data:application/pdf;base64,{base64}'; a.download = 'CallSheet_{selectedPerson.Replace(" ", "_")}.pdf'; a.click();");
+        var data = new CallSheetData(
+            ProductionTitle: "STRIPBOARD PRODUCTION",
+            ShootDate: SelectedDay.Date,
+            DayNumber: SelectedDay.DayNumber,
+            TotalDays: board.Days.Count,
+            PersonName: SelectedPerson.Name,
+            RoleTitle: SelectedPerson.Role.ToString(),
+            IndividualCallTime: SelectedDay.CallTime.ToString("HH:mm"),
+            SunriseTime: "—",
+            SunsetTime: "—",
+            WeatherSummary: "not available",
+            PrimaryLocation: string.Join(" · ", SelectedDay.Locations),
+            Scenes: CalledScenes.Select(s => new CallSheetSceneItem(
+                s.Number,
+                s.SetLocation,
+                s.IntExt.ToString().ToUpperInvariant(),
+                s.DayNight.ToString().ToUpperInvariant(),
+                string.Join(", ", s.Cast),
+                $"{s.Eighths}/8")).ToList());
+
+        var pdfBytes = PdfGenerator.GenerateCallSheetPdf(data);
+        var base64 = Convert.ToBase64String(pdfBytes);
+        var fileName = $"CallSheet_{SelectedPerson.Name.Replace(" ", "_")}_Day{SelectedDay.DayNumber}.pdf";
+
+        await JS.InvokeVoidAsync("eval",
+            $"const a = document.createElement('a'); a.href = 'data:application/pdf;base64,{base64}'; "
+          + $"a.download = '{fileName}'; a.click();");
     }
 }

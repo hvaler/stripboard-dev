@@ -1,96 +1,231 @@
 @page "/inject-disruption"
-@inject NavigationManager Navigation
-@inject Stripboard.Infrastructure.Persistence.StripboardDbContext DbContext
+@using Microsoft.EntityFrameworkCore
+@using Stripboard.Application.Common.Models
+@using Stripboard.Domain.Entities
+@using Stripboard.Domain.Enums
+@using Stripboard.Infrastructure.Persistence
+@using Stripboard.Infrastructure.Services
+@inject StripboardDbContext DbContext
+@inject ReplanService Replanner
+@inject ScheduleService Schedules
 
-<PageTitle>Inject Disruption — Stripboard Demo</PageTitle>
+<PageTitle>Inject Disruption — Stripboard</PageTitle>
 
-<h1 class="mb-4">⚡ Demo Disruption Injector</h1>
+<h1 class="mb-3">⚡ Disruption Injector</h1>
 
 <p class="text-muted">
-    Trigger real-time disruptions to simulate production incidents (§8 brief scenario):
-    <strong>Actor Illness, Severe Weather Alert, or Location Permit Expiration</strong>.
+    A disruption is translated into scene-day constraints and handed to the CP-SAT solver, which
+    re-solves the shoot. The options and their cost deltas come from those solver runs.
 </p>
 
-@if (isTriggered)
+@if (baseline is null)
 {
-    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-        <strong>🚨 Disruption Triggered!</strong> Conflict Sentinel detected actor unavailability and emitted Grafana Cloud Annotation. Replanner Agent generated 2 draft options.
-        <div class="mt-2">
-            <a href="proposals" class="btn btn-primary btn-sm fw-bold">⚖️ Go to Proposals & Approve</a>
+    <div class="alert alert-warning">No committed schedule to disrupt. Generate one from the stripboard first.</div>
+}
+else
+{
+    <div class="alert alert-secondary d-flex justify-content-between align-items-center">
+        <span>
+            Disrupting <strong>v@(baseline.VersionNumber)</strong> —
+            @baseline.Metrics.TotalDays days, @baseline.Metrics.CompanyMoves moves,
+            @baseline.Metrics.EstimatedCostUsd.ToString("C0", Culture)
+        </span>
+        @if (baseline.Days.Count > 0)
+        {
+            <span class="text-muted small">Shoot starts @baseline.Days[0].Date.ToString("yyyy-MM-dd")</span>
+        }
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-danger h-100">
+                <div class="card-header bg-danger text-white"><h5 class="mb-0">🎭 Cast unavailability</h5></div>
+                <div class="card-body">
+                    <label class="form-label fw-semibold">Cast member</label>
+                    <select class="form-select mb-3" @bind="selectedPersonId" disabled="@isWorking">
+                        @foreach (var person in cast)
+                        {
+                            <option value="@person.Id">@person.Name (@person.DailyRate.ToString("C0", Culture)/day)</option>
+                        }
+                    </select>
+
+                    <label class="form-label fw-semibold">Unavailable from</label>
+                    <input type="date" class="form-control mb-3" @bind="castDate" disabled="@isWorking" />
+
+                    <label class="form-label fw-semibold">Days</label>
+                    <input type="number" min="1" max="10" class="form-control" @bind="castDuration" disabled="@isWorking" />
+                </div>
+                <div class="card-footer bg-white border-top-0 pb-3">
+                    <button class="btn btn-danger w-100 fw-bold" @onclick="InjectCastAsync" disabled="@isWorking">
+                        ⚡ Inject cast unavailability
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm border-warning h-100">
+                <div class="card-header bg-warning text-dark"><h5 class="mb-0">⛈️ Weather alert (exteriors)</h5></div>
+                <div class="card-body">
+                    <label class="form-label fw-semibold">Location</label>
+                    <select class="form-select mb-3" @bind="selectedLocation" disabled="@isWorking">
+                        @foreach (var location in locations)
+                        {
+                            <option value="@location">@location</option>
+                        }
+                    </select>
+
+                    <label class="form-label fw-semibold">Affected from</label>
+                    <input type="date" class="form-control mb-3" @bind="weatherDate" disabled="@isWorking" />
+
+                    <label class="form-label fw-semibold">Days</label>
+                    <input type="number" min="1" max="10" class="form-control" @bind="weatherDuration" disabled="@isWorking" />
+                </div>
+                <div class="card-footer bg-white border-top-0 pb-3">
+                    <button class="btn btn-warning w-100 fw-bold text-dark" @onclick="InjectWeatherAsync" disabled="@isWorking">
+                        ⚡ Inject weather alert
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 }
 
-<div class="row g-4 mt-2">
-    <div class="col-md-6">
-        <div class="card shadow-sm border-danger h-100">
-            <div class="card-header bg-danger text-white">
-                <h5 class="mb-0">🎭 Lead Cast Illness Disruption</h5>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Simulates lead actor <strong>Sherlock Holmes</strong> calling in sick on Day 1 (2026-08-10).
-                    Sentinel flags 7 scenes as blocked, posts Grafana Annotation, and notifies Replanner Agent.
-                </p>
-            </div>
-            <div class="card-footer bg-white border-top-0 pb-3">
-                <button class="btn btn-danger w-100 fw-bold" @onclick="TriggerActorDisruption" disabled="@isTriggered">
-                    ⚡ Inject Lead Cast Illness
-                </button>
-            </div>
+@if (isWorking)
+{
+    <div class="d-flex align-items-center gap-3 mt-4 p-4 bg-light border rounded">
+        <div class="spinner-border text-danger" role="status"><span class="visually-hidden">Solving…</span></div>
+        <div>
+            <strong>Re-solving the shoot…</strong>
+            <div class="text-muted small">Running CP-SAT once per replan strategy. This is not instant.</div>
         </div>
     </div>
+}
 
-    <div class="col-md-6">
-        <div class="card shadow-sm border-warning h-100">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0">⛈️ Severe Weather Alert Disruption</h5>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Simulates sudden heavy rain forecast (90% precip) for outdoor EXT scene at <strong>TOWER BRIDGE WHARF</strong>.
-                    Sentinel flags weather risk and requests interior cover day swap.
-                </p>
-            </div>
-            <div class="card-footer bg-white border-top-0 pb-3">
-                <button class="btn btn-warning w-100 fw-bold text-dark" @onclick="TriggerWeatherDisruption" disabled="@isTriggered">
-                    ⚡ Inject Weather Alert
-                </button>
-            </div>
-        </div>
+@if (error is not null)
+{
+    <div class="alert alert-danger mt-4">
+        <h5 class="alert-heading fw-bold">Could not replan</h5>
+        <p class="mb-0">@error</p>
     </div>
-</div>
+}
+
+@if (result is not null)
+{
+    <div class="alert alert-success mt-4">
+        <h5 class="alert-heading fw-bold">🚨 Disruption recorded — @result.Count option(s) produced</h5>
+        <ul class="mb-3">
+            @foreach (var option in result)
+            {
+                <li>
+                    <strong>@option.Title</strong> —
+                    @if (option.IsFeasible)
+                    {
+                        <span>
+                            @option.Metrics.TotalDays days
+                            (@(option.Delta.ExtraShootDays >= 0 ? "+" : "")@option.Delta.ExtraShootDays),
+                            delta @option.Delta.CostDeltaUsd.ToString("C0", Culture)
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="text-danger">infeasible under these constraints</span>
+                    }
+                </li>
+            }
+        </ul>
+        <a href="proposals" class="btn btn-primary btn-sm fw-bold">⚖️ Review and approve</a>
+    </div>
+}
 
 @code {
-    private bool isTriggered = false;
+    private static readonly System.Globalization.CultureInfo Culture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
 
-    private async Task TriggerActorDisruption()
+    private ScheduleBoard? baseline;
+    private List<Person> cast = new();
+    private List<string> locations = new();
+
+    private Guid selectedPersonId;
+    private string selectedLocation = string.Empty;
+    private DateTime castDate = DateTime.Today;
+    private DateTime weatherDate = DateTime.Today;
+    private int castDuration = 1;
+    private int weatherDuration = 1;
+
+    private bool isWorking;
+    private string? error;
+    private IReadOnlyList<ReplanOption>? result;
+
+    protected override async Task OnInitializedAsync()
     {
-        isTriggered = true;
-        var audit = new Stripboard.Domain.Entities.AuditEvent(
-            Guid.NewGuid(),
-            DateTime.UtcNow,
-            "DisruptionDetected",
-            "ConflictSentinel",
-            "DISRUPTION INJECTED: Sherlock Holmes (Lead Cast) unavailable on 2026-08-10 due to illness.",
-            Guid.NewGuid()
-        );
-        DbContext.AuditEvents.Add(audit);
-        await DbContext.SaveChangesAsync();
+        baseline = await Schedules.GetActiveBoardAsync();
+
+        cast = await DbContext.People.AsNoTracking()
+            .Where(p => p.Role == PersonRole.Cast)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+
+        locations = await DbContext.Scenes.AsNoTracking()
+            .Select(s => s.SetLocation)
+            .Distinct()
+            .OrderBy(l => l)
+            .ToListAsync();
+
+        selectedPersonId = cast.FirstOrDefault()?.Id ?? Guid.Empty;
+        selectedLocation = locations.FirstOrDefault() ?? string.Empty;
+
+        if (baseline is { Days.Count: > 0 })
+        {
+            castDate = baseline.Days[0].Date.ToDateTime(TimeOnly.MinValue);
+            weatherDate = castDate;
+        }
     }
 
-    private async Task TriggerWeatherDisruption()
+    private Task InjectCastAsync()
     {
-        isTriggered = true;
-        var audit = new Stripboard.Domain.Entities.AuditEvent(
-            Guid.NewGuid(),
-            DateTime.UtcNow,
-            "DisruptionDetected",
-            "ConflictSentinel",
-            "DISRUPTION INJECTED: Heavy rain alert (90% precip) at TOWER BRIDGE WHARF on 2026-08-11.",
-            Guid.NewGuid()
-        );
-        DbContext.AuditEvents.Add(audit);
-        await DbContext.SaveChangesAsync();
+        var person = cast.FirstOrDefault(p => p.Id == selectedPersonId);
+        if (person is null)
+        {
+            error = "Select a cast member first.";
+            return Task.CompletedTask;
+        }
+
+        return ProposeAsync(new DisruptionRequest(
+            TriggerType.CastUnavailability,
+            DateOnly.FromDateTime(castDate),
+            castDuration,
+            person.Id,
+            null,
+            $"{person.Name} is unavailable for {castDuration} day(s) from {castDate:yyyy-MM-dd}."));
+    }
+
+    private Task InjectWeatherAsync() => ProposeAsync(new DisruptionRequest(
+        TriggerType.WeatherAlert,
+        DateOnly.FromDateTime(weatherDate),
+        weatherDuration,
+        null,
+        selectedLocation,
+        $"Severe weather forecast at {selectedLocation} for {weatherDuration} day(s) from {weatherDate:yyyy-MM-dd}."));
+
+    private async Task ProposeAsync(DisruptionRequest request)
+    {
+        isWorking = true;
+        error = null;
+        result = null;
+        StateHasChanged();
+
+        try
+        {
+            var (_, options) = await Replanner.ProposeAsync(request);
+            result = options;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isWorking = false;
+        }
     }
 }

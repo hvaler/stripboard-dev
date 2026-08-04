@@ -99,11 +99,35 @@ public class CpSatScheduleSolver : IScheduleSolver
             }
         }
 
-        // Objective Function: Minimize (1000 * total_used_days)
+        // Hard Constraint 4: Honour disruption blocks — a scene cannot be shot on a date
+        // where its cast is unavailable, its permit has lapsed or its weather is unusable.
+        foreach (var block in input.BlockedSceneDates ?? new List<BlockedSceneDate>())
+        {
+            var sceneIndex = input.Scenes.FindIndex(sc => sc.Number == block.SceneNumber);
+            if (sceneIndex < 0)
+            {
+                continue;
+            }
+
+            var offset = block.Date.DayNumber - input.ScheduleStartDate.DayNumber;
+            if (offset >= 0 && offset < numDays)
+            {
+                model.Add(x[sceneIndex, offset] == 0);
+            }
+        }
+
+        // Objective: minimise the number of shooting days, then prefer the earliest slots.
+        //
+        // The tie-break matters. Minimising the count alone leaves the solver free to pick
+        // any slots, so a two-day shoot could land on days 10 and 11 — a schedule that
+        // starts ten days late with idle days in the middle. Weighting each slot by its
+        // index makes the used days pack from the start date, without weakening any of the
+        // constraints above, which are all expressed against real dates.
         var objExprs = new List<LinearExpr>();
         for (int d = 0; d < numDays; d++)
         {
             objExprs.Add(used[d] * 1000);
+            objExprs.Add(used[d] * d);
         }
         model.Minimize(LinearExpr.Sum(objExprs));
 

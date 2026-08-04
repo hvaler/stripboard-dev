@@ -32,8 +32,8 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 
 **Blocking for Stage One: none remaining.** Both mandatory technology requirements are now
 met at runtime — Google Cloud AI by EV-18 (ADR-009) and the Grafana MCP server by EV-19
-(ADR-010). What is left is not eligibility but quality: the hosted demo, the video, and
-wiring the UI to the engine that already works.
+(ADR-010). EV-21 then wired the UI to that engine, so the product demonstrates itself.
+What is left is not eligibility but polish: a stable hosted demo, telemetry, and the video.
 
 ---
 
@@ -64,10 +64,10 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 |---|---|:---:|
 | **CP-SAT solver engine** — constraints in Google OR-Tools; union rules as pure C# domain code | Yes, and it is the strongest part of the project | ✅ |
 | **Call sheets PDF engine** — QuestPDF, role-scoped | Yes | ✅ |
-| **Human-in-the-loop governance UI** — Blazor, side-by-side proposals, immutable audit trail | UI exists but renders hardcoded data | 🚧 |
+| **Human-in-the-loop governance UI** — Blazor, side-by-side proposals, immutable audit trail | Driven by the solver: board, options and deltas all read from persisted versions | ✅ |
 | **LLM breakdown agent** — parses screenplays into structured JSON scene objects | Gemini 2.5 Flash on Vertex AI, structured output, validation-retry loop | ✅ |
 | **Conflict Sentinel** — active Grafana MCP Server client | Real MCP client; publishes annotations via `create_annotation` | ✅ |
-| **Replanner agent** — alternative proposals with computed cost deltas | Two hardcoded proposals, literal figures | ❌ |
+| **Replanner agent** — alternative proposals with computed cost deltas | Each option is a separate CP-SAT run; deltas are differences between solved schedules. Still .NET, not yet an ADK agent (EV-24) | 🚧 |
 
 ### Partner integration (Grafana track)
 1. **Grafana MCP Server client** (`agents/sentinel/grafana_mcp_client.py`) — ✅ MCP
@@ -91,10 +91,10 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 
 | Timestamp | Screen focus | Narration | Precondition |
 |---|---|---|---|
-| **0:00 – 0:30** | Architecture diagram & Blazor home | *"Film scheduling is a multi-million dollar puzzle governed by strict union rules. Here, the LLM formulates, the solver decides, and a human approves."* | EV-21 (UI shows real data) |
+| **0:00 – 0:30** | Architecture diagram & Blazor home | *"Film scheduling is a multi-million dollar puzzle governed by strict union rules. Here, the LLM formulates, the solver decides, and a human approves."* | ~~EV-21~~ ✅ |
 | **0:30 – 1:00** | Breakdown & stripboard view | *"Our Breakdown Agent uses Gemini to parse screenplay pages into typed scene objects. Google OR-Tools CP-SAT computes the optimal schedule, enforcing 12-hour turnarounds and minimizing company moves."* | ~~EV-18~~ ✅ · EV-21, EV-27 |
 | **1:00 – 1:45** | Disruption & sentinel alert | *"The lead actor calls in sick. Our Conflict Sentinel — an active client of the Grafana MCP Server — detects the blocked scenes and posts an alert annotation to Grafana."* | ~~EV-19~~ ✅ · EV-20 for the metrics panel |
-| **1:45 – 2:30** | Proposals & approval | *"The Replanner formulates two options with real cost deltas. The Producer compares them side by side and commits."* | EV-24 |
+| **1:45 – 2:30** | Proposals & approval | *"The Replanner formulates two options with real cost deltas. The Producer compares them side by side and commits."* | ~~EV-21~~ ✅ (deltas are real; EV-24 makes the replanner an ADK agent) |
 | **2:30 – 3:00** | Call sheets & Grafana dashboard | *"QuestPDF generates role-scoped call sheets, while Shoot Mission Control displays OTLP traces, solver metrics and the disruption timeline."* | EV-20, EV-29 |
 
 **Suggested revision once EV-29 lands:** lead with the differentiator — Grafana observing
@@ -109,7 +109,7 @@ Four criteria, 25% each.
 
 | Criterion | Today | Why |
 |---|:---:|---|
-| Technological implementation | 7/10 | Solver, domain layer, Gemini breakdown and a hand-implemented MCP client are all genuinely good. What holds it back is that the UI is wired to none of them, persistence is in-memory, and OTLP is not exported. |
+| Technological implementation | 8/10 | Solver, domain layer, Gemini breakdown, a hand-implemented MCP client, and a UI driven end to end by the engine. What holds it back is in-memory persistence, no OTLP export, and REST rather than MCP on our own services. |
 | Design | 4/10 | Complete page inventory, but hardcoded content and a deployment that errors on load. |
 | Potential impact | 8/10 | The problem is real, specific and expensive; the framing is credible to a 1st AD. |
 | Quality of the idea | 9/10 | *"The LLM formulates, the solver decides, a human approves"* is a non-obvious architecture that removes hallucination risk from a domain with legal and financial consequences. |
@@ -126,7 +126,7 @@ Four criteria, 25% each.
   published to Grafana says `published=False` instead of implying success.
 - The MCP transport is implemented rather than imported — session negotiation, SSE and
   JSON response handling, paginated tool discovery — in ~200 lines with one dependency.
-- 24 xUnit tests and 27 Python tests, green, including integration tests that run against
+- 38 xUnit tests and 27 Python tests, green, including integration tests that run against
   the real Grafana Cloud stack and Vertex AI.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 

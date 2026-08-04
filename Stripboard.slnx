@@ -15,6 +15,7 @@
     <Project Path="tests/Stripboard.CallSheets.Tests/Stripboard.CallSheets.Tests.csproj" />
     <Project Path="tests/Stripboard.Domain.Tests/Stripboard.Domain.Tests.csproj" />
     <Project Path="tests/Stripboard.Mcp.Contract.Tests/Stripboard.Mcp.Contract.Tests.csproj" />
+    <Project Path="tests/Stripboard.Scheduling.Tests/Stripboard.Scheduling.Tests.csproj" />
     <Project Path="tests/Stripboard.Solver.Tests/Stripboard.Solver.Tests.csproj" />
   </Folder>
 </Solution>

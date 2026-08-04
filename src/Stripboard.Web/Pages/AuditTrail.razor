@@ -53,27 +53,20 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // An audit trail that invents entries when it has none is worse than an empty one.
+        // If nothing has happened yet, the page says so.
         events = await DbContext.AuditEvents
+            .AsNoTracking()
             .OrderByDescending(e => e.Timestamp)
             .ToListAsync();
-
-        if (events.Count == 0)
-        {
-            // Seed sample audit trail for demo
-            events = new List<AuditEvent>
-            {
-                new AuditEvent(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-10), "DisruptionDetected", "ConflictSentinel", "Actor Illness detected for Sherlock Holmes on 2026-08-10.", Guid.NewGuid()),
-                new AuditEvent(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-8), "ProposalGenerated", "ReplannerAgent", "Generated Option A (Interior Cover) and Option B (Standby Rest Day).", Guid.NewGuid()),
-                new AuditEvent(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-2), "ScheduleCommitted", "Producer (Hugo Valer)", "Approved Option A. Version committed.", Guid.NewGuid())
-            };
-        }
     }
 
     private string GetBadgeClass(string eventType) => eventType switch
     {
         "DisruptionDetected" => "bg-danger",
-        "ProposalGenerated" => "bg-warning text-dark",
+        "ReplanProposed" or "ScheduleDrafted" => "bg-warning text-dark",
         "ScheduleCommitted" => "bg-success",
+        "BreakdownImported" => "bg-info text-dark",
         _ => "bg-secondary"
     };
 }

@@ -15,7 +15,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-orange)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
-![Tests](https://img.shields.io/badge/tests-24%20xUnit%20%2B%2027%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-38%20xUnit%20%2B%2027%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -36,13 +36,19 @@ below is the target design, not a description of shipped functionality.**
   [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
 - Deterministic shooting-schedule solver on Google OR-Tools CP-SAT
   (`src/Stripboard.Solver`), with an exactly-one-day assignment, per-day capacity in
-  eighths, and permit-window constraints.
+  eighths, permit windows, and disruption blocks (scene × date).
+- **The UI is driven by the engine** (EV-21): the stripboard, the replan options and their
+  cost deltas are all read from persisted schedule versions produced by real solver runs.
+  Importing a different screenplay changes what the board shows.
+- **Disruption → replan → human approval**, end to end: a disruption becomes scene-date
+  constraints, each replan strategy is a separate CP-SAT run, and only the Producer role
+  can commit the result.
 - Union rules as pure, tested domain code (`src/Stripboard.Domain/Services/UnionRulesService.cs`):
   12-hour turnaround including midnight crossing, meal penalties, night→day transitions.
 - Four ASP.NET Core services exposing schedule / people / locations / weather operations.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with five pages, and a versioned Grafana dashboard definition.
-- 24 xUnit tests and 27 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 38 xUnit tests and 27 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -51,7 +57,6 @@ below is the target design, not a description of shipped functionality.**
 | Gap | Where | Tracked by |
 |---|---|---|
 | OpenTelemetry packages are declared but never referenced or initialised, so no traces or metrics reach Grafana Cloud | `Directory.Packages.props` | EV-20 |
-| The Blazor UI renders hardcoded data; it does not call the solver or the agents | `src/Stripboard.Web/Pages/` | EV-21 |
 | Persistence is in-memory. No Cloud SQL, no migrations | every `Program.cs` | EV-22 |
 | The four services are REST endpoints under an `/mcp/` path — they do **not** speak the MCP protocol | `src/Stripboard.Mcp.*` | EV-23 |
 | The replanner returns two hardcoded proposals with literal cost figures | `agents/replanner/replanner_agent.py` | EV-24 |
@@ -87,7 +92,7 @@ entire crew.
    (Gemini →   (formulates    (options +      (role-scoped  (availability,
     typed       constraints)   cost deltas)    PDFs)         locations,
     scenes)         │                                         weather)
-      [✓]          [ ]             [ ]             [✓]          [ ]
+      [✓]          [✓]             [✓]             [✓]          [ ]
                     ▼                                            │
              CP-SAT solver (Google OR-Tools)              Conflict Sentinel
              deterministic, tested                  [✓]   (read-only, typed
@@ -119,7 +124,7 @@ Design principles the implementation is being held to:
 | Solver | Google OR-Tools CP-SAT (.NET bindings) | ✅ working |
 | Domain & union rules | C# / .NET 10, pure domain layer | ✅ working |
 | Call sheets | QuestPDF | ✅ working |
-| Web UI | Blazor Server (.NET 10) | 🚧 pages render hardcoded data |
+| Web UI | Blazor Server (.NET 10) | ✅ driven by the solver |
 | Services | ASP.NET Core (.NET 10) minimal APIs | ✅ REST · ❌ not MCP yet |
 | Data | EF Core 9 | 🚧 in-memory only, no Cloud SQL |
 | Grafana dashboard | Versioned JSON + provisioning script (`infra/grafana/`) | ✅ working |
@@ -172,10 +177,11 @@ demo/       Sample screenplay, demo harness, submission notes
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (24 tests)
+# Build and run the .NET test suite (38 tests)
 dotnet test Stripboard.slnx
 
-# Run the web UI at http://localhost:5164
+# Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a
+# schedule on first start, so the stripboard has real data immediately.
 dotnet run --project src/Stripboard.Web
 
 # Run a service, e.g. the schedule API
@@ -203,6 +209,14 @@ python -m agents.breakdown --file demo/screenplay-harbour.fountain
 
 # Replay a cached breakdown without calling the model
 python -m agents.breakdown --file demo/screenplay.fountain --offline
+```
+
+Feed a breakdown straight into the stripboard — the board re-solves and the screen changes:
+
+```bash
+python -m agents.breakdown --file demo/screenplay-harbour.fountain --json \
+  | curl -s -X POST http://localhost:5164/api/breakdown/import \
+         -H 'Content-Type: application/json' --data-binary @-
 ```
 
 Alternatively set `GEMINI_API_KEY` to use the Gemini Developer API instead of Vertex AI.
