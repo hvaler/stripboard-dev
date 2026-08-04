@@ -1,0 +1,26 @@
+name: Deploy Stripboard Web to Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment (demo)'
+        required: true
+        default: 'demo'
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 10 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Build Solution
+      run: dotnet build src/Stripboard.Web/Stripboard.Web.csproj --configuration Release
