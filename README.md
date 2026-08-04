@@ -70,7 +70,15 @@ Design principles:
 | Services & MCP servers | ASP.NET Core (.NET 10) on Cloud Run, MCP C# SDK |
 | Data | Cloud SQL (PostgreSQL), EF Core, GCS (signed URLs for call sheets) |
 | Security | Cloud IAM, per-agent service accounts, Workload Identity, Secret Manager |
-| **Observability (partner)** | OpenTelemetry (OTLP) → **Grafana Cloud**; the sentinel calls the **Grafana Annotations API** on every anomaly; alerting on critical severity; the "Shoot Mission Control" dashboard is provisioned via API from versioned JSON in `infra/grafana/` |
+| **Observability (partner)** | OpenTelemetry (OTLP) → **Grafana Cloud**; Conflict Sentinel as an active client of the **Grafana Cloud MCP Server** (ADR-008); the sentinel calls the **Grafana Annotations API** on every anomaly; alerting on critical severity; the "Shoot Mission Control" dashboard is provisioned via API from versioned JSON in `infra/grafana/` |
+
+### Grafana Partner Integration (Track Specifics)
+
+Stripboard deeply integrates Grafana Cloud across 4 key pillars:
+1. **Application Observability (OTLP)**: OpenTelemetry OTLP direct exporter (`/otlp` endpoint) streaming traces, metrics, and logs for .NET services and Python agents.
+2. **Grafana Cloud MCP Server Integration (ADR-008)**: Conflict Sentinel acts as an active client of the hosted Grafana Cloud MCP Server (`grafana/mcp-grafana`), dynamically querying system state, metrics, and alerts at runtime to validate schedule integrity.
+3. **Grafana Annotations API**: Automatically posts real-time event annotations (`stripboard`, `conflict-sentinel`) upon disruption detection.
+4. **Shoot Mission Control Dashboard**: Version-controlled JSON in `infra/grafana/dashboard-mission-control.json` provisioned via automated API script (`provision-dashboard.py`).
 
 ## Repository layout
 
