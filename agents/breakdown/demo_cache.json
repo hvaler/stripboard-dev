@@ -1,20 +1,22 @@
 {
   "breakdowns": {
-    "ca07084d171ec606": {
+    "51ec8598e5a01a62": {
       "screenplay": "screenplay.fountain",
       "breakdown": {
         "scenes": [
           {
             "number": 1,
+            "location": "221B BAKER STREET",
+            "set_name": "",
             "set_location": "221B BAKER STREET",
             "int_ext": "EXT",
             "day_night": "DAY",
             "eighths": 2,
-            "synopsis": "A hansom cab travels down a foggy Baker Street.",
+            "synopsis": "A horse-drawn hansom cab rattles down a fog-laden Baker Street.",
             "cast": [],
             "elements": [
               {
-                "name": "London fog",
+                "name": "London fog effect",
                 "category": "Fx"
               },
               {
@@ -22,27 +24,25 @@
                 "category": "Vehicle"
               },
               {
-                "name": "Cobblestone road",
-                "category": "SetDressing"
+                "name": "Horse",
+                "category": "Animal"
               }
             ]
           },
           {
             "number": 2,
+            "location": "221B BAKER STREET",
+            "set_name": "SITTING ROOM",
             "set_location": "221B BAKER STREET - SITTING ROOM",
             "int_ext": "INT",
             "day_night": "DAY",
             "eighths": 5,
-            "synopsis": "Sherlock Holmes and Dr. Watson discuss a ciphered letter in their sitting room.",
+            "synopsis": "Sherlock Holmes examines a ciphered letter as Dr. Watson brings him tea and discusses the case.",
             "cast": [
               "Sherlock Holmes",
               "Dr. John Watson"
             ],
             "elements": [
-              {
-                "name": "Fireplace",
-                "category": "SetDressing"
-              },
               {
                 "name": "Ciphered letter",
                 "category": "Prop"
@@ -52,18 +52,24 @@
                 "category": "Prop"
               },
               {
-                "name": "Morning tea set",
+                "name": "Tea set",
                 "category": "Prop"
+              },
+              {
+                "name": "Fireplace",
+                "category": "SetDressing"
               }
             ]
           },
           {
             "number": 3,
+            "location": "COVENT GARDEN MARKET",
+            "set_name": "",
             "set_location": "COVENT GARDEN MARKET",
             "int_ext": "EXT",
             "day_night": "DAY",
             "eighths": 2,
-            "synopsis": "Dr. Watson and Irene Adler hurry through a crowded market, discussing a lead.",
+            "synopsis": "Dr. Watson and Irene Adler hurry through a crowded market discussing a lead.",
             "cast": [
               "Dr. John Watson",
               "Irene Adler"
@@ -81,18 +87,20 @@
           },
           {
             "number": 4,
+            "location": "TOWER BRIDGE WAREHOUSE",
+            "set_name": "",
             "set_location": "TOWER BRIDGE WAREHOUSE",
             "int_ext": "INT",
             "day_night": "NIGHT",
             "eighths": 4,
-            "synopsis": "Sherlock Holmes confronts Professor Moriarty in a warehouse, drawing his revolver as fog rolls in.",
+            "synopsis": "Sherlock Holmes confronts Professor Moriarty in a deserted warehouse, drawing his revolver as fog rolls in.",
             "cast": [
               "Sherlock Holmes",
               "Professor Moriarty"
             ],
             "elements": [
               {
-                "name": "Stack of crates",
+                "name": "Crates",
                 "category": "SetDressing"
               },
               {
@@ -110,20 +118,23 @@
         "model": "gemini-2.5-flash",
         "backend": "vertex-ai",
         "attempts": 1,
-        "total_tokens": 2315
+        "total_tokens": 2795,
+        "source_format": "fountain"
       }
     },
-    "e9173df78542d189": {
+    "47ee6f013f40f48a": {
       "screenplay": "screenplay-harbour.fountain",
       "breakdown": {
         "scenes": [
           {
             "number": 1,
-            "set_location": "TRAWLER DECK",
+            "location": "TRAWLER",
+            "set_name": "DECK",
+            "set_location": "TRAWLER - DECK",
             "int_ext": "EXT",
             "day_night": "DAWN",
             "eighths": 4,
-            "synopsis": "Nell Okonkwo hauls a torn fishing net over the gunwale of her trawler, expressing frustration.",
+            "synopsis": "Nell, a weatherbeaten fisherwoman, hauls a torn net on her trawler deck at dawn.",
             "cast": [
               "Nell Okonkwo"
             ],
@@ -133,29 +144,35 @@
                 "category": "Vehicle"
               },
               {
-                "name": "Fishing net",
+                "name": "Net",
                 "category": "Prop"
               },
               {
-                "name": "Herring gull",
-                "category": "Animal"
+                "name": "Torn net",
+                "category": "Prop"
               },
               {
-                "name": "Water effect",
+                "name": "Herring gull sound",
+                "category": "Sound"
+              },
+              {
+                "name": "Grey water effect",
                 "category": "Fx"
               }
             ]
           },
           {
             "number": 2,
+            "location": "HARBOUR MASTER OFFICE",
+            "set_name": "",
             "set_location": "HARBOUR MASTER OFFICE",
             "int_ext": "INT",
             "day_night": "DAY",
             "eighths": 6,
-            "synopsis": "Nell discusses her damaged nets with Tomas Reyes in the Harbour Master's office and signs a document.",
+            "synopsis": "Nell discusses her torn nets with Tomas Reyes in the Harbour Master's office, signing a document.",
             "cast": [
-              "Tomas Reyes",
-              "Nell Okonkwo"
+              "Nell Okonkwo",
+              "Tomas Reyes"
             ],
             "elements": [
               {
@@ -167,30 +184,32 @@
                 "category": "Prop"
               },
               {
-                "name": "Clipboard",
+                "name": "Coffee",
                 "category": "Prop"
               },
               {
-                "name": "Desk",
-                "category": "SetDressing"
+                "name": "Clipboard",
+                "category": "Prop"
               },
               {
                 "name": "Pen",
                 "category": "Prop"
               },
               {
-                "name": "Coffee",
-                "category": "Prop"
+                "name": "Leaking ink effect",
+                "category": "Fx"
               }
             ]
           },
           {
             "number": 3,
-            "set_location": "LIGHTHOUSE STAIRS",
+            "location": "LIGHTHOUSE",
+            "set_name": "STAIRS",
+            "set_location": "LIGHTHOUSE - STAIRS",
             "int_ext": "EXT",
             "day_night": "DUSK",
             "eighths": 3,
-            "synopsis": "Nell climbs the spiral stairs of a lighthouse in the rain and discovers an open padlock on a service hatch.",
+            "synopsis": "Nell climbs the spiral stairs of a lighthouse at dusk, finding a rusted padlock open on a service hatch.",
             "cast": [
               "Nell Okonkwo"
             ],
@@ -204,34 +223,48 @@
                 "category": "Fx"
               },
               {
+                "name": "Broken window slats",
+                "category": "SetDressing"
+              },
+              {
                 "name": "Rusted padlock",
                 "category": "Prop"
+              },
+              {
+                "name": "Service hatch",
+                "category": "SetDressing"
               }
             ]
           },
           {
             "number": 4,
-            "set_location": "LIGHTHOUSE LAMP ROOM",
+            "location": "LIGHTHOUSE",
+            "set_name": "LAMP ROOM",
+            "set_location": "LIGHTHOUSE - LAMP ROOM",
             "int_ext": "INT",
             "day_night": "NIGHT",
             "eighths": 7,
-            "synopsis": "Nell encounters a young stowaway named Mira, who is holding a fishing knife, in the dark lighthouse lamp room.",
+            "synopsis": "Nell encounters a young stowaway, Mira, holding a fishing knife in the lighthouse lamp room, and tries to de-escalate the situation.",
             "cast": [
-              "Mira",
-              "Nell Okonkwo"
+              "Nell Okonkwo",
+              "Mira"
             ],
             "elements": [
               {
-                "name": "Lighthouse lens",
+                "name": "Great lens",
                 "category": "SetDressing"
               },
               {
+                "name": "Dust effect",
+                "category": "Fx"
+              },
+              {
                 "name": "Folding cot",
-                "category": "Prop"
+                "category": "SetDressing"
               },
               {
                 "name": "Radio set",
-                "category": "Prop"
+                "category": "SetDressing"
               },
               {
                 "name": "Tinned food",
@@ -239,10 +272,6 @@
               },
               {
                 "name": "Fishing knife",
-                "category": "Prop"
-              },
-              {
-                "name": "Storm lantern",
                 "category": "Prop"
               },
               {
@@ -256,7 +285,171 @@
         "model": "gemini-2.5-flash",
         "backend": "vertex-ai",
         "attempts": 1,
-        "total_tokens": 2619
+        "total_tokens": 3367,
+        "source_format": "fountain"
+      }
+    },
+    "5534983c75d5b3d6": {
+      "screenplay": "screenplay-metropole.fdx",
+      "breakdown": {
+        "scenes": [
+          {
+            "number": 1,
+            "location": "HOTEL METROPOLE",
+            "set_name": "LOBBY",
+            "set_location": "HOTEL METROPOLE - LOBBY",
+            "int_ext": "INT",
+            "day_night": "DAY",
+            "eighths": 5,
+            "synopsis": "Ines Quiroga arrives at the Hotel Metropole and speaks with the night porter, Anselm, about a room still registered under someone else's name.",
+            "cast": [
+              "Ines Quiroga",
+              "Anselm"
+            ],
+            "elements": [
+              {
+                "name": "Revolving door",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Leather document case",
+                "category": "Prop"
+              },
+              {
+                "name": "Ledger",
+                "category": "Prop"
+              },
+              {
+                "name": "Rain effect",
+                "category": "Fx"
+              }
+            ]
+          },
+          {
+            "number": 2,
+            "location": "HOTEL METROPOLE",
+            "set_name": "ROOM 402",
+            "set_location": "HOTEL METROPOLE - ROOM 402",
+            "int_ext": "INT",
+            "day_night": "DAY",
+            "eighths": 3,
+            "synopsis": "Ines enters Room 402, uncovers furniture, and photographs a stack of unopened letters on a writing desk.",
+            "cast": [
+              "Ines Quiroga"
+            ],
+            "elements": [
+              {
+                "name": "Dust sheets",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Writing desk",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Rotary telephone",
+                "category": "Prop"
+              },
+              {
+                "name": "Stack of unopened letters",
+                "category": "Prop"
+              },
+              {
+                "name": "Small camera",
+                "category": "Prop"
+              }
+            ]
+          },
+          {
+            "number": 3,
+            "location": "CITY STREETS - RIVERSIDE WALK",
+            "set_name": "",
+            "set_location": "CITY STREETS - RIVERSIDE WALK",
+            "int_ext": "EXT",
+            "day_night": "NIGHT",
+            "eighths": 3,
+            "synopsis": "Ines walks along a riverside at night, notices a black saloon car following her, and hides behind a bridge pillar until it passes.",
+            "cast": [
+              "Ines Quiroga"
+            ],
+            "elements": [
+              {
+                "name": "Black saloon car",
+                "category": "Vehicle"
+              },
+              {
+                "name": "Night lighting",
+                "category": "Fx"
+              }
+            ]
+          },
+          {
+            "number": 4,
+            "location": "CITY STREETS - MARKET SQUARE",
+            "set_name": "",
+            "set_location": "CITY STREETS - MARKET SQUARE",
+            "int_ext": "EXT",
+            "day_night": "NIGHT",
+            "eighths": 4,
+            "synopsis": "Ines meets Tomas Bell at a shuttered market square at night, confirming she photographed all the unopened letters.",
+            "cast": [
+              "Ines Quiroga",
+              "Tomas Bell"
+            ],
+            "elements": [
+              {
+                "name": "Shuttered market stalls",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Shuttered flower stand",
+                "category": "SetDressing"
+              },
+              {
+                "name": "Two coffees",
+                "category": "Prop"
+              },
+              {
+                "name": "Night lighting",
+                "category": "Fx"
+              }
+            ]
+          },
+          {
+            "number": 5,
+            "location": "HOTEL METROPOLE",
+            "set_name": "LOBBY",
+            "set_location": "HOTEL METROPOLE - LOBBY",
+            "int_ext": "INT",
+            "day_night": "NIGHT",
+            "eighths": 2,
+            "synopsis": "At the Hotel Metropole lobby, Anselm slides a brass key to Ines, implying it's not meant for her despite her receiving it.",
+            "cast": [
+              "Ines Quiroga",
+              "Anselm"
+            ],
+            "elements": [
+              {
+                "name": "Brass key",
+                "category": "Prop"
+              },
+              {
+                "name": "Ledger",
+                "category": "Prop"
+              },
+              {
+                "name": "Night lighting",
+                "category": "Fx"
+              }
+            ]
+          }
+        ],
+        "source": "gemini",
+        "model": "gemini-2.5-flash",
+        "backend": "vertex-ai",
+        "attempts": 1,
+        "total_tokens": 3948,
+        "source_format": "final-draft"
       }
     }
   }

@@ -65,7 +65,7 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 | **CP-SAT solver engine** — constraints in Google OR-Tools; union rules as pure C# domain code | Yes, and it is the strongest part of the project | ✅ |
 | **Call sheets PDF engine** — QuestPDF, role-scoped | Yes | ✅ |
 | **Human-in-the-loop governance UI** — Blazor, side-by-side proposals, immutable audit trail | Driven by the solver: board, options and deltas all read from persisted versions | ✅ |
-| **LLM breakdown agent** — parses screenplays into structured JSON scene objects | Gemini 2.5 Flash on Vertex AI, structured output, validation-retry loop | ✅ |
+| **LLM breakdown agent** — parses screenplays into structured JSON scene objects | Gemini 2.5 Flash on Vertex AI from Fountain, Final Draft and PDF (multimodal); structured output, validation-retry loop, location/set separation | ✅ |
 | **Conflict Sentinel** — active Grafana MCP Server client | Real MCP client; publishes annotations via `create_annotation` | ✅ |
 | **Replanner agent** — alternative proposals with computed cost deltas | Each option is a separate CP-SAT run; deltas are differences between solved schedules. Still .NET, not yet an ADK agent (EV-24) | 🚧 |
 
@@ -126,7 +126,7 @@ Four criteria, 25% each.
   published to Grafana says `published=False` instead of implying success.
 - The MCP transport is implemented rather than imported — session negotiation, SSE and
   JSON response handling, paginated tool discovery — in ~200 lines with one dependency.
-- 48 xUnit tests and 27 Python tests, green, including integration tests that run against
+- 50 xUnit tests and 40 Python tests, green, including integration tests that run against
   the real Grafana Cloud stack and Vertex AI.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 

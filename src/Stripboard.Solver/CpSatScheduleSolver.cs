@@ -69,8 +69,10 @@ public class CpSatScheduleSolver : IScheduleSolver
         // than there are scenes.
         int numDays = Math.Max(1, input.MaxDaysAvailable);
 
+        // Company moves are measured against Location, not SetLocation: two rooms of the
+        // same hotel are one place to park the trucks (EV-28).
         var locations = scenes
-            .Select(s => s.SetLocation)
+            .Select(s => s.Location)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var locationIndex = locations
@@ -152,7 +154,8 @@ public class CpSatScheduleSolver : IScheduleSolver
         for (int s = 0; s < numScenes; s++)
         {
             var permit = input.PermitWindows.FirstOrDefault(p =>
-                string.Equals(p.LocationName, scenes[s].SetLocation, StringComparison.OrdinalIgnoreCase));
+                string.Equals(p.LocationName, scenes[s].Location, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.LocationName, scenes[s].SetLocation, StringComparison.OrdinalIgnoreCase));
             if (permit is null)
             {
                 continue;
@@ -240,7 +243,7 @@ public class CpSatScheduleSolver : IScheduleSolver
         // 8. A scene binds its day to its location, so visiting a location costs something.
         for (int s = 0; s < numScenes; s++)
         {
-            int l = locationIndex[scenes[s].SetLocation];
+            int l = locationIndex[scenes[s].Location];
             for (int d = 0; d < numDays; d++)
             {
                 model.Add(x[s, d] <= atLocation[l, d]);
@@ -370,14 +373,14 @@ public class CpSatScheduleSolver : IScheduleSolver
                 continue;
             }
 
-            dayScenes = dayScenes.OrderBy(s => s.SetLocation, StringComparer.OrdinalIgnoreCase)
+            dayScenes = dayScenes.OrderBy(s => s.Location, StringComparer.OrdinalIgnoreCase)
                                  .ThenBy(s => s.Number)
                                  .ToList();
 
             bool isNightUnit = solver.Value(night[d]) == 1;
             var callTime = isNightUnit ? NightUnitCall : DayUnitCall;
             int workMinutes = dayScenes.Sum(SceneMinutes);
-            int moves = dayScenes.Select(s => s.SetLocation)
+            int moves = dayScenes.Select(s => s.Location)
                                  .Distinct(StringComparer.OrdinalIgnoreCase).Count() - 1;
             int elapsed = ShootDayModel.ElapsedMinutes(workMinutes, moves);
             var wrapTime = callTime.AddMinutes(elapsed);
@@ -389,7 +392,7 @@ public class CpSatScheduleSolver : IScheduleSolver
 
             // The location the unit is based at: the one occupying most of the day.
             var primaryLocation = dayScenes
-                .GroupBy(s => s.SetLocation, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(s => s.Location, StringComparer.OrdinalIgnoreCase)
                 .OrderByDescending(g => g.Sum(SceneMinutes))
                 .First().Key;
 
@@ -419,7 +422,7 @@ public class CpSatScheduleSolver : IScheduleSolver
         }
 
         int locationDays = scheduledDays
-            .Sum(day => day.ScheduledScenes.Select(s => s.SetLocation)
+            .Sum(day => day.ScheduledScenes.Select(s => s.Location)
                            .Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
         return new SolverOutput(

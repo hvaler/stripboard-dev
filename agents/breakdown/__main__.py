@@ -21,9 +21,11 @@ from gemini_client import GeminiClient, GeminiConfigError  # noqa: E402
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m agents.breakdown",
-        description="Break a Fountain screenplay down into typed scenes and elements.",
+        description="Break a screenplay down into typed scenes, cast and production elements.",
     )
-    parser.add_argument("--file", required=True, help="Path to a .fountain screenplay.")
+    parser.add_argument("--file", required=True,
+                        help="Screenplay to break down: .fountain, .txt, .fdx (Final Draft) "
+                             "or .pdf (read via Gemini multimodal).")
     parser.add_argument("--model", default=None, help="Gemini model (default: gemini-2.5-flash).")
     parser.add_argument("--project", default=None, help="GCP project for the Vertex AI backend.")
     parser.add_argument("--location", default=None, help="Vertex AI location (default: global).")
@@ -44,12 +46,12 @@ def main(argv=None) -> int:
 
     if args.offline:
         agent = BreakdownAgent(client=_UnavailableClient())
-        result = agent.process_fountain_file(args.file, use_cache=True, allow_fallback=True)
+        result = agent.process_screenplay(args.file, use_cache=True, allow_fallback=True)
     else:
         client = GeminiClient(model=args.model, project=args.project, location=args.location)
         agent = BreakdownAgent(client=client)
         try:
-            result = agent.process_fountain_file(args.file, use_cache=False, allow_fallback=False)
+            result = agent.process_screenplay(args.file, use_cache=False, allow_fallback=False)
         except GeminiConfigError as exc:
             print(f"error: {exc}\n\nOr run with --offline to replay a cached breakdown.",
                   file=sys.stderr)
@@ -69,6 +71,10 @@ class _UnavailableClient(GeminiClient):
     def generate_structured(self, *_args, **_kwargs):
         raise GeminiConfigError("--offline was requested; no model call was made.")
 
+    def transcribe_document(self, *_args, **_kwargs):
+        raise GeminiConfigError(
+            "--offline was requested, and reading a PDF needs a model call.")
+
 
 def _render(result) -> None:
     source = result.get("source", "unknown")
@@ -79,11 +85,24 @@ def _render(result) -> None:
         "fallback": "source=fallback  (NO model call — cast and elements are empty)",
     }.get(source, f"source={source}")
 
+    if result.get("source_format"):
+        extra = (f"  transcription_tokens={result['transcription_tokens']}"
+                 if result.get("transcription_tokens") else "")
+        banner = f"{banner}\nformat={result['source_format']}{extra}"
+
     print(banner)
-    print("=" * len(banner))
+    print("=" * max(len(line) for line in banner.splitlines()))
+
+    locations = {(s.get("location") or s["set_location"]) for s in result["scenes"]}
+    print(f"{len(result['scenes'])} scene(s) across {len(locations)} location(s) "
+          f"— each change of location costs the shoot a company move")
+
     for scene in result["scenes"]:
-        print(f"\nScene {scene['number']}  {scene['int_ext']}. {scene['set_location']} - {scene['day_night']}"
-              f"   [{scene['eighths']}/8]")
+        where = scene.get("location") or scene["set_location"]
+        if scene.get("set_name"):
+            where = f"{where} / {scene['set_name']}"
+        unit = f"{scene['int_ext']} {scene['day_night']}"
+        print(f"\nScene {scene['number']}  [{unit}]  {where}   ({scene['eighths']}/8)")
         print(f"  {scene['synopsis']}")
         if scene["cast"]:
             print(f"  {'Cast:':<18}{', '.join(scene['cast'])}")

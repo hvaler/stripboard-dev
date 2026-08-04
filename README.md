@@ -15,7 +15,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-orange)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
-![Tests](https://img.shields.io/badge/tests-48%20xUnit%20%2B%2027%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-50%20xUnit%20%2B%2040%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -26,9 +26,13 @@ below is the target design, not a description of shipped functionality.**
 
 **Working today:**
 
-- **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`), using
-  native structured output against a Pydantic schema, with a validation-feedback retry
-  loop and an explicitly-labelled fallback. See [ADR-009](adr/ADR-009-gemini-structured-output-breakdown.md).
+- **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`) from
+  **Fountain, Final Draft `.fdx` or PDF** — a scanned script is read by Gemini
+  multimodal. Native structured output against a Pydantic schema, a validation-feedback
+  retry loop, and an explicitly-labelled fallback. The agent also separates the
+  *location* the unit travels to from the *set* within it, which is what makes the
+  company-move count real. See [ADR-009](adr/ADR-009-gemini-structured-output-breakdown.md)
+  and [ADR-013](adr/ADR-013-screenplay-formats-and-location-vs-set.md).
 - **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`), speaking the MCP
   Streamable HTTP transport to the official `grafana/mcp-grafana` server: 73 tools
   discovered on Grafana Cloud, disruptions published as real annotations via
@@ -50,7 +54,7 @@ below is the target design, not a description of shipped functionality.**
 - Four ASP.NET Core services exposing schedule / people / locations / weather operations.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with five pages, and a versioned Grafana dashboard definition.
-- 48 xUnit tests and 27 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 50 xUnit tests and 40 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -62,7 +66,6 @@ below is the target design, not a description of shipped functionality.**
 | Persistence is in-memory. No Cloud SQL, no migrations | every `Program.cs` | EV-22 |
 | The four services are REST endpoints under an `/mcp/` path — they do **not** speak the MCP protocol | `src/Stripboard.Mcp.*` | EV-23 |
 | The replanner returns two hardcoded proposals with literal cost figures | `agents/replanner/replanner_agent.py` | EV-24 |
-| Company moves are counted per *set*, so returning to another room of the same location is over-counted as a move | `src/Stripboard.Solver` | EV-28 |
 | No ADK, no Vertex AI Agent Engine, no A2A orchestration | `agents/` | EV-24 → EV-26 |
 
 **Live demo: <https://stripboard-web-wc7oib7k6q-ew.a.run.app>** — deployed on Cloud Run and
@@ -168,7 +171,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-012)
+adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-013)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 
@@ -181,7 +184,7 @@ demo/       Sample screenplay, demo harness, submission notes
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (48 tests)
+# Build and run the .NET test suite (50 tests)
 dotnet test Stripboard.slnx
 
 # Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a
@@ -210,6 +213,10 @@ python -m agents.breakdown --file demo/screenplay.fountain -v
 
 # A screenplay unrelated to the demo script, to show it generalises
 python -m agents.breakdown --file demo/screenplay-harbour.fountain
+
+# Final Draft and PDF are read too — the PDF goes through Gemini multimodal
+python -m agents.breakdown --file demo/screenplay-metropole.fdx
+python -m agents.breakdown --file demo/screenplay-metropole.pdf
 
 # Replay a cached breakdown without calling the model
 python -m agents.breakdown --file demo/screenplay.fountain --offline

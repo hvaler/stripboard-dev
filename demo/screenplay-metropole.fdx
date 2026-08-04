@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <Text>INT. HOTEL METROPOLE - LOBBY - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Rain streaks the revolving door. INES QUIROGA, forties, crosses the marble floor with a leather document case under one arm.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The night porter, ANSELM, looks up from a ledger.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ANSELM</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Room four-oh-two is still under her name.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>INES</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>It has been under her name for nine years. That is rather the problem.</Text>
+    </Paragraph>
+
+    <Paragraph Type="Scene Heading">
+      <Text>INT. HOTEL METROPOLE - ROOM 402 - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Dust sheets over the furniture. Ines lifts one to reveal a writing desk, a rotary telephone and a stack of unopened letters.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>She photographs the letters one by one with a small camera.</Text>
+    </Paragraph>
+
+    <Paragraph Type="Scene Heading">
+      <Text>EXT. CITY STREETS - RIVERSIDE WALK - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Ines walks fast along the water. A black saloon car keeps pace on the road above her.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>She steps into the shadow of a bridge pillar and waits. The car passes.</Text>
+    </Paragraph>
+
+    <Paragraph Type="Scene Heading">
+      <Text>EXT. CITY STREETS - MARKET SQUARE - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Stalls shuttered for the night. TOMAS BELL, sixty, waits beside a shuttered flower stand with two coffees going cold.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>TOMAS</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>You photographed them. All of them.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>INES</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Every envelope. Nobody opened a single one.</Text>
+    </Paragraph>
+
+    <Paragraph Type="Scene Heading">
+      <Text>INT. HOTEL METROPOLE - LOBBY - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Anselm slides a brass key across the ledger without looking up. Ines takes it.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ANSELM</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>She left instructions. Not for you.</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>

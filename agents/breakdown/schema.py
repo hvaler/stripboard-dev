@@ -113,6 +113,8 @@ def validate_breakdown_verbose(data: Dict[str, Any]) -> Tuple[bool, List[str]]:
             errors.append(f"{where}.number must be an integer.")
         if not isinstance(scene.get("set_location"), str) or not scene.get("set_location"):
             errors.append(f"{where}.set_location must be a non-empty string.")
+        if not isinstance(scene.get("location"), str) or not scene.get("location"):
+            errors.append(f"{where}.location must be a non-empty string (the place the unit travels to).")
         if scene.get("int_ext") not in valid_int_ext:
             errors.append(f"{where}.int_ext is {scene.get('int_ext')!r}; must be one of {sorted(valid_int_ext)}.")
         if scene.get("day_night") not in valid_day_night:
@@ -160,7 +162,15 @@ class GeminiElement(BaseModel):
 
 class GeminiScene(BaseModel):
     number: int = Field(description="Scene number, matching the input scene number exactly.")
-    set_location: str = Field(description="The set/location name, uppercase, without the INT/EXT prefix or the time-of-day suffix.")
+    location: str = Field(
+        description="The place the unit physically travels to, uppercase. This is what a "
+                    "company move is measured against: two scenes share a location only if "
+                    "the crew could shoot both without moving trucks."
+    )
+    set_name: str = Field(
+        description="The specific space within that location, uppercase, or an empty string "
+                    "if the heading names no separate set."
+    )
     int_ext: Literal["INT", "EXT", "INT/EXT"]
     day_night: Literal["DAY", "NIGHT", "DAWN", "DUSK"]
     synopsis: str = Field(description="One sentence describing what happens in the scene.")

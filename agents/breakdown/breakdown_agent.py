@@ -4,7 +4,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from fountain_parser import FountainParser, estimate_eighths
+from fountain_parser import estimate_eighths
 from gemini_client import GeminiClient, GeminiConfigError
 from schema import (
     BREAKDOWN_JSON_SCHEMA,
@@ -12,6 +12,7 @@ from schema import (
     validate_breakdown_dict,
     validate_breakdown_verbose,
 )
+from screenplay_sources import load_screenplay
 
 logger = logging.getLogger("BreakdownAgent")
 
@@ -28,14 +29,38 @@ they would appear on a call sheet (e.g. "Sherlock Holmes", not "HOLMES"). Do not
 characters who are only mentioned in dialogue but never present in the scene.
 - `elements` lists concrete, sourceable production items, not abstractions. A revolver, a \
 hansom cab and a fog effect are elements; "tension" and "Victorian atmosphere" are not.
-- `set_location` is the set name only, uppercase, without the INT/EXT prefix or the \
-time-of-day suffix.
-- If the time of day is not stated, infer the most plausible one from the action."""
+- If the time of day is not stated, infer the most plausible one from the action.
+
+Separating `location` from `set_name` is the judgement that matters most here, because the \
+schedule counts a company move every time `location` changes, and a company move costs the \
+production an hour of shooting.
+
+- `location` is the place the unit physically travels to. Two scenes share a location only \
+if the crew could shoot both without moving trucks.
+- `set_name` is the specific space inside that location, or an empty string if the heading \
+names none.
+
+Judge this by what the words mean, not by how the heading is punctuated. \
+"221B BAKER STREET - SITTING ROOM" and "221B BAKER STREET - LABORATORY" are two sets at one \
+location: the unit parks once. "LONDON STREETS - COVENT GARDEN" and \
+"LONDON STREETS - PICCADILLY" are two different locations that happen to share a prefix: \
+the unit must move across London. Getting this wrong makes the schedule lie about its cost."""
 
 
 def _screenplay_key(content: str) -> str:
     """Content hash identifying a screenplay revision in the cache."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+
+
+def screenplay_key(scenes: List[Dict[str, Any]]) -> str:
+    """
+    Cache key for a parsed screenplay. Derived from the scenes rather than the file bytes,
+    so the same script delivered as .fountain and as .fdx resolves to one entry — and
+    editing the script still invalidates it.
+    """
+    return _screenplay_key(json.dumps(
+        [[s["number"], s.get("heading", ""), s.get("raw_content", "")] for s in scenes],
+        ensure_ascii=False))
 
 
 def _read_cache(key: str) -> Optional[Dict[str, Any]]:
@@ -81,28 +106,29 @@ class BreakdownAgent:
     """
 
     def __init__(self, client: Optional[GeminiClient] = None, max_attempts: int = 3):
-        self.parser = FountainParser()
         self.client = client or GeminiClient()
         self.max_attempts = max_attempts
 
-    def process_fountain_file(
+    def process_screenplay(
         self,
         filepath: str,
         use_cache: bool = False,
         allow_fallback: bool = True,
     ) -> Dict[str, Any]:
         """
-        Parse a Fountain screenplay and return its breakdown.
+        Break down a screenplay in any supported format — Fountain, Final Draft or PDF.
 
         `use_cache` is off by default: a cached breakdown must never silently stand in
         for a live extraction. It exists so a demo can be replayed offline.
         """
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read()
+        loaded = load_screenplay(filepath, gemini_client=self.client)
+        if not loaded.scenes:
+            raise ValueError(f"No scene headings found in {filepath}.")
 
-        # The cache is keyed by screenplay content, so replaying it can never hand back
-        # a different film's breakdown, and editing the script invalidates the entry.
-        key = _screenplay_key(content)
+        # The cache is keyed by the parsed scene headings rather than raw file bytes, so
+        # the same script delivered as .fountain and as .fdx resolves to one entry — and
+        # editing the script still invalidates it.
+        key = screenplay_key(loaded.scenes)
 
         if use_cache:
             cached = _read_cache(key)
@@ -112,11 +138,10 @@ class BreakdownAgent:
                 return cached
             logger.info("No cached breakdown for %s (key %s)", os.path.basename(filepath), key)
 
-        raw_scenes = self.parser.parse(content)
-        if not raw_scenes:
-            raise ValueError(f"No scene headings found in {filepath}.")
-
-        result = self._extract(raw_scenes, allow_fallback=allow_fallback)
+        result = self._extract(loaded.scenes, allow_fallback=allow_fallback)
+        result["source_format"] = loaded.source_format
+        if loaded.transcription_tokens:
+            result["transcription_tokens"] = loaded.transcription_tokens
 
         if not validate_breakdown_dict(result):
             raise ValueError("Extracted screenplay breakdown failed JSON Schema validation.")
@@ -127,6 +152,9 @@ class BreakdownAgent:
             _write_cache(key, os.path.basename(filepath), result)
 
         return result
+
+    # Kept so existing callers and the demo harness keep working after the rename.
+    process_fountain_file = process_screenplay
 
     # --- extraction ---------------------------------------------------------------
 
@@ -211,9 +239,13 @@ class BreakdownAgent:
             if raw is None:
                 # Model invented a scene number that was not in the input; drop it.
                 continue
+            location = (scene.location or "").strip().upper()
+            set_name = (scene.set_name or "").strip().upper()
             scenes.append({
                 "number": scene.number,
-                "set_location": scene.set_location,
+                "location": location or raw["set_location"],
+                "set_name": set_name,
+                "set_location": f"{location} - {set_name}" if location and set_name else (location or raw["set_location"]),
                 "int_ext": scene.int_ext,
                 "day_night": scene.day_night,
                 "eighths": estimate_eighths(raw.get("raw_content", "")),
@@ -244,6 +276,12 @@ class BreakdownAgent:
             body = [ln for ln in text.splitlines()[1:] if ln.strip()]
             scenes.append({
                 "number": raw["number"],
+                # Without a model there is no way to tell a set apart from the location it
+                # sits in, so the whole heading becomes the location. That over-counts
+                # company moves, which is the safe direction: it makes the schedule look
+                # more expensive than it is, never cheaper.
+                "location": raw["set_location"],
+                "set_name": "",
                 "set_location": raw["set_location"],
                 "int_ext": int_ext,
                 "day_night": day_night,
@@ -263,7 +301,9 @@ class BreakdownAgent:
         payload = [
             {
                 "number": s["number"],
-                "heading": f"{s['int_ext']}. {s['set_location']} - {s.get('day_night', 'DAY')}",
+                # The heading exactly as written, so the model judges the location/set
+                # split from the screenwriter's words rather than from our reformatting.
+                "heading": s.get("heading") or f"{s['int_ext']}. {s['set_location']}",
                 "text": s.get("raw_content", ""),
             }
             for s in raw_scenes

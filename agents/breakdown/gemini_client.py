@@ -90,6 +90,42 @@ class GeminiClient:
             )
         return self._client
 
+    def transcribe_document(
+        self,
+        data: bytes,
+        mime_type: str,
+        prompt: str,
+        temperature: float = 0.0,
+    ) -> GeminiResult:
+        """
+        Read a document — a PDF screenplay, typically — and return it as text.
+
+        This is the one place the model is asked to look at something rather than reason
+        about it. A scanned script has no text layer, so transcription is the only way in;
+        once it is text, the ordinary deterministic pipeline takes over and page lengths
+        are measured rather than guessed.
+        """
+        client = self._ensure_client()
+
+        response = client.models.generate_content(
+            model=self.model,
+            contents=[
+                types.Part.from_bytes(data=data, mime_type=mime_type),
+                prompt,
+            ],
+            config=types.GenerateContentConfig(temperature=temperature),
+        )
+
+        usage = response.usage_metadata
+        return GeminiResult(
+            parsed=None,
+            raw_text=response.text or "",
+            model=self.model,
+            backend=self.backend,
+            prompt_tokens=getattr(usage, "prompt_token_count", 0) or 0,
+            total_tokens=getattr(usage, "total_token_count", 0) or 0,
+        )
+
     def generate_structured(
         self,
         prompt: str,

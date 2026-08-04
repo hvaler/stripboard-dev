@@ -29,9 +29,13 @@ public class CpSatScheduleSolverTests
         new(scenes, people ?? new List<Person>(), permits ?? new List<LocationPermitWindow>(),
             Start, MaxDaysAvailable: maxDays, MaxHoursPerDay: 12);
 
+    /// <summary>
+    /// Distinct places visited per day, summed. Counted by Location — the place the unit
+    /// travels to — not by the set description, because that is what a company move is.
+    /// </summary>
     private static int LocationDays(SolverOutput result) =>
         result.ScheduledDays.Sum(d => d.ScheduledScenes
-            .Select(s => s.SetLocation).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            .Select(s => s.Location).Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
     [Fact]
     public async Task EveryScene_IsScheduledExactlyOnce()
@@ -132,6 +136,47 @@ public class CpSatScheduleSolverTests
         {
             day.ScheduledScenes.Select(s => s.SetLocation).Distinct().Should().ContainSingle();
         }
+    }
+
+    [Fact]
+    public async Task TwoSetsAtOneLocation_DoNotCountAsACompanyMove()
+    {
+        // Moving from a hotel lobby to room 402 does not move the trucks. Counting it as
+        // a company move both overstates the cost and wastes an hour of the day that the
+        // schedule could have used (EV-28).
+        var scenes = new List<Scene>
+        {
+            new(Guid.NewGuid(), 1, "HOTEL METROPOLE - LOBBY", IntExt.Int, DayNight.Day, 20,
+                null, null, "Arrival", location: "HOTEL METROPOLE"),
+            new(Guid.NewGuid(), 2, "HOTEL METROPOLE - ROOM 402", IntExt.Int, DayNight.Day, 20,
+                null, null, "The letters", location: "HOTEL METROPOLE"),
+        };
+
+        var result = await _solver.SolveAsync(Input(scenes));
+
+        result.ScheduledDays.Should().HaveCount(1);
+        LocationDays(result).Should().Be(1, "both sets are at one location");
+        // 10h of work + 1h meal = wrap at 19:00. Charging a company move would push it to
+        // 20:00, so this time is the assertion that no move was billed.
+        result.ScheduledDays[0].WrapTime.Should().Be(new TimeOnly(19, 0));
+    }
+
+    [Fact]
+    public async Task TwoLocationsSharingAHeadingPrefix_AreStillTwoLocations()
+    {
+        // "CITY STREETS - RIVERSIDE" and "CITY STREETS - MARKET SQUARE" look similar and
+        // are not: the unit crosses the city. The solver trusts Location, not the string.
+        var scenes = new List<Scene>
+        {
+            new(Guid.NewGuid(), 1, "CITY STREETS - RIVERSIDE", IntExt.Ext, DayNight.Day, 20,
+                null, null, "Followed", location: "RIVERSIDE"),
+            new(Guid.NewGuid(), 2, "CITY STREETS - MARKET SQUARE", IntExt.Ext, DayNight.Day, 20,
+                null, null, "The meeting", location: "MARKET SQUARE"),
+        };
+
+        var result = await _solver.SolveAsync(Input(scenes));
+
+        LocationDays(result).Should().Be(2, "these are two places, not one");
     }
 
     [Fact]

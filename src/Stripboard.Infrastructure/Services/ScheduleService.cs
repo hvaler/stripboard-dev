@@ -243,7 +243,7 @@ public class ScheduleService
             // moves inside a single day. Counting only day-to-day changes would report 0
             // moves for a day that hops between five sets, which is exactly the cost a
             // 1st AD is trying to avoid. (The solver does not yet minimise this — EV-27.)
-            var dayLocations = dayScenes.Select(s => s.SetLocation).ToList();
+            var dayLocations = dayScenes.Select(s => s.Location).ToList();
             foreach (var location in dayLocations)
             {
                 if (lastLocation is not null && !string.Equals(lastLocation, location, StringComparison.OrdinalIgnoreCase))

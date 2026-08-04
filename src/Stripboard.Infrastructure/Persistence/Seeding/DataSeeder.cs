@@ -42,40 +42,40 @@ public static class DataSeeder
         var scenes = new List<Scene>
         {
             new(Guid.NewGuid(), 1, "221B BAKER STREET - SITTING ROOM", IntExt.Int, DayNight.Day, 4,
-                new[] { castHolmes.Id, castWatson.Id }, new[] { propLetter.Id }, "Holmes examines the cipher note over morning tea."),
+                new[] { castHolmes.Id, castWatson.Id }, new[] { propLetter.Id }, "Holmes examines the cipher note over morning tea.", location: "221B BAKER STREET"),
 
             new(Guid.NewGuid(), 2, "221B BAKER STREET - SITTING ROOM", IntExt.Int, DayNight.Day, 3,
-                new[] { castHolmes.Id, castWatson.Id, castIrene.Id }, new[] { propLetter.Id }, "Irene Adler arrives unexpectedly with new intelligence."),
+                new[] { castHolmes.Id, castWatson.Id, castIrene.Id }, new[] { propLetter.Id }, "Irene Adler arrives unexpectedly with new intelligence.", location: "221B BAKER STREET"),
 
             new(Guid.NewGuid(), 3, "LONDON STREETS - COVENT GARDEN", IntExt.Ext, DayNight.Day, 5,
-                new[] { castWatson.Id, castIrene.Id }, new[] { vehicleCarriage.Id }, "Watson and Irene pursue a suspicious courier through the market."),
+                new[] { castWatson.Id, castIrene.Id }, new[] { vehicleCarriage.Id }, "Watson and Irene pursue a suspicious courier through the market.", location: "COVENT GARDEN"),
 
             new(Guid.NewGuid(), 4, "TOWER BRIDGE WHARF", IntExt.Ext, DayNight.Night, 6,
-                new[] { castHolmes.Id, castMoriarty.Id }, new[] { fxSmoke.Id }, "Holmes meets Moriarty under the foggy wharf lanterns."),
+                new[] { castHolmes.Id, castMoriarty.Id }, new[] { fxSmoke.Id }, "Holmes meets Moriarty under the foggy wharf lanterns.", location: "TOWER BRIDGE WHARF"),
 
             new(Guid.NewGuid(), 5, "TOWER BRIDGE WHARF - WAREHOUSE", IntExt.Int, DayNight.Night, 8,
-                new[] { castHolmes.Id, castWatson.Id, castMoriarty.Id }, new[] { propRevolver.Id, fxSmoke.Id }, "Ambush inside the deserted riverfront warehouse."),
+                new[] { castHolmes.Id, castWatson.Id, castMoriarty.Id }, new[] { propRevolver.Id, fxSmoke.Id }, "Ambush inside the deserted riverfront warehouse.", location: "TOWER BRIDGE WHARF"),
 
             new(Guid.NewGuid(), 6, "SCOTLAND YARD - INSPECTOR OFFICE", IntExt.Int, DayNight.Day, 4,
-                new[] { castHolmes.Id, castWatson.Id }, new[] { propLetter.Id }, "De-briefing with Lestrade and analyzing captured evidence."),
+                new[] { castHolmes.Id, castWatson.Id }, new[] { propLetter.Id }, "De-briefing with Lestrade and analyzing captured evidence.", location: "SCOTLAND YARD"),
 
             new(Guid.NewGuid(), 7, "221B BAKER STREET - LABORATORY", IntExt.Int, DayNight.Night, 5,
-                new[] { castHolmes.Id }, new[] { propLetter.Id }, "Holmes works late into the night deciphering the chemical residue."),
+                new[] { castHolmes.Id }, new[] { propLetter.Id }, "Holmes works late into the night deciphering the chemical residue.", location: "221B BAKER STREET"),
 
             new(Guid.NewGuid(), 8, "DIOGENES CLUB - READING ROOM", IntExt.Int, DayNight.Day, 3,
-                new[] { castHolmes.Id, castWatson.Id }, null, "Silent consultation regarding Moriarty's network connections."),
+                new[] { castHolmes.Id, castWatson.Id }, null, "Silent consultation regarding Moriarty's network connections.", location: "DIOGENES CLUB"),
 
             new(Guid.NewGuid(), 9, "VICTORIA STATION - PLATFORM 4", IntExt.Ext, DayNight.Day, 6,
-                new[] { castIrene.Id, castWatson.Id }, new[] { vehicleCarriage.Id }, "Irene prepares to board the Continental express train."),
+                new[] { castIrene.Id, castWatson.Id }, new[] { vehicleCarriage.Id }, "Irene prepares to board the Continental express train.", location: "VICTORIA STATION"),
 
             new(Guid.NewGuid(), 10, "THAMES RIVERBANK", IntExt.Ext, DayNight.Dusk, 4,
-                new[] { castHolmes.Id, castMoriarty.Id }, new[] { propRevolver.Id }, "Standoff at dusk along the muddy bank."),
+                new[] { castHolmes.Id, castMoriarty.Id }, new[] { propRevolver.Id }, "Standoff at dusk along the muddy bank.", location: "THAMES RIVERBANK"),
 
             new(Guid.NewGuid(), 11, "221B BAKER STREET - SITTING ROOM", IntExt.Int, DayNight.Night, 4,
-                new[] { castHolmes.Id, castWatson.Id, castIrene.Id }, new[] { propLetter.Id }, "Final reveal of the mastermind's plan."),
+                new[] { castHolmes.Id, castWatson.Id, castIrene.Id }, new[] { propLetter.Id }, "Final reveal of the mastermind's plan.", location: "221B BAKER STREET"),
 
             new(Guid.NewGuid(), 12, "LONDON STREETS - PICCADILLY", IntExt.Ext, DayNight.Day, 2,
-                new[] { castHolmes.Id, castWatson.Id }, null, "Holmes and Watson walk into the crowd as peace is restored.")
+                new[] { castHolmes.Id, castWatson.Id }, null, "Holmes and Watson walk into the crowd as peace is restored.", location: "PICCADILLY")
         };
 
         context.Scenes.AddRange(scenes);

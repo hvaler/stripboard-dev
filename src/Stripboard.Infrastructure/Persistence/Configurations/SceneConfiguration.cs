@@ -11,6 +11,7 @@ public class SceneConfiguration : IEntityTypeConfiguration<Scene>
         builder.HasKey(s => s.Id);
         builder.Property(s => s.Number).IsRequired();
         builder.Property(s => s.SetLocation).HasMaxLength(250).IsRequired();
+        builder.Property(s => s.Location).HasMaxLength(250).IsRequired();
         builder.Property(s => s.IntExt).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(s => s.DayNight).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(s => s.Eighths).IsRequired();

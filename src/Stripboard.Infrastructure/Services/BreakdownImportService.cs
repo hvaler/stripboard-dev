@@ -24,7 +24,8 @@ public class BreakdownImportService
     private sealed record BreakdownDto(List<SceneDto>? Scenes, string? Source);
 
     private sealed record SceneDto(
-        int Number, string? Set_Location, string? Int_Ext, string? Day_Night,
+        int Number, string? Set_Location, string? Location, string? Set_Name,
+        string? Int_Ext, string? Day_Night,
         int Eighths, string? Synopsis, List<string>? Cast, List<ElementDto>? Elements);
 
     private sealed record ElementDto(string? Name, string? Category);
@@ -94,13 +95,16 @@ public class BreakdownImportService
             _db.Scenes.Add(new Scene(
                 Guid.NewGuid(),
                 scene.Number,
-                scene.Set_Location ?? "UNKNOWN",
+                scene.Set_Location ?? scene.Location ?? "UNKNOWN",
                 ParseIntExt(scene.Int_Ext),
                 ParseDayNight(scene.Day_Night),
                 Math.Max(1, scene.Eighths),
                 castIds,
                 null,
-                scene.Synopsis ?? string.Empty));
+                scene.Synopsis ?? string.Empty,
+                // The place the unit travels to, which is what company moves are counted
+                // against. Absent it, Scene falls back to the full set description.
+                location: scene.Location));
         }
 
         _db.AuditEvents.Add(new AuditEvent(
@@ -108,7 +112,8 @@ public class BreakdownImportService
             DateTime.UtcNow,
             eventType: "BreakdownImported",
             actor: "breakdown-agent",
-            details: $"Imported {dto.Scenes.Count} scenes (source: {dto.Source ?? "unknown"}), "
+            details: $"Imported {dto.Scenes.Count} scenes (source: {dto.Source ?? "unknown"}) "
+                   + $"across {dto.Scenes.Select(s => s.Location ?? s.Set_Location).Distinct(StringComparer.OrdinalIgnoreCase).Count()} location(s), "
                    + $"{created} new cast member(s) created."));
 
         await _db.SaveChangesAsync(ct);
