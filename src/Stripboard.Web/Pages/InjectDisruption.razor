@@ -1,0 +1,96 @@
+@page "/inject-disruption"
+@inject NavigationManager Navigation
+@inject Stripboard.Infrastructure.Persistence.StripboardDbContext DbContext
+
+<PageTitle>Inject Disruption — Stripboard Demo</PageTitle>
+
+<h1 class="mb-4">⚡ Demo Disruption Injector</h1>
+
+<p class="text-muted">
+    Trigger real-time disruptions to simulate production incidents (§8 brief scenario):
+    <strong>Actor Illness, Severe Weather Alert, or Location Permit Expiration</strong>.
+</p>
+
+@if (isTriggered)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>🚨 Disruption Triggered!</strong> Conflict Sentinel detected actor unavailability and emitted Grafana Cloud Annotation. Replanner Agent generated 2 draft options.
+        <div class="mt-2">
+            <a href="proposals" class="btn btn-primary btn-sm fw-bold">⚖️ Go to Proposals & Approve</a>
+        </div>
+    </div>
+}
+
+<div class="row g-4 mt-2">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-danger h-100">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">🎭 Lead Cast Illness Disruption</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Simulates lead actor <strong>Sherlock Holmes</strong> calling in sick on Day 1 (2026-08-10).
+                    Sentinel flags 7 scenes as blocked, posts Grafana Annotation, and notifies Replanner Agent.
+                </p>
+            </div>
+            <div class="card-footer bg-white border-top-0 pb-3">
+                <button class="btn btn-danger w-100 fw-bold" @onclick="TriggerActorDisruption" disabled="@isTriggered">
+                    ⚡ Inject Lead Cast Illness
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm border-warning h-100">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">⛈️ Severe Weather Alert Disruption</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Simulates sudden heavy rain forecast (90% precip) for outdoor EXT scene at <strong>TOWER BRIDGE WHARF</strong>.
+                    Sentinel flags weather risk and requests interior cover day swap.
+                </p>
+            </div>
+            <div class="card-footer bg-white border-top-0 pb-3">
+                <button class="btn btn-warning w-100 fw-bold text-dark" @onclick="TriggerWeatherDisruption" disabled="@isTriggered">
+                    ⚡ Inject Weather Alert
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isTriggered = false;
+
+    private async Task TriggerActorDisruption()
+    {
+        isTriggered = true;
+        var audit = new Stripboard.Domain.Entities.AuditEvent(
+            Guid.NewGuid(),
+            DateTime.UtcNow,
+            "DisruptionDetected",
+            "ConflictSentinel",
+            "DISRUPTION INJECTED: Sherlock Holmes (Lead Cast) unavailable on 2026-08-10 due to illness.",
+            Guid.NewGuid()
+        );
+        DbContext.AuditEvents.Add(audit);
+        await DbContext.SaveChangesAsync();
+    }
+
+    private async Task TriggerWeatherDisruption()
+    {
+        isTriggered = true;
+        var audit = new Stripboard.Domain.Entities.AuditEvent(
+            Guid.NewGuid(),
+            DateTime.UtcNow,
+            "DisruptionDetected",
+            "ConflictSentinel",
+            "DISRUPTION INJECTED: Heavy rain alert (90% precip) at TOWER BRIDGE WHARF on 2026-08-11.",
+            Guid.NewGuid()
+        );
+        DbContext.AuditEvents.Add(audit);
+        await DbContext.SaveChangesAsync();
+    }
+}
