@@ -40,7 +40,7 @@
                             <span class="badge @GetBadgeClass(ev.EventType)">@ev.EventType</span>
                         </td>
                         <td><strong>@ev.Actor</strong></td>
-                        <td>@ev.Details</td>
+                        <td>@Describe(ev)</td>
                     </tr>
                 }
             }
@@ -59,6 +59,34 @@
             .AsNoTracking()
             .OrderByDescending(e => e.Timestamp)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Replan proposals are stored as JSON so the proposals page can rebuild them after a
+    /// reload. That is the right storage format and the wrong thing to show a producer, so
+    /// it is rendered as prose here.
+    /// </summary>
+    private static string Describe(AuditEvent ev)
+    {
+        if (ev.EventType != "ReplanProposed")
+        {
+            return ev.Details;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(ev.Details);
+            var root = doc.RootElement;
+            var title = root.TryGetProperty("Title", out var t) ? t.GetString() : null;
+            var strategy = root.TryGetProperty("Strategy", out var s) ? s.GetString() : null;
+            var why = root.TryGetProperty("Justification", out var j) ? j.GetString() : null;
+
+            return title is null ? ev.Details : $"{title} ({strategy}). {why}";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return ev.Details;
+        }
     }
 
     private string GetBadgeClass(string eventType) => eventType switch

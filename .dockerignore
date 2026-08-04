@@ -1,0 +1,52 @@
+# Build context hygiene. The Dockerfile does `COPY . .`, so anything not excluded here
+# ends up inside a build layer. Without this file the context is ~1.8 GB and includes
+# local credentials.
+
+# === Secrets — must never enter an image ===
+.secrets/
+.env
+*.env
+appsettings.*.local.json
+
+# === Version control and local history ===
+.git/
+.github/
+.gitignore
+
+# === Build output (rebuilt inside the image) ===
+**/bin/
+**/obj/
+artifacts/
+*.user
+.vs/
+*.trx
+coverage.cobertura.xml
+
+# === Internal development ecosystem — not part of the product (ADR-007) ===
+_hilo/
+_patron/
+Documentos_Base/
+ecosystem.config.json
+AGENTS.md
+GEMINI.md
+.agents/
+.gemini/
+BRIEF_STRIPBOARD.md
+RUNBOOK.md
+EVOLUTIVOS.md
+
+# === Python agent layer — not part of the web image ===
+agents/
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# === Not needed to build or run the web app ===
+tests/
+demo/
+infra/
+adr/
+*.md
+Dockerfile
+.dockerignore

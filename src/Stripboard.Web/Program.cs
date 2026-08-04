@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Stripboard.Application.Common.Interfaces;
 using Stripboard.Application.Services;
@@ -11,7 +12,28 @@ using Stripboard.Solver;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
+
+// Blazor Server keeps a stateful SignalR circuit per user. On Cloud Run that only works
+// if the instance stays alive and the client keeps reaching the same one, hence the
+// deployment flags in infra/deploy-web.sh. Retaining disconnected circuits lets a brief
+// network blip reconnect instead of dropping the user into "Rejoining the server…".
+builder.Services.AddServerSideBlazor()
+    .AddCircuitOptions(options =>
+    {
+        options.DetailedErrors = builder.Environment.IsDevelopment();
+        options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(5);
+        options.DisconnectedCircuitMaxRetained = 100;
+    });
+
+// Cloud Run terminates TLS and forwards plain HTTP. Without this the app believes every
+// request is insecure and UseHttpsRedirection bounces it, which breaks the WebSocket
+// upgrade the circuit depends on.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddDbContext<StripboardDbContext>(options =>
     options.UseInMemoryDatabase("StripboardWebDb"));
@@ -52,6 +74,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.UseForwardedHeaders();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -64,6 +88,27 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
+
+// Readiness probe. Reports whether the app actually has a schedule to show, not merely
+// whether the process is up — a running instance with an empty board is not ready to demo.
+//
+// Deliberately NOT /healthz: Google's frontend intercepts that exact path on *.run.app
+// domains and answers 404 itself, so the request never reaches the container. It works
+// locally, which makes it a genuinely confusing thing to debug in production.
+app.MapGet("/api/health", async (ScheduleService schedules, CancellationToken ct) =>
+{
+    var board = await schedules.GetActiveBoardAsync(ct);
+    return board is null
+        ? Results.Json(new { status = "degraded", reason = "no schedule version" }, statusCode: 503)
+        : Results.Ok(new
+        {
+            status = "ok",
+            board.VersionNumber,
+            board.IsCommitted,
+            days = board.Metrics.TotalDays,
+            scenes = board.Days.Sum(d => d.Scenes.Count),
+        });
+});
 
 // Import a breakdown produced by the Gemini agent and immediately re-solve, so a new
 // screenplay is visible on the stripboard:

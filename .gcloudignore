@@ -1,0 +1,50 @@
+# Controls what `gcloud run deploy --source` uploads to Cloud Build.
+#
+# This is a separate mechanism from .dockerignore: gcloud decides what leaves this machine,
+# .dockerignore decides what enters an image layer. Both must exclude .secrets/ — relying on
+# gcloud's implicit fallback to .gitignore would be an accident waiting to happen.
+#
+# Note the Dockerfile itself must NOT be excluded here: Cloud Build needs it.
+
+# === Secrets — must never leave the machine ===
+.secrets/
+.env
+*.env
+appsettings.*.local.json
+
+# === Version control ===
+.git/
+.gitignore
+.github/
+
+# === Build output ===
+**/bin/
+**/obj/
+artifacts/
+*.user
+.vs/
+*.trx
+coverage.cobertura.xml
+
+# === Internal development ecosystem — not part of the product (ADR-007) ===
+_hilo/
+_patron/
+Documentos_Base/
+ecosystem.config.json
+AGENTS.md
+GEMINI.md
+.agents/
+.gemini/
+BRIEF_STRIPBOARD.md
+RUNBOOK.md
+EVOLUTIVOS.md
+
+# === Python agent layer — not part of the web image ===
+agents/
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# === Not needed to build the web app ===
+tests/

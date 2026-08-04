@@ -63,9 +63,11 @@ below is the target design, not a description of shipped functionality.**
 | No ADK, no Vertex AI Agent Engine, no A2A orchestration | `agents/` | EV-24 → EV-26 |
 | The solver models neither cast availability (DOOD) nor company moves; turnaround is validated after solving rather than constrained during it | `src/Stripboard.Solver` | EV-27 |
 
-A deployment exists at `https://stripboard-web-wc7oib7k6q-ew.a.run.app` but is **currently
-unstable**: Blazor Server's SignalR circuit drops on Cloud Run without session affinity
-(EV-30). There is no demo video yet.
+**Live demo: <https://stripboard-web-wc7oib7k6q-ew.a.run.app>** — deployed on Cloud Run and
+verified end to end in a browser with zero console errors: inject a disruption, compare the
+costed options, approve as Producer, read the audit trail. See
+[ADR-011](adr/ADR-011-blazor-server-on-cloud-run.md) for what Blazor Server needs from Cloud
+Run. There is no demo video yet.
 
 ## The problem
 
@@ -164,7 +166,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008, ADR-009, ADR-010)
+adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-011)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 
@@ -258,6 +260,17 @@ No Grafana Cloud stack? The same flow works against a local Grafana:
 docker run -d --name grafana -p 3000:3000 grafana/grafana:latest
 # then create a service account token in Administration → Users and access
 export GRAFANA_URL=http://host.docker.internal:3000
+```
+
+### Deploying
+
+```bash
+# Deploys to Cloud Run with the settings a Blazor Server circuit needs (ADR-011)
+# and refuses to run without a .dockerignore, so .secrets/ can never enter an image.
+bash infra/deploy-web.sh
+
+# Readiness — note /api/health, not /healthz: Google intercepts that path on run.app
+curl https://<your-service>.run.app/api/health
 ```
 
 Optional, and requiring credentials you must supply yourself:

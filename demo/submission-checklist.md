@@ -8,7 +8,7 @@
 > **Track**: Grafana Partner Track
 > **Project Name**: Stripboard
 > **Repository**: [https://github.com/hvaler/stripboard-dev](https://github.com/hvaler/stripboard-dev) (Public, Apache-2.0)
-> **Deployment**: [https://stripboard-web-wc7oib7k6q-ew.a.run.app](https://stripboard-web-wc7oib7k6q-ew.a.run.app) — ⚠️ currently unstable (Blazor Server circuit drops on Cloud Run; EV-30)
+> **Deployment**: [https://stripboard-web-wc7oib7k6q-ew.a.run.app](https://stripboard-web-wc7oib7k6q-ew.a.run.app) — ✅ stable, full walkthrough verified in a browser with zero console errors (ADR-011)
 > **Status verified**: 2026-08-04 · **Deadline**: 2026-09-07 14:00 PT
 
 ---
@@ -24,8 +24,8 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 | **Runtime usage, not imports** | Repo must show Google Cloud and partner services *called* in code. | Both are called at runtime and both are covered by integration tests that fail — not skip — when the service is configured but broken. | ✅ |
 | **Code repository** | Public repo, open-source license file. | Public, `LICENSE` (Apache-2.0) present at repo root. | ✅ |
 | **Project novelty** | Created during the contest period (from 2026-07-27). | First commit 2026-08-03. | ✅ |
-| **Platform** | Must run on web, Android or iOS. | Blazor web app, deployed to Cloud Run. | 🚧 deployment unstable |
-| **Hosted project URL** | Working, accessible demo. | URL resolves but the app errors on load. | 🚧 |
+| **Platform** | Must run on web, Android or iOS. | Blazor web app on Cloud Run, configured for a stateful SignalR circuit (ADR-011). | ✅ |
+| **Hosted project URL** | Working, accessible demo. | Full demo walkthrough driven end to end in a browser: disruption → two costed options → governance refusal for an agent → Producer commit → audit trail. Zero console errors. | ✅ |
 | **Language** | All written parts and video audio/subtitles in English. | Code, comments, commits, ADRs, README and UI are English. | ✅ |
 | **Demo video** | Public YouTube/Vimeo video ≤ 3 minutes of the working product. | Script drafted (§3). Not recorded. | ❌ |
 | **Text description** | Features, technologies, data sources, learnings. | Draft in §2, currently describes unbuilt features. | 🚧 |
@@ -110,7 +110,7 @@ Four criteria, 25% each.
 | Criterion | Today | Why |
 |---|:---:|---|
 | Technological implementation | 8/10 | Solver, domain layer, Gemini breakdown, a hand-implemented MCP client, and a UI driven end to end by the engine. What holds it back is in-memory persistence, no OTLP export, and REST rather than MCP on our own services. |
-| Design | 4/10 | Complete page inventory, but hardcoded content and a deployment that errors on load. |
+| Design | 7/10 | Every page is driven by the engine, the hosted demo is stable and the governance story is visible on screen. Held back by crude scheduling output (a day still hops between eight locations) until EV-27. |
 | Potential impact | 8/10 | The problem is real, specific and expensive; the framing is credible to a 1st AD. |
 | Quality of the idea | 9/10 | *"The LLM formulates, the solver decides, a human approves"* is a non-obvious architecture that removes hallucination risk from a domain with legal and financial consequences. |
 
