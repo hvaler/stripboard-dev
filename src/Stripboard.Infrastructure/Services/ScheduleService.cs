@@ -269,8 +269,12 @@ public class ScheduleService
                 }
             }
 
-            var worked = day.GetWrapDateTime() - day.GetCallDateTime();
-            var mealAnomaly = _unionRules.ValidateMealPenalty(day, worked);
+            // Ask the union rule about the longest continuous stretch, which is what it
+            // actually measures. Passing call-to-wrap would count the meal break itself as
+            // work and report a missing break the day reserves.
+            var workMinutes = dayScenes.Sum(s => Math.Max(15, s.Eighths * 15));
+            var mealAnomaly = _unionRules.ValidateMealPenalty(
+                day, TimeSpan.FromMinutes(ShootDayModel.LongestContinuousStretch(workMinutes)));
             if (mealAnomaly is not null)
             {
                 anomalies.Add(mealAnomaly);

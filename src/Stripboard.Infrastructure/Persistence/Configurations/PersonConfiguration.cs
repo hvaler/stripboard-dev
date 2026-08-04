@@ -13,5 +13,10 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(p => p.Role).HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(p => p.DailyRate).HasPrecision(18, 2);
         builder.Property(p => p.MaxHoursPerDay).IsRequired();
+
+        // Day Out of Days availability, stored alongside the person like the other
+        // collection properties in this model (EV-27).
+        builder.Property(p => p.UnavailableDates)
+            .HasColumnType("jsonb");
     }
 }

@@ -82,6 +82,38 @@ public record DisruptionRequest(
 );
 
 /// <summary>
+/// The physical shape of a shooting day, shared by the solver (which must reason about it
+/// to build a legal schedule) and by anything that reads a schedule back (which must
+/// describe the same day the same way). Duplicating these numbers is how a board ends up
+/// disagreeing with the model that produced it.
+/// </summary>
+public static class ShootDayModel
+{
+    /// <summary>Meal break reserved once the day runs past <see cref="MinutesBeforeMealBreak"/>.</summary>
+    public const int MealBreakMinutes = 60;
+
+    /// <summary>Union limit on continuous work without a meal break.</summary>
+    public const int MinutesBeforeMealBreak = 6 * 60;
+
+    /// <summary>Time the unit loses to a single company move.</summary>
+    public const int CompanyMoveMinutes = 60;
+
+    /// <summary>
+    /// Longest unbroken stretch of work in a day. With one meal break the work splits in
+    /// two, so this is what the union meal rule should be asked about — not the total,
+    /// which would report a missing break the schedule actually reserves.
+    /// </summary>
+    public static int LongestContinuousStretch(int workMinutes) =>
+        workMinutes > MinutesBeforeMealBreak ? (workMinutes + 1) / 2 : workMinutes;
+
+    /// <summary>Call-to-wrap length of a day, including its meal break and company moves.</summary>
+    public static int ElapsedMinutes(int workMinutes, int companyMoves) =>
+        workMinutes
+        + (workMinutes > MinutesBeforeMealBreak ? MealBreakMinutes : 0)
+        + Math.Max(0, companyMoves) * CompanyMoveMinutes;
+}
+
+/// <summary>
 /// Production cost model. Crude but honest: every figure the UI shows is derived from these
 /// rules and the cast/crew day rates in the database, never from a literal in a page.
 /// </summary>

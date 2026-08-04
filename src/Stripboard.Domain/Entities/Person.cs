@@ -14,6 +14,13 @@ public class Person
     public int MaxHoursPerDay { get; private set; }
     public bool IsCast => Role == PersonRole.Cast;
 
+    /// <summary>
+    /// Dates this person cannot work — the "Day Out of Days" availability a 1st AD treats
+    /// as non-negotiable. The solver refuses to place any scene featuring this person on
+    /// one of these dates (EV-27).
+    /// </summary>
+    public List<DateOnly> UnavailableDates { get; private set; } = new();
+
     private Person() { }
 
     public Person(
@@ -21,7 +28,8 @@ public class Person
         string name,
         PersonRole role,
         decimal dailyRate = 0m,
-        int maxHoursPerDay = 12)
+        int maxHoursPerDay = 12,
+        IEnumerable<DateOnly>? unavailableDates = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Person name cannot be empty.", nameof(name));
@@ -31,5 +39,13 @@ public class Person
         Role = role;
         DailyRate = dailyRate;
         MaxHoursPerDay = maxHoursPerDay;
+        UnavailableDates = unavailableDates?.Distinct().OrderBy(d => d).ToList() ?? new List<DateOnly>();
+    }
+
+    public bool IsAvailableOn(DateOnly date) => !UnavailableDates.Contains(date);
+
+    public void SetUnavailability(IEnumerable<DateOnly> dates)
+    {
+        UnavailableDates = (dates ?? Enumerable.Empty<DateOnly>()).Distinct().OrderBy(d => d).ToList();
     }
 }

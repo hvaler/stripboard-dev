@@ -126,7 +126,7 @@ Four criteria, 25% each.
   published to Grafana says `published=False` instead of implying success.
 - The MCP transport is implemented rather than imported — session negotiation, SSE and
   JSON response handling, paginated tool discovery — in ~200 lines with one dependency.
-- 38 xUnit tests and 27 Python tests, green, including integration tests that run against
+- 48 xUnit tests and 27 Python tests, green, including integration tests that run against
   the real Grafana Cloud stack and Vertex AI.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 

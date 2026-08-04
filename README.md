@@ -15,7 +15,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-orange)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
-![Tests](https://img.shields.io/badge/tests-38%20xUnit%20%2B%2027%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-48%20xUnit%20%2B%2027%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -34,9 +34,11 @@ below is the target design, not a description of shipped functionality.**
   discovered on Grafana Cloud, disruptions published as real annotations via
   `create_annotation`. See
   [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
-- Deterministic shooting-schedule solver on Google OR-Tools CP-SAT
-  (`src/Stripboard.Solver`), with an exactly-one-day assignment, per-day capacity in
-  eighths, permit windows, and disruption blocks (scene × date).
+- **Deterministic shooting-schedule solver on Google OR-Tools CP-SAT**
+  (`src/Stripboard.Solver`): day/night units, Day Out of Days cast availability, permit
+  windows, disruption blocks, and a day length that includes its meal break and company
+  moves. Union turnaround holds **by construction** rather than being checked afterwards —
+  see [ADR-012](adr/ADR-012-scheduling-model.md).
 - **The UI is driven by the engine** (EV-21): the stripboard, the replan options and their
   cost deltas are all read from persisted schedule versions produced by real solver runs.
   Importing a different screenplay changes what the board shows.
@@ -48,7 +50,7 @@ below is the target design, not a description of shipped functionality.**
 - Four ASP.NET Core services exposing schedule / people / locations / weather operations.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with five pages, and a versioned Grafana dashboard definition.
-- 38 xUnit tests and 27 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 48 xUnit tests and 27 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -60,8 +62,8 @@ below is the target design, not a description of shipped functionality.**
 | Persistence is in-memory. No Cloud SQL, no migrations | every `Program.cs` | EV-22 |
 | The four services are REST endpoints under an `/mcp/` path — they do **not** speak the MCP protocol | `src/Stripboard.Mcp.*` | EV-23 |
 | The replanner returns two hardcoded proposals with literal cost figures | `agents/replanner/replanner_agent.py` | EV-24 |
+| Company moves are counted per *set*, so returning to another room of the same location is over-counted as a move | `src/Stripboard.Solver` | EV-28 |
 | No ADK, no Vertex AI Agent Engine, no A2A orchestration | `agents/` | EV-24 → EV-26 |
-| The solver models neither cast availability (DOOD) nor company moves; turnaround is validated after solving rather than constrained during it | `src/Stripboard.Solver` | EV-27 |
 
 **Live demo: <https://stripboard-web-wc7oib7k6q-ew.a.run.app>** — deployed on Cloud Run and
 verified end to end in a browser with zero console errors: inject a disruption, compare the
@@ -166,7 +168,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-011)
+adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-012)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 
@@ -179,7 +181,7 @@ demo/       Sample screenplay, demo harness, submission notes
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (38 tests)
+# Build and run the .NET test suite (48 tests)
 dotnet test Stripboard.slnx
 
 # Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a
