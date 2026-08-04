@@ -2,7 +2,8 @@
 
 > ⚠️ **This is a working checklist, not a compliance certificate.** Nothing here is marked
 > verified until it has been demonstrated at runtime and the evidence recorded.
-> **The submission is not ready.** Two mandatory requirements are currently unmet.
+> **Both mandatory technology requirements are now met at runtime.** What remains is
+> product quality and the submission artefacts, not eligibility.
 >
 > **Track**: Grafana Partner Track
 > **Project Name**: Stripboard
@@ -19,8 +20,8 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 | Requirement | Devpost rule | Where we actually are | Status |
 |---|---|---|:---:|
 | **AI stack** | Google Cloud AI only (`google-adk`, `google-genai`, `google-cloud-aiplatform`). No third-party AI APIs. | `agents/breakdown` calls **Gemini 2.5 Flash on Vertex AI** via `google-genai`, using native structured output (ADR-009). Verified against project `stripboard-hack`; integration tests make real calls. Zero third-party AI — no Anthropic, OpenAI or LangChain. | ✅ |
-| **Partner integration** | Grafana track: must **actively use the Grafana Cloud MCP Server** (`grafana/mcp-grafana`) at runtime. A README reference is explicitly insufficient. | `agents/sentinel/grafana_mcp_client.py` is a stub: no MCP session, no network I/O, canned return values, and a placeholder token. The real service-account token still returns 401 (DT-009). | ❌ |
-| **Runtime usage, not imports** | Repo must show Google Cloud and partner services *called* in code. | Google Cloud: yes — Vertex AI is called at runtime and the call is covered by tests. Partner (Grafana): not yet. | 🚧 |
+| **Partner integration** | Grafana track: must **actively use the Grafana Cloud MCP Server** (`grafana/mcp-grafana`) at runtime. A README reference is explicitly insufficient. | `agents/sentinel/grafana_mcp_client.py` implements the MCP Streamable HTTP transport over JSON-RPC 2.0 against the official `grafana/mcp-grafana` server: real `initialize` handshake with session negotiation, **73 tools** from `tools/list` against the project's Grafana Cloud stack, and disruptions published as annotations via the `create_annotation` tool call and read back with `get_annotations` (ADR-010). | ✅ |
+| **Runtime usage, not imports** | Repo must show Google Cloud and partner services *called* in code. | Both are called at runtime and both are covered by integration tests that fail — not skip — when the service is configured but broken. | ✅ |
 | **Code repository** | Public repo, open-source license file. | Public, `LICENSE` (Apache-2.0) present at repo root. | ✅ |
 | **Project novelty** | Created during the contest period (from 2026-07-27). | First commit 2026-08-03. | ✅ |
 | **Platform** | Must run on web, Android or iOS. | Blazor web app, deployed to Cloud Run. | 🚧 deployment unstable |
@@ -29,9 +30,10 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 | **Demo video** | Public YouTube/Vimeo video ≤ 3 minutes of the working product. | Script drafted (§3). Not recorded. | ❌ |
 | **Text description** | Features, technologies, data sources, learnings. | Draft in §2, currently describes unbuilt features. | 🚧 |
 
-**Blocking for Stage One:** the partner integration row. Stage One is pass/fail, and the
-Grafana Cloud MCP client is now the single remaining blocker — tracked as **EV-19**.
-The Google Cloud AI requirement was closed by EV-18 (ADR-009).
+**Blocking for Stage One: none remaining.** Both mandatory technology requirements are now
+met at runtime — Google Cloud AI by EV-18 (ADR-009) and the Grafana MCP server by EV-19
+(ADR-010). What is left is not eligibility but quality: the hosted demo, the video, and
+wiring the UI to the engine that already works.
 
 ---
 
@@ -64,15 +66,18 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 | **Call sheets PDF engine** — QuestPDF, role-scoped | Yes | ✅ |
 | **Human-in-the-loop governance UI** — Blazor, side-by-side proposals, immutable audit trail | UI exists but renders hardcoded data | 🚧 |
 | **LLM breakdown agent** — parses screenplays into structured JSON scene objects | Gemini 2.5 Flash on Vertex AI, structured output, validation-retry loop | ✅ |
-| **Conflict Sentinel** — active Grafana Cloud MCP Server client | Stub | ❌ |
+| **Conflict Sentinel** — active Grafana MCP Server client | Real MCP client; publishes annotations via `create_annotation` | ✅ |
 | **Replanner agent** — alternative proposals with computed cost deltas | Two hardcoded proposals, literal figures | ❌ |
 
 ### Partner integration (Grafana track)
-1. **Grafana Cloud MCP Server client** (`agents/sentinel/grafana_mcp_client.py`) — ❌ stub, EV-19.
-2. **Grafana Annotations API** — ❌ logs only, never sends, EV-20.
-3. **OpenTelemetry OTLP exporter** — ❌ packages declared but not wired, EV-20.
-4. **"Shoot Mission Control" dashboard** — ✅ versioned JSON in `infra/grafana/` plus a
-   provisioning script.
+1. **Grafana MCP Server client** (`agents/sentinel/grafana_mcp_client.py`) — ✅ MCP
+   Streamable HTTP over JSON-RPC 2.0, hand-implemented, 73 tools discovered at runtime.
+2. **Annotations through MCP** — ✅ disruptions published with the `create_annotation`
+   tool call against Grafana Cloud and verified by reading them back.
+3. **"Shoot Mission Control" dashboard** — ✅ versioned JSON plus a provisioning script
+   that now fails loudly instead of reporting success on error.
+4. **OpenTelemetry OTLP exporter** — ❌ packages declared but not wired, EV-20.
+5. **Metrics-driven reasoning over MCP** — ❌ EV-29.
 
 ### Findings and learnings
 *To be written from actual experience before submission — this is a required field.*
@@ -88,7 +93,7 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 |---|---|---|---|
 | **0:00 – 0:30** | Architecture diagram & Blazor home | *"Film scheduling is a multi-million dollar puzzle governed by strict union rules. Here, the LLM formulates, the solver decides, and a human approves."* | EV-21 (UI shows real data) |
 | **0:30 – 1:00** | Breakdown & stripboard view | *"Our Breakdown Agent uses Gemini to parse screenplay pages into typed scene objects. Google OR-Tools CP-SAT computes the optimal schedule, enforcing 12-hour turnarounds and minimizing company moves."* | ~~EV-18~~ ✅ · EV-21, EV-27 |
-| **1:00 – 1:45** | Disruption & sentinel alert | *"The lead actor calls in sick. Our Conflict Sentinel — an active client of the Grafana Cloud MCP Server — detects the blocked scenes and posts an alert annotation to Grafana Cloud."* | **EV-19, EV-20** |
+| **1:00 – 1:45** | Disruption & sentinel alert | *"The lead actor calls in sick. Our Conflict Sentinel — an active client of the Grafana MCP Server — detects the blocked scenes and posts an alert annotation to Grafana."* | ~~EV-19~~ ✅ · EV-20 for the metrics panel |
 | **1:45 – 2:30** | Proposals & approval | *"The Replanner formulates two options with real cost deltas. The Producer compares them side by side and commits."* | EV-24 |
 | **2:30 – 3:00** | Call sheets & Grafana dashboard | *"QuestPDF generates role-scoped call sheets, while Shoot Mission Control displays OTLP traces, solver metrics and the disruption timeline."* | EV-20, EV-29 |
 
@@ -104,7 +109,7 @@ Four criteria, 25% each.
 
 | Criterion | Today | Why |
 |---|:---:|---|
-| Technological implementation | 5/10 | Solver, domain layer and the Gemini breakdown are genuinely good; the mandated Grafana integration is still absent and the UI is not wired to any of it. |
+| Technological implementation | 7/10 | Solver, domain layer, Gemini breakdown and a hand-implemented MCP client are all genuinely good. What holds it back is that the UI is wired to none of them, persistence is in-memory, and OTLP is not exported. |
 | Design | 4/10 | Complete page inventory, but hardcoded content and a deployment that errors on load. |
 | Potential impact | 8/10 | The problem is real, specific and expensive; the framing is credible to a 1st AD. |
 | Quality of the idea | 9/10 | *"The LLM formulates, the solver decides, a human approves"* is a non-obvious architecture that removes hallucination risk from a domain with legal and financial consequences. |
@@ -116,13 +121,19 @@ Four criteria, 25% each.
 - Gemini structured output for the breakdown, with page length (`eighths`) computed
   deterministically rather than guessed by the model — the guiding principle applied at the
   smallest scale.
-- Failure is labelled, not hidden: every breakdown carries `source`/`model`/`attempts`, and
-  the fallback returns empty cast rather than inventing one.
-- 24 xUnit tests and 14 Python tests, green.
+- Failure is labelled, not hidden: every breakdown carries `source`/`model`/`attempts`, the
+  fallback returns empty cast rather than inventing one, and a disruption that was not
+  published to Grafana says `published=False` instead of implying success.
+- The MCP transport is implemented rather than imported — session negotiation, SSE and
+  JSON response handling, paginated tool discovery — in ~200 lines with one dependency.
+- 24 xUnit tests and 27 Python tests, green, including integration tests that run against
+  the real Grafana Cloud stack and Vertex AI.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 
 **Do not claim:** mutation testing (not configured), Vertex AI Agent Engine, A2A
-orchestration, Cloud SQL, MCP protocol support, or any live Grafana integration.
+orchestration, Cloud SQL, OTLP telemetry, or that the Blazor UI is driven by the solver
+and the agents. Note the project exposes *no* MCP servers of its own yet — the four
+`Stripboard.Mcp.*` services are REST (EV-23); it is an MCP **client**.
 
 ---
 

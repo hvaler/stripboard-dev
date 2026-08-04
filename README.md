@@ -14,7 +14,8 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-orange)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
-![Tests](https://img.shields.io/badge/tests-24%20xUnit%20%2B%2014%20python-brightgreen)
+![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
+![Tests](https://img.shields.io/badge/tests-24%20xUnit%20%2B%2027%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -28,6 +29,11 @@ below is the target design, not a description of shipped functionality.**
 - **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`), using
   native structured output against a Pydantic schema, with a validation-feedback retry
   loop and an explicitly-labelled fallback. See [ADR-009](adr/ADR-009-gemini-structured-output-breakdown.md).
+- **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`), speaking the MCP
+  Streamable HTTP transport to the official `grafana/mcp-grafana` server: 73 tools
+  discovered on Grafana Cloud, disruptions published as real annotations via
+  `create_annotation`. See
+  [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
 - Deterministic shooting-schedule solver on Google OR-Tools CP-SAT
   (`src/Stripboard.Solver`), with an exactly-one-day assignment, per-day capacity in
   eighths, and permit-window constraints.
@@ -36,15 +42,15 @@ below is the target design, not a description of shipped functionality.**
 - Four ASP.NET Core services exposing schedule / people / locations / weather operations.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with five pages, and a versioned Grafana dashboard definition.
-- 24 xUnit tests and 4 Python tests, green (`dotnet test`, `python -m unittest`).
+- 24 xUnit tests and 27 Python tests, green (`dotnet test`, `python -m unittest`). The
+  Gemini and Grafana integration tests make real calls and fail — not skip — when the
+  service is configured but broken.
 
 **Not implemented yet — do not read the sections below as claims that these exist:**
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| **The Grafana Cloud MCP client is a stub** and performs no network I/O — this is the one remaining pass/fail gap | `agents/sentinel/grafana_mcp_client.py` | EV-19 |
-| OpenTelemetry packages are declared but never referenced or initialised | `Directory.Packages.props` | EV-20 |
-| The Grafana Annotations API is never actually called | `agents/sentinel/grafana_mcp_client.py` | EV-20 |
+| OpenTelemetry packages are declared but never referenced or initialised, so no traces or metrics reach Grafana Cloud | `Directory.Packages.props` | EV-20 |
 | The Blazor UI renders hardcoded data; it does not call the solver or the agents | `src/Stripboard.Web/Pages/` | EV-21 |
 | Persistence is in-memory. No Cloud SQL, no migrations | every `Program.cs` | EV-22 |
 | The four services are REST endpoints under an `/mcp/` path — they do **not** speak the MCP protocol | `src/Stripboard.Mcp.*` | EV-23 |
@@ -87,7 +93,7 @@ entire crew.
              deterministic, tested                  [✓]   (read-only, typed
                     │                                      anomalies →
                     ▼                                      Grafana annotations)
-        ┌───────────────────────────────────────────┐            [ ]
+        ┌───────────────────────────────────────────┐            [✓]
         │  Service layer: mcp-schedule · mcp-people │
         │  · mcp-locations · mcp-weather            │  REST [✓] / MCP [ ]
         └───────────────────────────────────────────┘
@@ -120,17 +126,30 @@ Design principles the implementation is being held to:
 | Screenplay breakdown | Gemini 2.5 Flash on Vertex AI (`google-genai`, structured output) | ✅ working |
 | Agent orchestration | ADK, Vertex AI Agent Engine, A2A | ❌ not implemented |
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud | ❌ not wired |
-| Partner integration | Grafana Cloud MCP Server client | ❌ stub, no network I/O |
+| **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
 | Security | Cloud IAM, per-agent service accounts, Secret Manager | 🚧 script only |
 
 ### Grafana partner track
 
-The track requires an active Grafana Cloud MCP Server client at runtime.
-[ADR-008](adr/ADR-008-grafana-mcp-qualifying-use.md) records that decision and is written
-in the future tense on purpose: **the client is not built yet.** What exists today is the
-versioned "Shoot Mission Control" dashboard in `infra/grafana/dashboard-mission-control.json`
-and its provisioning script. The MCP client, the OTLP exporter and the Annotations API
-calls are all pending (EV-19, EV-20).
+The track requires the Grafana stack to be used at runtime through the official
+`grafana/mcp-grafana` MCP server. Stripboard does this for real:
+
+- **`agents/sentinel/grafana_mcp_client.py`** implements the MCP **Streamable HTTP**
+  transport directly over JSON-RPC 2.0 — `initialize` with session negotiation,
+  `notifications/initialized`, paginated `tools/list`, and `tools/call` — accepting both
+  JSON and SSE responses. No client library; the only dependency is `requests`.
+- **73 tools** are discovered at runtime against Grafana Cloud, including
+  `create_annotation`, `get_annotations`, `alerting_manage_rules`, `query_prometheus`,
+  `query_loki_logs` and `search_dashboards`.
+- **Disruptions are published as Grafana annotations through the MCP server**, not through
+  the REST API, and are read back attributed to the sentinel's service account.
+- The server runs as a **sidecar we control** (`infra/grafana/run-mcp-sidecar.sh`). The
+  hosted Grafana Cloud MCP endpoint authorises via interactive OAuth 2.1, which an
+  unattended agent cannot complete — see [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
+- The **"Shoot Mission Control"** dashboard is versioned JSON provisioned by script.
+
+Still pending: OTLP traces and metrics streaming to Grafana Cloud (EV-20), and the
+reasoning layer that queries metrics over MCP and lets Gemini interpret them (EV-29).
 
 ## Repository layout
 
@@ -140,7 +159,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008, ADR-009)
+adr/        Architecture Decision Records (ADR-005, ADR-008, ADR-009, ADR-010)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 
@@ -196,12 +215,40 @@ python -m unittest discover -s agents/breakdown -p "test_*.py"
 python -m unittest discover -s agents/sentinel  -p "test_*.py"
 ```
 
+### Grafana MCP integration
+
+Needs Docker and a Grafana **service account** token (`glsa_` prefix — a Cloud Access
+Policy `glc_` token is rejected with 401):
+
+```bash
+export GRAFANA_URL=https://<your-stack>.grafana.net
+export GRAFANA_SERVICE_ACCOUNT_TOKEN=glsa_xxx
+
+# Start the official grafana/mcp-grafana server as a sidecar
+./infra/grafana/run-mcp-sidecar.sh
+export GRAFANA_MCP_ENDPOINT=http://localhost:8000/mcp
+
+# Publish real disruption annotations through the MCP server
+python demo/run_demo.py
+
+# Integration tests: handshake, tools/list, tools/call, annotation round-trip
+python -m unittest discover -s agents/sentinel -p "test_*.py"
+
+# Provision the Shoot Mission Control dashboard
+python infra/grafana/provision-dashboard.py
+```
+
+No Grafana Cloud stack? The same flow works against a local Grafana:
+
+```bash
+docker run -d --name grafana -p 3000:3000 grafana/grafana:latest
+# then create a service account token in Administration → Users and access
+export GRAFANA_URL=http://host.docker.internal:3000
+```
+
 Optional, and requiring credentials you must supply yourself:
 
 ```bash
-# Provision the Grafana dashboard (needs a Grafana Cloud token)
-python infra/grafana/provision-dashboard.py
-
 # Create the per-agent service accounts (needs gcloud + a GCP project)
 bash infra/iam/setup-agent-iam.sh
 ```
