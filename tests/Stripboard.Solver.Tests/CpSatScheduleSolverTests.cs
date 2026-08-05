@@ -73,6 +73,49 @@ public class CpSatScheduleSolverTests
     }
 
     [Fact]
+    public async Task CappingLocationsPerDay_IsObeyed_AndCostsShootingDays()
+    {
+        // Six short scenes in six places. Uncapped, the solver packs them tightly because a
+        // shooting day is expensive and a move is merely discouraged. Capped at two, it must
+        // spread out — and the point of the constraint is that the extra days it costs are
+        // visible rather than argued about.
+        var scenes = Enumerable.Range(1, 6)
+            .Select(i => SceneAt(i, $"LOCATION {i}", eighths: 2))
+            .ToList();
+
+        var uncapped = await _solver.SolveAsync(Input(scenes));
+        var capped = await _solver.SolveAsync(Input(scenes) with { MaxLocationsPerDay = 2 });
+
+        uncapped.IsFeasible.Should().BeTrue();
+        capped.IsFeasible.Should().BeTrue();
+
+        uncapped.ScheduledDays.Max(d => Places(d)).Should().BeGreaterThan(2,
+            "otherwise the cap would be free and this test would prove nothing");
+        capped.ScheduledDays.Max(d => Places(d)).Should().BeLessThanOrEqualTo(2);
+        capped.ScheduledDays.Count.Should().BeGreaterThan(uncapped.ScheduledDays.Count,
+            "obeying the cap has to cost something, and shooting days are what it costs");
+        capped.ScheduledDays.SelectMany(d => d.ScheduledScenes).Should().HaveCount(6);
+    }
+
+    [Fact]
+    public async Task CappingLocationsPerDay_IsInfeasibleWhenThereIsNoRoomToSpread()
+    {
+        // One location per day, but only two days to do four places in. Saying so is the
+        // useful answer; quietly returning a schedule that breaks the cap would not be.
+        var scenes = Enumerable.Range(1, 4)
+            .Select(i => SceneAt(i, $"LOCATION {i}", eighths: 2))
+            .ToList();
+
+        var result = await _solver.SolveAsync(
+            Input(scenes, maxDays: 2) with { MaxLocationsPerDay = 1 });
+
+        result.IsFeasible.Should().BeFalse();
+    }
+
+    private static int Places(ScheduledDayResult day) =>
+        day.ScheduledScenes.Select(s => s.Location).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+
+    [Fact]
     public async Task NightUnit_IsNeverFollowedByADayUnit()
     {
         // Wrapping at 06:00 and calling at 08:00 is a two-hour turnaround.

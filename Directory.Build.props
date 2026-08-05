@@ -5,5 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- Read every source file as UTF-8. Without this the compiler falls back to the
+         machine's ANSI codepage for files that have no byte-order mark, so an em-dash in a
+         string literal builds correctly on one developer's machine and ships as mojibake
+         from another's. A public repository a judge might clone should not depend on the
+         locale of whoever ran the build. -->
+    <CodePage>65001</CodePage>
   </PropertyGroup>
 </Project>

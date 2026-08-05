@@ -17,6 +17,7 @@ AGENT_SERVICE_ACCOUNTS=(
     "sa-sentinel:Conflict Sentinel Watcher Service Account"
     "sa-replanner:Replanner Agent Service Account"
     "sa-callsheets:Call Sheets Generator Service Account"
+    "sa-orchestrator:Orchestrator Agent Service Account (Vertex AI Agent Engine)"
 )
 
 for sa in "${AGENT_SERVICE_ACCOUNTS[@]}"; do
@@ -38,5 +39,17 @@ gcloud secrets add-iam-policy-binding grafana-sentinel-token \
     --member="serviceAccount:sa-sentinel@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/secretmanager.secretAccessor" \
     --project="${PROJECT_ID}" || true
+
+# The orchestrator runs on Vertex AI Agent Engine under its own identity (EV-26/ADR-018),
+# so it needs to use Vertex AI and to read the staging bucket its package is uploaded to.
+# It gets nothing else: committing a schedule is refused in the application, not by IAM,
+# because the rule is "only a human Producer" rather than "only this principal".
+for role in roles/aiplatform.user roles/storage.objectViewer; do
+    gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+        --member="serviceAccount:sa-orchestrator@${PROJECT_ID}.iam.gserviceaccount.com" \
+        --role="${role}" \
+        --condition=None >/dev/null
+    echo "sa-orchestrator granted ${role}"
+done
 
 echo "Agent IAM & Workload Identity configuration complete."

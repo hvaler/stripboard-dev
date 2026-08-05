@@ -51,6 +51,13 @@ public sealed class ShootMetrics : IDisposable
         _meter.CreateObservableGauge("shoot.eighths_total", () => Read(b => (double)b.Metrics.TotalEighths),
             unit: "{eighth}", description: "Total script length scheduled, in eighths of a page.");
 
+        _meter.CreateObservableGauge("shoot.locations_per_day_max",
+            () => Read(b => (double)b.Days.Max(d => d.Locations.Count)),
+            unit: "{location}", description:
+            "Locations visited on the worst day of the shoot. Two is a move; three is a day "
+            + "spent in the van. This is the single most actionable number on the board, "
+            + "because the fix — consolidate that day — is one a 1st AD can act on.");
+
         _meter.CreateObservableGauge("shoot.risk_index", () => Read(RiskIndex),
             unit: "{index}", description:
             "Heuristic 0-100 index of how fragile the schedule is, not a probability: "
@@ -80,11 +87,24 @@ public sealed class ShootMetrics : IDisposable
         }
     }
 
-    private double Read(Func<ScheduleBoard, double> select)
+    /// <summary>
+    /// Reports nothing until a schedule exists. This used to return 0, which put
+    /// `shoot_union_violations 0` and `shoot_days_total 0` on the wire before anything had
+    /// been solved — readings that say "a clean two-day shoot" when the truth is "nobody has
+    /// scheduled anything". Alert rules read those zeros as healthy. An absent series is the
+    /// honest signal, and it is the one `noDataState` exists for.
+    /// </summary>
+    private IEnumerable<Measurement<double>> Read(Func<ScheduleBoard, double> select)
     {
+        ScheduleBoard? board;
         lock (_gate)
         {
-            return _board is null ? 0 : select(_board);
+            board = _board;
+        }
+
+        if (board is not null)
+        {
+            yield return new Measurement<double>(select(board));
         }
     }
 

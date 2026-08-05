@@ -1,0 +1,83 @@
+{
+  "folder": {
+    "uid": "stripboard",
+    "title": "Stripboard"
+  },
+  "ruleGroup": "shoot-health",
+  "interval": 60,
+  "datasourceUid": "grafanacloud-prom",
+  "comment": [
+    "Alert rules over the production metrics, not over the application (EV-29).",
+    "",
+    "Each rule carries two labels that form the contract between Grafana and the Conflict",
+    "Sentinel. stripboardTrigger says which kind of disruption to open. stripboardAction",
+    "says what to do about it, and the distinction turned out to matter: a rule about the",
+    "schedule's quality blocks no scene, so there is nothing for the replanner to absorb.",
+    "  replan       something happened — re-solve around the blocked scene-dates",
+    "  consolidate  nothing happened; the plan is poor — re-solve under a tighter cap and",
+    "               report what obeying it costs",
+    "A rule without a stripboardTrigger is one nobody can act on, so the provisioner refuses",
+    "to create it. stripboardAction defaults to replan when absent.",
+    "",
+    "Thresholds are deliberately conservative. An alert that fires constantly is one a 1st",
+    "AD learns to ignore, and an alerting system nobody reads is worse than none.",
+    "",
+    "They are also calibrated against schedules this solver actually produces, not guessed.",
+    "",
+    "shoot_risk_index is deliberately NOT alerted on, and that is a finding rather than an",
+    "omission. The first draft set it at 60; no real schedule came close, including ones the",
+    "project itself considers poor — the 14-scene demo scores 44 while running a day that",
+    "visits four locations. Lowering the threshold to 45 would have made it fire on that",
+    "schedule and taught us nothing, because a composite index cannot say what to do about",
+    "itself. It stays on the dashboard, where a number that means 'this shoot is tight' is",
+    "worth reading. Every rule below names a specific, fixable condition instead."
+  ],
+  "rules": [
+    {
+      "title": "Unit hopping between locations in a day",
+      "expr": "shoot_locations_per_day_max",
+      "op": "gt",
+      "threshold": 2,
+      "for": "5m",
+      "severity": "high",
+      "stripboardTrigger": "Manual",
+      "stripboardAction": "consolidate",
+      "summary": "At least one shooting day visits more than two locations. Each company move costs about an hour of shooting light, so a day with three or more is a day largely spent in the van.",
+      "runbook": "Re-solve with a cap of two locations per day and read what it costs in shooting days. Nothing is blocked here, so there is no disruption to absorb — only a trade to price."
+    },
+    {
+      "title": "Union violation in the committed schedule",
+      "expr": "shoot_union_violations",
+      "op": "gt",
+      "threshold": 0,
+      "for": "1m",
+      "severity": "critical",
+      "stripboardTrigger": "Manual",
+      "summary": "The committed schedule breaks a union rule. This is a legal exposure, not a preference: it must be replanned before the call sheets go out.",
+      "runbook": "Open Proposals & Approval and re-solve. UnionRulesService names the rule that was broken."
+    },
+    {
+      "title": "Cast paid to wait",
+      "expr": "min(shoot_cast_utilization)",
+      "op": "lt",
+      "threshold": 0.34,
+      "for": "10m",
+      "severity": "medium",
+      "stripboardTrigger": "Manual",
+      "summary": "At least one cast member is called on under a third of shooting days. That is a contract being paid against days not worked — the exact waste a Day Out of Days schedule exists to prevent.",
+      "runbook": "Group that actor's scenes into consecutive days, even at the cost of a company move.",
+      "note": "A ratio threshold interacts with the length of the shoot: on a two-day schedule the lowest possible non-zero utilisation is 0.5, so this cannot fire. That is intended — a two-day shoot has no idle-cast problem worth waking anyone for. It bites from four days upward, which is where the waste becomes real money."
+    },
+    {
+      "title": "Schedule cost above budget",
+      "expr": "shoot_cost_estimate_usd",
+      "op": "gt",
+      "threshold": 45000,
+      "for": "5m",
+      "severity": "high",
+      "stripboardTrigger": "Manual",
+      "summary": "The committed schedule now costs more than the budget line. The figure is the solver's estimate: crew and called cast per day, plus move and penalty costs.",
+      "runbook": "Compare against the previous committed version in the Audit Trail to see which change added the cost."
+    }
+  ]
+}

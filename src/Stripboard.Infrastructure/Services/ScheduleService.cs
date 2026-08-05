@@ -50,6 +50,7 @@ public class ScheduleService
         Guid? parentVersionId = null,
         Guid? disruptionId = null,
         bool commit = false,
+        int? maxLocationsPerDay = null,
         CancellationToken ct = default)
     {
         if (!_authorization.CanExecuteSolve(createdBy))
@@ -72,7 +73,8 @@ public class ScheduleService
             PermitWindows: new List<LocationPermitWindow>(),
             ScheduleStartDate: start,
             MaxDaysAvailable: maxDaysAvailable ?? Math.Max(scenes.Count, 10),
-            BlockedSceneDates: blocked?.ToList()
+            BlockedSceneDates: blocked?.ToList(),
+            MaxLocationsPerDay: maxLocationsPerDay
         );
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -245,13 +247,18 @@ public class ScheduleService
         string? lastLocation = null;
         foreach (var day in days)
         {
+            // Grouped by location, then by scene number within it. A day is shot that way:
+            // you finish everywhere before you move the trucks, and you do not come back.
+            // Ordering by scene number alone produced A→B→A days on the call sheet and made
+            // the company-move count charge for a journey no unit would make.
             var dayScenes = day.StripIds
                 .Select(id => strips.TryGetValue(id, out var strip) ? strip : null)
                 .Where(s => s is not null)
                 .Select(s => scenes.TryGetValue(s!.SceneId, out var scene) ? scene : null)
                 .Where(s => s is not null)
                 .Select(s => s!)
-                .OrderBy(s => s.Number)
+                .OrderBy(s => s.Location, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(s => s.Number)
                 .ToList();
 
             var castCalled = dayScenes
@@ -262,19 +269,25 @@ public class ScheduleService
                 .Select(p => p!)
                 .ToList();
 
-            // A company move is any change of location in the shooting order, including
-            // moves inside a single day. Counting only day-to-day changes would report 0
-            // moves for a day that hops between five sets, which is exactly the cost a
-            // 1st AD is trying to avoid. (The solver does not yet minimise this — EV-27.)
-            var dayLocations = dayScenes.Select(s => s.Location).ToList();
-            foreach (var location in dayLocations)
-            {
-                if (lastLocation is not null && !string.Equals(lastLocation, location, StringComparison.OrdinalIgnoreCase))
-                {
-                    companyMoves++;
-                }
-                lastLocation = location;
-            }
+            // A company move is a change of location *within* a shooting day: the unit packs
+            // up and drives while the light is burning. Counting only day-to-day changes
+            // would report 0 moves for a day that hops between five sets — the very cost a
+            // 1st AD is trying to avoid.
+            //
+            // Visiting n locations in a day costs n−1 moves, which is exactly what the
+            // solver's day-length model charges. Two things this figure used to do instead,
+            // both of which made it disagree with the model that produced the schedule:
+            //
+            //  - counting the overnight relocation, which happens between wrap and call and
+            //    costs no shooting time. It dominated the total and hid the benefit of
+            //    consolidating, because capping a day cannot remove it.
+            //  - counting every transition in script order, so an A→B→A day cost two moves
+            //    for a journey a unit would never make. The day is now ordered by location.
+            var dayLocations = dayScenes
+                .Select(s => s.Location)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            companyMoves += Math.Max(0, dayLocations.Count - 1);
 
             var isMove = previous is not null &&
                          !string.Equals(previous.LocationName, day.LocationName, StringComparison.OrdinalIgnoreCase);

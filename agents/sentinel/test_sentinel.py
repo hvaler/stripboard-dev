@@ -82,13 +82,25 @@ class TestDetectionWithoutGrafana(unittest.TestCase):
 
 
 class _FakeResponse:
+    """
+    Behaves the way `requests` does, which is the whole point: it holds bytes and decodes
+    them with whatever `encoding` currently says. requests defaults a text/* body with no
+    charset to ISO-8859-1, so a fake that stored a `str` would hide the encoding bug this
+    class exists to catch.
+    """
+
     def __init__(self, body: str, content_type: str):
-        self.text = body
+        self.content = body.encode("utf-8")
         self.headers = {"Content-Type": content_type}
+        self.encoding = None if content_type.startswith("application/") else "ISO-8859-1"
+
+    @property
+    def text(self):
+        return self.content.decode(self.encoding or "utf-8")
 
     def json(self):
         import json as _json
-        return _json.loads(self.text)
+        return _json.loads(self.content.decode("utf-8"))
 
 
 class TestSseFrameMatching(unittest.TestCase):
@@ -127,6 +139,20 @@ class TestSseFrameMatching(unittest.TestCase):
         message = GrafanaMcpClient._parse_body(_FakeResponse(body, "application/json"), expect_id=7)
 
         self.assertEqual(message["result"], {"tools": []})
+
+    def test_an_sse_body_is_read_as_utf8_not_latin1(self):
+        # Grafana sends text/event-stream with no charset, and requests then decodes it as
+        # ISO-8859-1. An em-dash came back as "â€"" and an accented cast name came back
+        # wrong — silently, because the JSON still parsed. MCP is UTF-8 by specification.
+        body = (
+            'event: message\n'
+            'data: {"jsonrpc":"2.0","id":3,"result":'
+            '{"summary":"Cast paid to wait \\u2014 Bj\\u00f6rn Andr\\u00e9sen"}}\n'
+            '\n'
+        )
+        message = GrafanaMcpClient._parse_body(_FakeResponse(body, "text/event-stream"), expect_id=3)
+
+        self.assertEqual(message["result"]["summary"], "Cast paid to wait — Björn Andrésen")
 
 
 class TestShootAnalyst(unittest.TestCase):
@@ -235,6 +261,95 @@ class TestClientRefusesToPretend(unittest.TestCase):
             client.connect()
 
 
+class _StubMcp:
+    """A connected client that answers `alerting_manage_rules` with whatever it was given."""
+
+    is_connected = True
+    server_info = {"name": "mcp-grafana", "version": "test"}
+
+    def __init__(self, rules):
+        self.rules = rules
+        self.calls = []
+
+    def call_tool(self, name, arguments=None):
+        self.calls.append((name, arguments))
+        return self.rules
+
+
+class TestReadingFiringAlerts(unittest.TestCase):
+    """
+    The direction that makes Grafana part of the system: the shoot emits metrics, Grafana
+    evaluates rules over them, and the sentinel finds out by asking over MCP.
+    """
+
+    RULES = [
+        {"uid": "a1", "title": "Union violation in the committed schedule", "state": "firing",
+         "labels": {"stripboard": "true", "severity": "critical", "stripboardTrigger": "Manual"},
+         "annotations": {"summary": "The committed schedule breaks a union rule.",
+                         "runbook": "Re-solve."},
+         "last_evaluation": "2026-08-05T08:07:40Z"},
+        {"uid": "a2", "title": "Unit hopping between locations in a day", "state": "firing",
+         "labels": {"stripboard": "true", "severity": "high", "stripboardTrigger": "Manual",
+                    "stripboardAction": "consolidate"},
+         "annotations": {"summary": "One day visits four locations.", "runbook": "Cap it at two."}},
+        {"uid": "a3", "title": "A rule someone added by hand", "state": "firing",
+         "labels": {"stripboard": "true", "severity": "medium"},
+         "annotations": {"summary": "No trigger label."}},
+    ]
+
+    def test_only_firing_rules_are_returned(self):
+        agent = ConflictSentinelAgent(_StubMcp(self.RULES))
+
+        titles = [a["title"] for a in agent.firing_alerts()]
+
+        self.assertEqual(titles, ["Union violation in the committed schedule",
+                                  "Unit hopping between locations in a day",
+                                  "A rule someone added by hand"])
+
+    def test_the_alert_carries_what_the_replanner_needs(self):
+        agent = ConflictSentinelAgent(_StubMcp(self.RULES))
+
+        alert = agent.firing_alerts()[0]
+
+        self.assertEqual(alert["trigger_type"], "Manual")
+        self.assertEqual(alert["severity"], "critical")
+        self.assertTrue(alert["actionable"])
+        self.assertIn("union rule", alert["summary"])
+
+    def test_a_quality_alert_asks_to_consolidate_rather_than_to_replan(self):
+        # This distinction is not cosmetic: a schedule-quality alert blocks no scene, so the
+        # replanner has nothing to absorb and would rightly refuse to produce options.
+        agent = ConflictSentinelAgent(_StubMcp(self.RULES))
+
+        by_title = {a["title"]: a for a in agent.firing_alerts()}
+
+        self.assertEqual(by_title["Unit hopping between locations in a day"]["action"], "consolidate")
+        self.assertEqual(by_title["Union violation in the committed schedule"]["action"], "replan")
+
+    def test_a_rule_without_a_trigger_label_is_reported_as_not_actionable(self):
+        # Reading it is fine; guessing a trigger type would replan for the wrong reason.
+        agent = ConflictSentinelAgent(_StubMcp(self.RULES))
+
+        hand_added = agent.firing_alerts()[2]
+
+        self.assertFalse(hand_added["actionable"])
+        self.assertIsNone(hand_added["trigger_type"])
+
+    def test_only_this_shoots_rules_are_asked_for(self):
+        stub = _StubMcp(self.RULES)
+
+        ConflictSentinelAgent(stub).firing_alerts()
+
+        name, arguments = stub.calls[0]
+        self.assertEqual(name, "alerting_manage_rules")
+        self.assertEqual(arguments["label_selectors"], ['{stripboard="true"}'])
+
+    def test_without_a_client_it_raises_rather_than_reporting_all_clear(self):
+        # "No alerts" and "I could not ask" must never look the same.
+        with self.assertRaises(GrafanaMcpError):
+            ConflictSentinelAgent().firing_alerts()
+
+
 @unittest.skipUnless(MCP_AVAILABLE, SKIP_REASON)
 class TestGrafanaMcpIntegration(unittest.TestCase):
     """
@@ -273,6 +388,21 @@ class TestGrafanaMcpIntegration(unittest.TestCase):
     def test_failing_tool_call_raises(self):
         with self.assertRaises(GrafanaMcpError):
             self.client.call_tool("get_dashboard_by_uid", {"uid": "does-not-exist-xyz"})
+
+    def test_the_shoots_alert_rules_are_provisioned_and_readable_over_mcp(self):
+        # infra/grafana/provision-alerts.py must have been run against this stack. Alerting
+        # on production metrics is the point of the partner track for this project, so an
+        # empty result here is a failure, not an absence.
+        rules = self.client.call_tool("alerting_manage_rules", {
+            "operation": "list", "label_selectors": ['{stripboard="true"}']})
+
+        titles = {rule["title"] for rule in rules}
+        self.assertIn("Union violation in the committed schedule", titles)
+        for rule in rules:
+            self.assertIn("stripboardTrigger", rule["labels"],
+                          f"{rule['title']} can fire but the sentinel could not act on it")
+            self.assertIn(rule["labels"].get("stripboardAction"), ("replan", "consolidate"),
+                          f"{rule['title']} asks for an action nothing knows how to take")
 
     def test_sentinel_publishes_annotations_and_they_are_readable_back(self):
         agent = ConflictSentinelAgent(self.client)

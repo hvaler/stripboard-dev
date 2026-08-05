@@ -68,7 +68,13 @@ public record ReplanOption(
     string Justification,
     ScheduleMetrics Metrics,
     CostDelta Delta,
-    bool IsFeasible
+    bool IsFeasible,
+    /// <summary>
+    /// Set when this option matched an earlier one on every figure a producer decides with.
+    /// The two schedules may still order scenes differently, but there is no trade-off left
+    /// to weigh, and presenting them as a choice implies one that does not exist.
+    /// </summary>
+    string? SameFiguresAs = null
 );
 
 /// <summary>A disruption as submitted by an operator or a watcher agent.</summary>

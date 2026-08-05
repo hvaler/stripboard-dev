@@ -1,1 +1,3 @@
+# Google Cloud AI only. ADK brings google-genai with it.
+google-adk>=2.0.0
 requests>=2.31.0

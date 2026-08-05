@@ -250,6 +250,26 @@ public class CpSatScheduleSolver : IScheduleSolver
             }
         }
 
+        // 9. Optional hard cap on how many locations a day may visit (EV-29).
+        //
+        // The objective already prices company moves, but pricing is not forbidding: a
+        // solver saving a whole shooting day will happily buy four locations to do it. A
+        // producer asking for "no more than two locations a day" is stating a constraint,
+        // and the interesting part is what it costs — which only shows up if the cap is
+        // hard and the day count is free to rise.
+        if (input.MaxLocationsPerDay is { } maxLocations && maxLocations >= 1)
+        {
+            for (int d = 0; d < numDays; d++)
+            {
+                var visited = new List<LinearExpr>();
+                for (int l = 0; l < numLocations; l++)
+                {
+                    visited.Add(atLocation[l, d]);
+                }
+                model.Add(LinearExpr.Sum(visited) <= maxLocations);
+            }
+        }
+
         // --- objective ----------------------------------------------------------------
         //
         // Strict priority: days first, then company moves, then earliness. The weights are

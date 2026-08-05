@@ -73,16 +73,43 @@ public class ScheduleServiceTests
     }
 
     [Fact]
-    public async Task GenerateAsync_CountsEveryLocationChangeAsACompanyMove()
+    public async Task GenerateAsync_CountsAMoveWhenOneDayVisitsTwoLocations()
     {
+        // Four short day scenes across two places fit inside one twelve-hour day, so the
+        // unit packs up and drives while the light is burning. That is the hour the solver
+        // charges for, and reporting zero moves for it was the original bug here.
+        using var db = NewDb();
+        db.People.Add(new Person(Holmes, "Sherlock Holmes", PersonRole.Cast, 1500m));
+        for (var i = 1; i <= 4; i++)
+        {
+            db.Scenes.Add(new Scene(Guid.NewGuid(), i, i <= 2 ? "221B BAKER STREET" : "SCOTLAND YARD",
+                IntExt.Int, DayNight.Day, 2, [Holmes], null, $"Scene {i}"));
+        }
+        await db.SaveChangesAsync();
+
+        var board = await NewService(db).GenerateAsync(AgentAuthorizationService.RoleProducer, Start);
+
+        board.Days.Should().ContainSingle("all four short scenes fit in one day");
+        board.Days[0].Locations.Should().HaveCount(2);
+        board.Metrics.CompanyMoves.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DoesNotCountAnOvernightRelocationAsACompanyMove()
+    {
+        // The seeded fixture splits day and night units, so the unit relocates between wrap
+        // and call. That costs no shooting time, and the solver's day-length model does not
+        // charge for it either. Counting it here made this figure disagree with the model
+        // that produced the schedule — and hid the benefit of consolidating a hopping day,
+        // because the number was mostly overnight travel that consolidation cannot remove.
         using var db = NewDb();
         await SeedAsync(db);
 
         var board = await NewService(db).GenerateAsync(AgentAuthorizationService.RoleProducer, Start);
 
-        // Two distinct locations appear in the shooting order, so at least one move exists.
-        // Reporting zero here is the bug this assertion exists to prevent.
-        board.Metrics.CompanyMoves.Should().BeGreaterThan(0);
+        board.Days.Should().HaveCount(2);
+        board.Days.Should().OnlyContain(d => d.Locations.Count == 1, "no day visits two places");
+        board.Metrics.CompanyMoves.Should().Be(0);
     }
 
     [Fact]

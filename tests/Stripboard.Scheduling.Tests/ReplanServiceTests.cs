@@ -145,6 +145,85 @@ public class ReplanServiceTests
     }
 
     [Fact]
+    public async Task ProposeAsync_SaysWhenTwoStrategiesReachTheSameOutcome()
+    {
+        using var db = NewDb();
+        var (_, replanner, _) = await ArrangeAsync(db);
+
+        var (_, options) = await replanner.ProposeAsync(new DisruptionRequest(
+            TriggerType.CastUnavailability, Start, 1, Holmes, null, "Holmes is ill."));
+
+        // Extending the window only permits extra days; the solver still minimises them. When
+        // the disruption is absorbed anyway, both strategies land on the same figures, and a
+        // producer asked to choose between them is being asked to decide nothing.
+        var feasible = options.Where(o => o.IsFeasible).ToList();
+        foreach (var later in feasible.Skip(1))
+        {
+            var matchesAnEarlierOption = feasible
+                .TakeWhile(o => o != later)
+                .Any(earlier => earlier.Metrics == later.Metrics);
+
+            (later.SameFiguresAs is not null).Should().Be(matchesAnEarlierOption,
+                "an option is flagged as a duplicate exactly when its figures match an earlier one");
+        }
+
+        options.First(o => o.IsFeasible).SameFiguresAs.Should().BeNull(
+            "the first option has nothing before it to duplicate");
+    }
+
+    [Fact]
+    public async Task ProposeConsolidationAsync_PricesTheCapRatherThanAbsorbingADisruption()
+    {
+        // A Grafana alert about the schedule's quality blocks no scene, so ProposeAsync has
+        // nothing to work with. What a producer wants there is the trade priced.
+        using var db = NewDb();
+        var (_, replanner, baseline) = await ConsolidatableAsync(db);
+        var worstDayBefore = baseline.Days.Max(d => d.Locations.Count);
+        worstDayBefore.Should().BeGreaterThan(2, "otherwise there is nothing to consolidate");
+
+        var (current, consolidated) = await replanner.ProposeConsolidationAsync(maxLocationsPerDay: 2);
+
+        current.VersionId.Should().Be(baseline.VersionId, "the first option is the plan as it stands");
+        current.Delta.ExtraShootDays.Should().Be(0);
+
+        consolidated.IsFeasible.Should().BeTrue();
+        consolidated.Metrics.TotalDays.Should().BeGreaterThan(baseline.Metrics.TotalDays,
+            "obeying the cap costs days, and the delta is the point of the exercise");
+        consolidated.Delta.ExtraShootDays.Should()
+            .Be(consolidated.Metrics.TotalDays - baseline.Metrics.TotalDays);
+    }
+
+    [Fact]
+    public async Task ProposeConsolidationAsync_SaysSoWhenThereIsNothingToConsolidate()
+    {
+        // Reporting "consolidated!" over a schedule that already obeys the cap would be a
+        // replan that changed nothing, dressed up as an improvement.
+        using var db = NewDb();
+        var (_, replanner, _) = await ConsolidatableAsync(db);
+
+        var act = () => replanner.ProposeConsolidationAsync(maxLocationsPerDay: 20);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    /// <summary>Twelve short scenes in twelve places: the solver packs them, so a cap bites.</summary>
+    private static async Task<(ScheduleService Schedules, ReplanService Replanner, ScheduleBoard Baseline)>
+        ConsolidatableAsync(StripboardDbContext db)
+    {
+        db.People.Add(new Person(Holmes, "Sherlock Holmes", PersonRole.Cast, 1500m));
+        for (var i = 1; i <= 12; i++)
+        {
+            db.Scenes.Add(new Scene(Guid.NewGuid(), i, $"LOCATION {i}", IntExt.Int, DayNight.Day,
+                2, [Holmes], null, $"Scene {i}"));
+        }
+        await db.SaveChangesAsync();
+
+        var schedules = new ScheduleService(db, new CpSatScheduleSolver(), new AgentAuthorizationService());
+        var baseline = await schedules.GenerateAsync(AgentAuthorizationService.RoleProducer, Start, commit: true);
+        return (schedules, new ReplanService(db, schedules), baseline);
+    }
+
+    [Fact]
     public async Task ProposeAsync_WithoutABaselineSchedule_SaysSo()
     {
         using var db = NewDb();

@@ -38,15 +38,46 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   docker push -q "${AR}/mcp-grafana:latest" >/dev/null
 fi
 
+# Deploy by digest, not by :latest.
+#
+# `gcloud run services replace` diffs the spec, and a spec that still says :latest is
+# byte-identical to the one already deployed — so Cloud Run creates no revision and keeps
+# serving the old image while this script prints "deployed". That is the worst kind of
+# deployment: a successful-looking one that changed nothing. Pinning the digest makes the
+# spec differ exactly when the image differs.
+digest_of() {
+  gcloud artifacts docker images describe "${AR}/$1:latest" \
+    --project "${PROJECT}" --format='value(image_summary.digest)'
+}
+
+SENTINEL_DIGEST="$(digest_of sentinel)"
+MCP_DIGEST="$(digest_of mcp-grafana)"
+echo "sentinel     ${SENTINEL_DIGEST}"
+echo "mcp-grafana  ${MCP_DIGEST}"
+
 echo "Deploying ${SERVICE}…"
 RENDERED="$(mktemp)"
 trap 'rm -f "${RENDERED}"' EXIT
 sed -e "s|__PROJECT__|${PROJECT}|g" \
     -e "s|__REGION__|${REGION}|g" \
     -e "s|__GRAFANA_URL__|${GRAFANA_URL}|g" \
+    -e "s|stripboard/sentinel:latest|stripboard/sentinel@${SENTINEL_DIGEST}|g" \
+    -e "s|stripboard/mcp-grafana:latest|stripboard/mcp-grafana@${MCP_DIGEST}|g" \
     "${REPO_ROOT}/infra/cloudrun/sentinel-service.yaml" > "${RENDERED}"
 
+BEFORE="$(gcloud run services describe "${SERVICE}" --project "${PROJECT}" --region "${REGION}" \
+  --format='value(status.latestCreatedRevisionName)' 2>/dev/null || true)"
+
 gcloud run services replace "${RENDERED}" --project "${PROJECT}" --region "${REGION}" --quiet
+
+AFTER="$(gcloud run services describe "${SERVICE}" --project "${PROJECT}" --region "${REGION}" \
+  --format='value(status.latestCreatedRevisionName)')"
+
+if [[ -n "${BEFORE}" && "${BEFORE}" == "${AFTER}" ]]; then
+  echo "note: no new revision (${AFTER}) — the images and spec are unchanged since the last deploy."
+else
+  echo "New revision: ${AFTER}"
+fi
 
 # Only the web app may invoke it. No allUsers binding anywhere.
 echo "Authorising ${WEB_SA} to invoke ${SERVICE}…"

@@ -1,0 +1,7 @@
+# Google Cloud AI only. ADK brings google-genai with it.
+google-adk>=2.0.0
+requests>=2.31.0
+
+# Only needed to deploy the tree to Vertex AI Agent Engine (agents/deploy_agent_engine.py).
+# Left commented because it is a large install and the orchestrator runs without it.
+# google-cloud-aiplatform[agent_engines,adk]>=1.100.0

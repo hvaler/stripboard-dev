@@ -1,0 +1,375 @@
+# Evidence
+
+The two hackathon technology requirements are pass/fail and a README reference is explicitly
+insufficient for the partner track. This file records what was actually observed at runtime,
+with the commands to reproduce it.
+
+Recorded **2026-08-05** against project `stripboard-hack` (europe-west1) and Grafana Cloud
+stack `pinkcorridor3522.grafana.net`.
+
+Every command below is one anybody can run against their own project and stack. Nothing here
+is a screenshot of something that only worked once.
+
+---
+
+## 1. Google Cloud AI — Gemini 2.5 Flash on Vertex AI
+
+### The breakdown reads a screenplay the model has never seen
+
+`demo/screenplay-nightfall.fountain` is an original 14-scene screenplay written for this
+project. It is not Sherlock Holmes, and it is not in the demo cache.
+
+```bash
+export GOOGLE_CLOUD_PROJECT=stripboard-hack
+python -m agents.breakdown --file demo/screenplay-nightfall.fountain --json
+```
+
+```
+source=gemini   model=gemini-2.5-flash   attempts=1   scenes=14
+
+ # location                          set                    I/E  D/N    8ths  cast
+ 1 SALFORD SORTING OFFICE                                   INT  NIGHT     5  Maeve Okonkwo
+ 2 SALFORD QUAYS                                            EXT  NIGHT     2  Maeve Okonkwo, Figure
+ 3 MAEVE'S FLAT                                             INT  NIGHT     2  Maeve Okonkwo
+ 4 GREATER MANCHESTER POLICE         CENTRAL                INT  DAY       6  DI Tomás Reyes, Maeve Okonkwo
+ 5 GREATER MANCHESTER POLICE         EVIDENCE STORE         INT  DAY       3  DI Tomás Reyes, Clerk
+ 6 ORDSALL PARK                                             EXT  DAY       5  DI Tomás Reyes, Dr. Priya Nair
+ 7 SALFORD SORTING OFFICE                                   INT  DAY       4  Maeve Okonkwo, DI Tomás Reyes
+ 8 SALFORD SORTING OFFICE            MANAGER'S OFFICE       INT  DAY       4  Derek Halliwell, DI Tomás Reyes
+ 9 SALFORD QUAYS                                            EXT  DAY       2  DI Tomás Reyes
+10 MAEVE'S FLAT                                             INT  NIGHT     2  Maeve Okonkwo
+11 MANCHESTER SHIP CANAL                                    EXT  NIGHT     2  DI Tomás Reyes, Maeve Okonkwo
+12 MANCHESTER SHIP CANAL             CANAL MAINTENANCE HUT  INT  NIGHT     3  Maeve Okonkwo
+13 GREATER MANCHESTER POLICE         INTERVIEW ROOM         INT  DAY       4  Derek Halliwell, DI Tomás Reyes
+14 SALFORD SORTING OFFICE                                   EXT  DAY       2  Maeve Okonkwo
+```
+
+What this shows beyond "the API answered":
+
+- **`source=gemini`, not `fallback`.** The deterministic parser is a labelled last resort and
+  the output says which one produced it (ADR-009).
+- **Location separated from set.** Scenes 8 and 12 name a set inside a location the unit
+  already travelled to. That distinction is what makes the company-move count real rather
+  than a count of scene headings (ADR-013).
+- **`attempts=1`.** The validation-retry loop did not need to correct the model.
+- **Eighths are computed, not guessed.** The model extracts; the page length is measured in
+  Python. The guiding principle at its smallest scale.
+
+Other formats, same agent — the PDF goes through Gemini multimodal:
+
+```bash
+python -m agents.breakdown --file demo/screenplay-metropole.fdx
+python -m agents.breakdown --file demo/screenplay-metropole.pdf
+```
+
+### That breakdown drives the deployed product
+
+```bash
+python -m agents.breakdown --file demo/screenplay-nightfall.fountain --json \
+  | curl -s -X POST https://stripboard-web-wc7oib7k6q-ew.a.run.app/api/breakdown/import \
+         -H 'Content-Type: application/json' --data-binary @-
+```
+
+```json
+{"scenes":14,"castCreated":6,"source":"gemini","versionNumber":1,
+ "totalDays":2,"companyMoves":6,"estimatedCostUsd":26800.0}
+```
+
+The board on screen changes because the screenplay changed. Nothing in the demo path is
+written into a `.razor` file.
+
+### Every agent is Google Cloud AI
+
+```bash
+grep -rn "anthropic\|openai\|langchain\|cohere\|mistral" --include="*.py" --include="*.txt" \
+     --include="*.csproj" --include="*.props" .
+```
+
+No matches. The dependency set across `agents/*/requirements.txt` is `google-adk`,
+`google-genai`, `pydantic`, `jsonschema`, `defusedxml` and `requests`.
+
+---
+
+## 2. Grafana partner track — the MCP server, used at runtime
+
+### Handshake and tool discovery
+
+```bash
+export GRAFANA_MCP_ENDPOINT=http://localhost:8000/mcp   # infra/grafana/run-mcp-sidecar.sh
+python -m unittest discover -s agents/sentinel -p "test_*.py"
+```
+
+```
+server: {'name': 'mcp-grafana', 'version': '(devel)'}
+tools/list -> 73 tools
+sample: add_activity_to_incident, alerting_manage_routing, alerting_manage_rules,
+        analyze_loki_labels, check_datasources_health, create_annotation, create_datasource,
+        create_folder, create_incident, create_snapshot, delete_snapshot,
+        find_error_pattern_logs, …
+```
+
+The transport is implemented in `agents/sentinel/grafana_mcp_client.py`, not imported: MCP
+Streamable HTTP over JSON-RPC 2.0, `initialize` with session negotiation,
+`notifications/initialized`, paginated `tools/list`, `tools/call`, and both JSON and SSE
+response bodies. One dependency: `requests` (ADR-010).
+
+### Four real `tools/call` results
+
+```
+list_datasources({}) ->
+  {"datasources": [
+     {"id": 6, "uid": "grafanacloud-infinity", "type": "yesoreyeram-infinity-datasource"},
+     {"id": 7, "uid": "grafanacloud-k6",       "type": "k6-datasource"},
+     {"id": 1, "uid": "grafanacloud-alert-state-history", "type": "loki"},
+     {"id": 2, "uid": "grafanacloud-cardinality-management", …}, …]}
+
+get_annotations({"limit": 3}) ->
+  {"Payload": [
+     {"id": 26, "login": "sa-1-hackaton",
+      "tags": ["stripboard","conflict-sentinel","weather-alert","high"],
+      "text": "WEATHERALERT: Weather alert (Rain, 90% rain) for EXT Scene #2 at
+               TOWER BRIDGE WHARF on 2026-08-11.",
+      "time": 1786406400000}, …]}
+
+list_prometheus_metric_names({"regex": "shoot.*"}) ->
+  ["shoot_cast_utilization", "shoot_company_moves", "shoot_cost_estimate_usd",
+   "shoot_days_total", "shoot_eighths_total", "shoot_locations_per_day_max",
+   "shoot_risk_index", "shoot_scenes_total", "shoot_union_violations"]
+
+alerting_manage_rules({"operation":"list","label_selectors":["{stripboard=\"true\"}"]}) ->
+  [{"uid":"afu8w3mck1n9cc","title":"Union violation in the committed schedule",
+    "state":"normal","folder_uid":"stripboard","rule_group":"shoot-health",
+    "labels":{"severity":"critical","stripboard":"true",
+              "stripboardTrigger":"Manual","stripboardAction":"replan"}}, …]
+```
+
+The annotation above was written **through the MCP server** by the Conflict Sentinel and read
+back attributed to the sentinel's Grafana service account — a round trip, not a log line.
+
+### The metrics are about the shoot, not the app
+
+`shoot_*` reach Grafana Cloud over OTLP from the deployed Cloud Run service. Queried live
+through the MCP server's `query_prometheus` tool:
+
+```
+shoot_days_total              2
+shoot_cost_estimate_usd       26800
+shoot_company_moves           6
+shoot_union_violations        0
+shoot_risk_index              38
+shoot_locations_per_day_max   4
+shoot_cast_utilization        {actor="Maeve Okonkwo"}   1.0
+                              {actor="DI Tomás Reyes"}  1.0
+                              {actor="Derek Halliwell"} 0.5
+                              {actor="Clerk"}           0.5
+```
+
+`shoot_cast_utilization` is the one to look at: it is money. An actor under contract who is
+called on half the shooting days is being paid against days they do not work, and it is the
+waste a Day Out of Days schedule exists to prevent.
+
+### Gemini answers from those metrics, over MCP
+
+"Ask your shoot" on the deployed Conflict Sentinel — a private Cloud Run service, so this
+needs an identity token:
+
+```bash
+TOKEN=$(gcloud auth print-identity-token)
+curl -s -X POST https://stripboard-sentinel-wc7oib7k6q-ew.a.run.app/api/ask \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"question":"Which actor am I paying without using?"}'
+```
+
+```
+answer:
+  The following actors have the lowest utilization:
+  * Clerk: 0.5
+  * Derek Halliwell: 0.5
+  * Dr. Priya Nair: 0.5
+  * Figure: 0.5
+
+tool_calls:
+  list_datasources  {"type": "prometheus"}
+  query_prometheus  {"expr": "shoot_cast_utilization", "datasourceUid": "grafanacloud-prom",
+                     "queryType": "instant", "endTime": "now"}
+```
+
+The tools were **discovered from the MCP server at runtime**, not written into the agent. The
+first turn is forced to call one and an answer with zero tool calls is refused, so a figure
+here cannot be one the model produced from memory (ADR-014).
+
+### Alert rules over those metrics, read back over MCP
+
+```bash
+python infra/grafana/provision-alerts.py
+python demo/run_alert_loop.py
+```
+
+Four rules in folder `stripboard`, group `shoot-health`, evaluating every 60s. Read back
+through the MCP server:
+
+```
+normal     Union violation in the committed schedule
+normal     Cast paid to wait
+normal     Schedule cost above budget
+firing     Unit hopping between locations in a day
+
+FIRING: Unit hopping between locations in a day | high | action=consolidate
+         At least one shooting day visits more than two locations. Each company move costs
+         about an hour of shooting light, so a day with three or more is a day largely spent
+         in the van.
+```
+
+It fires because the committed schedule genuinely has that problem —
+`shoot_locations_per_day_max` reads **4**. Three rules stay green because that schedule is
+genuinely fine on those axes. Nothing here was arranged to fire.
+
+Each rule carries two labels that make it actionable rather than decorative:
+`stripboardTrigger` (what happened) and `stripboardAction` (what to do). The provisioner
+refuses to create a rule without a trigger.
+
+This closes the loop the project is built around:
+
+```
+the shoot emits shoot_* over OTLP
+  -> Grafana Cloud evaluates the rules
+    -> the sentinel reads the firing ones back over MCP
+      -> the agents ask CP-SAT for options
+        -> a human Producer approves
+```
+
+### The whole loop, in one run
+
+`python demo/run_alert_loop.py` against the deployed service. Nobody typed a disruption:
+
+```
+[1/3] Conflict Sentinel asking Grafana which of the shoot's rules are firing...
+   -> [high] Unit hopping between locations in a day
+      At least one shooting day visits more than two locations. Each company move costs
+      about an hour of shooting light, so a day with three or more is a day largely spent
+      in the van.
+
+[2/3] Handing 'Unit hopping between locations in a day' to the agents  (action: consolidate)
+   handled by: replanner
+   tool:       line_producer -> transfer_to_agent({'agent_name': 'replanner'})
+   tool:       replanner -> consolidate_schedule({'max_locations_per_day': 2})
+
+   1. Leave it — the worst day visits 4 locations. The committed schedule as it stands:
+      2 shooting days, 6 company moves, $26,800.
+   2. Consolidate — at most 2 locations a day. Adds 2 shooting days and $2,800, and
+      removes 2 company moves.
+
+   I recommend consolidating to reduce travel time, as it cuts two company moves. The cost
+   is two extra shooting days and $2,800.
+
+[3/3] The agent tries to commit its own recommendation...
+   -> committed=False  'sa-stripboard-replanner' cannot commit a schedule.
+                       Only the Producer role may commit — agents propose, humans decide.
+```
+
+`stripboardAction: consolidate` is why the replanner reached for a different tool. Nothing is
+blocked, so there is no disruption to absorb — only a constraint to price. Both figures come
+from separate CP-SAT runs, and the last step is the one that matters: the agent asked, and the
+scheduling service said no.
+
+---
+
+## 3. The agents
+
+### Delegation, and a commit that is refused
+
+```bash
+STRIPBOARD_URL=http://localhost:5164 python demo/run_orchestrator.py
+```
+
+```
+A producer asking where the shoot stands
+  > What does the shooting schedule look like right now?
+  handled by: scheduler
+  tool:       line_producer -> transfer_to_agent({'agent_name': 'scheduler'})
+  tool:       scheduler -> get_schedule({})
+
+  The shooting schedule is 3 days long. There are 2 day units and 1 night unit.
+  There are 8 company moves. The estimated cost is 41600 USD. There are no union violations.
+
+A disruption arriving mid-shoot
+  > Sherlock Holmes has called in sick and is unavailable for 1 day from 2026-08-10.
+  handled by: replanner
+  tool:       line_producer -> transfer_to_agent({'agent_name': 'replanner'})
+  tool:       replanner -> propose_replan({'trigger_type': 'CastUnavailability',
+                'person_name': 'Sherlock Holmes', 'start_date': '2026-08-10',
+                'duration_days': 1, 'description': 'Sherlock Holmes sick'})
+
+  Option A — absorb within the existing window: 3 shooting days, 8 company moves,
+  0 union violations, $40,100 — $1,500 less than the original plan.
+  Option B — extend the schedule: the same outcome as Option A.
+  I recommend Option A.
+
+An agent trying to commit, which it must not be able to do
+  > Commit schedule version 4e43f904-…. My identity is sa-stripboard-replanner.
+  handled by: governance
+  tool:       line_producer -> transfer_to_agent({'agent_name': 'governance'})
+  tool:       governance -> commit_schedule({'version_id': '4e43f904-…',
+                                             'identity': 'sa-stripboard-replanner'})
+
+  The commit was refused because 'sa-stripboard-replanner' cannot commit a schedule.
+  Only the Producer role may commit. Agents can propose, but humans decide.
+```
+
+Three things worth reading twice:
+
+- **The root agent has no tools.** It routed all three and answered none of them. Every figure
+  above came from a specialist that called something.
+- **Every number is traceable.** `$40,100` and `−$1,500` are the difference between two solved
+  CP-SAT schedules, not an estimate. The replanner has no arithmetic available to it.
+- **The commit was attempted and refused with HTTP 403.** The governance agent *has* the tool.
+  The check lives in `ScheduleService.CommitAsync`, behind the HTTP boundary, where no prompt
+  can reach it. A rule that has never been tested by being broken is not a rule.
+
+---
+
+## 4. Reproducing all of it
+
+```bash
+# .NET: solver, domain rules, service contracts, telemetry, scheduling
+dotnet test Stripboard.slnx                       # 60 tests
+
+# Python agents. The Gemini and Grafana tests make real calls and FAIL — not skip —
+# when the service is configured but broken.
+python -m unittest discover -s agents/breakdown    -p "test_*.py"   # 25
+python -m unittest discover -s agents/sentinel     -p "test_*.py"   # 27
+python -m unittest discover -s agents/replanner    -p "test_*.py"   # 12
+python -m unittest discover -s agents/orchestrator -p "test_*.py"   # 10
+```
+
+| Surface | Command | Needs |
+|---|---|---|
+| Gemini breakdown | `python -m agents.breakdown --file demo/screenplay-nightfall.fountain -v` | ADC + `GOOGLE_CLOUD_PROJECT` |
+| Grafana MCP | `python -m unittest discover -s agents/sentinel -p "test_*.py"` | sidecar + `glsa_` token |
+| Alert rules | `python infra/grafana/provision-alerts.py` | `GRAFANA_URL` + `glsa_` token |
+| Alert-driven replan | `python demo/run_alert_loop.py` | both of the above |
+| Orchestration | `python demo/run_orchestrator.py` | `STRIPBOARD_URL` |
+| Consolidation trade | `curl -X POST $STRIPBOARD_URL/api/schedule/consolidate -H 'Content-Type: application/json' -d '{"maxLocationsPerDay":2}'` | a running service |
+| Hosted product | <https://stripboard-web-wc7oib7k6q-ew.a.run.app> | a browser |
+
+## 5. Cost posture while waiting on hackathon credits
+
+The two services that cost money when nobody is using them are the always-on web instance
+(a vCPU that never throttles) and the Cloud SQL instance. Commands to stop and restart both are
+in the README under **Stopping the paid services**.
+
+Stopping the database is safe in the sense that matters: the app still starts, `/api/health`
+answers 503 naming the database as the reason, and the data is preserved in the stopped
+instance. It used to crash-loop instead, which is why this is written down.
+
+Restart both and confirm `/api/health` reports a committed schedule before recording anything.
+
+## 6. What this file does not claim
+
+- The four `Stripboard.Mcp.*` services are REST endpoints under an `/mcp/` path. They do not
+  speak MCP. Stripboard is an MCP **client**, not a server (EV-23).
+- The orchestrator has not been deployed to Vertex AI Agent Engine.
+  `agents/deploy_agent_engine.py` is written and passes its own preflight; it has not been
+  run, because Agent Engine is a billed resource (EV-26).
+- Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol.
+- No mutation testing is configured.

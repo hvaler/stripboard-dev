@@ -59,6 +59,59 @@ class ConflictSentinelAgent:
             "alert_rules": self.grafana.call_tool("alerting_manage_rules", {"operation": "list"}),
         }
 
+    def firing_alerts(self) -> List[Dict[str, Any]]:
+        """
+        Read the shoot's own alert rules back from Grafana over MCP and return the ones that
+        are firing (EV-29).
+
+        This is the direction that makes Grafana part of the system rather than a place the
+        system writes to: the production emits `shoot_*` metrics, Grafana evaluates rules
+        over them (infra/grafana/alert-rules.json), and the sentinel finds out by asking.
+
+        Two labels form the contract. `stripboardTrigger` says what happened;
+        `stripboardAction` says what to do about it, and the two are not the same — a rule
+        about the schedule's *quality* blocks no scene, so there is nothing to absorb and the
+        replanner would rightly refuse. A rule that fires without a trigger can be read but
+        not acted on, and it is reported that way rather than guessed at.
+        """
+        if not self.can_publish:
+            raise GrafanaMcpError("No connected Grafana MCP client.")
+
+        rules = self.grafana.call_tool("alerting_manage_rules", {
+            "operation": "list",
+            "label_selectors": ['{stripboard="true"}'],
+        }) or []
+
+        if isinstance(rules, dict):
+            rules = rules.get("rules") or rules.get("data") or []
+
+        alerts = []
+        for rule in rules:
+            if not isinstance(rule, dict) or rule.get("state") != "firing":
+                continue
+
+            labels = rule.get("labels") or {}
+            annotations = rule.get("annotations") or {}
+            alerts.append({
+                "rule_uid": rule.get("uid"),
+                "title": rule.get("title"),
+                "severity": labels.get("severity", "unknown"),
+                "trigger_type": labels.get("stripboardTrigger"),
+                # What to do, which is not the same as what happened. A rule about the
+                # schedule's quality blocks no scene, so there is nothing for the replanner
+                # to absorb — it needs a tighter constraint priced instead.
+                "action": labels.get("stripboardAction", "replan"),
+                "summary": annotations.get("summary", ""),
+                "runbook": annotations.get("runbook", ""),
+                "last_evaluation": rule.get("last_evaluation"),
+                # Without a trigger type there is nothing to hand the replanner, so say so
+                # rather than defaulting to one and replanning for the wrong reason.
+                "actionable": bool(labels.get("stripboardTrigger")),
+            })
+
+        logger.info("%d Grafana alert rule(s) firing for this shoot.", len(alerts))
+        return alerts
+
     def inspect_schedule_disruptions(
         self,
         schedule_scenes: List[Dict[str, Any]],

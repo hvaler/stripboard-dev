@@ -31,25 +31,40 @@ else if (loadError is not null)
         <button class="btn btn-outline-danger btn-sm" @onclick="LoadAsync">Retry</button>
     </div>
 }
-else if (disruption is null || options.Count == 0)
+else if (options.Count == 0)
 {
     <div class="alert alert-info">
         <h5 class="alert-heading fw-bold">Nothing to decide</h5>
         <p class="mb-0">
             No disruption has been raised yet, so there are no alternative schedules to compare.
-            <a href="inject-disruption">Inject a disruption</a> to generate options.
+            <a href="inject-disruption">Inject a disruption</a> to generate options, or ask
+            below what tightening the schedule would cost.
         </p>
     </div>
+    @ConsolidatePanel
 }
 else
 {
-    <div class="alert alert-warning">
-        <strong>Disruption:</strong> @disruption.Description
-        <div class="small text-muted mt-1">
-            @disruption.TriggerType · raised @disruption.Timestamp.ToString("yyyy-MM-dd HH:mm") UTC
-            · expected duration @disruption.ExpectedDurationDays day(s)
+    @if (disruption is not null && !isConsolidation)
+    {
+        <div class="alert alert-warning">
+            <strong>Disruption:</strong> @disruption.Description
+            <div class="small text-muted mt-1">
+                @disruption.TriggerType · raised @disruption.Timestamp.ToString("yyyy-MM-dd HH:mm") UTC
+                · expected duration @disruption.ExpectedDurationDays day(s)
+            </div>
         </div>
-    </div>
+    }
+    else if (isConsolidation)
+    {
+        <div class="alert alert-secondary">
+            <strong>No disruption — this is a trade, not a recovery.</strong>
+            <div class="small mt-1">
+                Nothing is blocked. These options price what capping the shooting day at
+                @consolidateCap location(s) would cost.
+            </div>
+        </div>
+    }
 
     <div class="d-flex align-items-center gap-3 mb-3 p-3 border rounded bg-light">
         <label class="fw-semibold mb-0">Acting as:</label>
@@ -85,6 +100,14 @@ else
                     </div>
                     <div class="card-body">
                         <p class="card-text text-secondary">@option.Justification</p>
+
+                        @if (option.SameFiguresAs is { } twin)
+                        {
+                            <div class="alert alert-secondary py-2 small mb-3">
+                                Same outcome as <strong>@twin</strong> on every figure below —
+                                this is not a second choice.
+                            </div>
+                        }
 
                         @if (option.IsFeasible)
                         {
@@ -125,9 +148,40 @@ else
             </div>
         }
     </div>
+
+    @ConsolidatePanel
 }
 
+@* A Grafana alert about the schedule's quality blocks no scene, so there is no disruption to
+   absorb — only a constraint to price. This is that path, on screen. *@
 @code {
+    private RenderFragment ConsolidatePanel => @<div class="card mt-4 border-secondary">
+        <div class="card-header bg-secondary text-white fw-bold">
+            🗺️ Too many locations in a day?
+        </div>
+        <div class="card-body">
+            <p class="text-secondary mb-3">
+                Nothing has to have gone wrong for a schedule to be poor. Cap the shooting day
+                and the solver will re-solve under that constraint — the extra days it needs
+                are what obeying it costs.
+            </p>
+            <div class="d-flex align-items-center gap-3">
+                <label class="fw-semibold mb-0">At most</label>
+                <input type="number" class="form-control w-auto" min="1" max="10"
+                       @bind="consolidateCap" disabled="@isConsolidating" />
+                <span>location(s) per day</span>
+                <button class="btn btn-outline-secondary fw-bold"
+                        @onclick="ConsolidateAsync" disabled="@isConsolidating">
+                    @(isConsolidating ? "Solving…" : "Price it")
+                </button>
+            </div>
+            @if (consolidateError is not null)
+            {
+                <div class="alert alert-warning mt-3 mb-0">@consolidateError</div>
+            }
+        </div>
+    </div>;
+
     private static readonly System.Globalization.CultureInfo Culture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
 
     private Disruption? disruption;
@@ -139,6 +193,11 @@ else
     private string? loadError;
     private string? commitError;
     private string? commitMessage;
+
+    private int consolidateCap = 2;
+    private bool isConsolidating;
+    private bool isConsolidation;
+    private string? consolidateError;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -153,6 +212,7 @@ else
             var (raised, proposals) = await Replanner.GetLatestProposalsAsync();
             disruption = raised;
             options = proposals;
+            isConsolidation = false;
         }
         catch (Exception ex)
         {
@@ -161,6 +221,32 @@ else
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task ConsolidateAsync()
+    {
+        isConsolidating = true;
+        consolidateError = null;
+        commitMessage = null;
+        commitError = null;
+        StateHasChanged();
+
+        try
+        {
+            var (current, consolidated) = await Replanner.ProposeConsolidationAsync(consolidateCap);
+            options = new[] { current, consolidated };
+            isConsolidation = true;
+        }
+        catch (Exception ex)
+        {
+            // "No day visits more than N locations already" is a real answer, and a better
+            // one than a re-solve that changed nothing dressed up as an improvement.
+            consolidateError = ex.Message;
+        }
+        finally
+        {
+            isConsolidating = false;
         }
     }
 

@@ -230,6 +230,12 @@ class GrafanaMcpClient:
             except ValueError as exc:
                 raise GrafanaMcpError(f"Malformed MCP response body: {response.text[:300]}") from exc
 
+        # requests falls back to ISO-8859-1 for a text/* body with no charset, which is what
+        # Grafana sends. Reading UTF-8 bytes that way turns every em-dash and accented name
+        # into mojibake ("â€"" for "—"), and the damage is silent: the JSON still parses, so
+        # it surfaces as corrupted text in an answer rather than as an error. MCP is UTF-8.
+        response.encoding = "utf-8"
+
         seen_ids = []
         for line in response.text.splitlines():
             if not line.startswith("data:"):

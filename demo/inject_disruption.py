@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 
@@ -31,10 +32,11 @@ def run_disruption_pipeline():
     1. Injects actor unavailability (Sherlock Holmes on 2026-08-10).
     2. Conflict Sentinel detects the anomaly (deterministic rules) and publishes it to
        Grafana as an annotation over MCP, when GRAFANA_MCP_ENDPOINT is set.
-    3. Replanner returns its two hardcoded proposals.
+    3. The replanner agent (Google ADK) asks the scheduling service for alternatives
+       and explains the options the CP-SAT solver returned.
 
-    Scene/cast data is still mock, the solver is not invoked and nothing is persisted:
-    see EV-21 and EV-24.
+    Scene/cast data here is mock; the replan figures are not — they come from the CP-SAT
+    solver behind STRIPBOARD_URL, which must be running.
     """
     sys.stdout.reconfigure(encoding='utf-8')
     print("=" * 60)
@@ -48,7 +50,7 @@ def run_disruption_pipeline():
     else:
         print("Grafana MCP: not configured — disruptions will NOT be published.")
         print("             set GRAFANA_MCP_ENDPOINT to publish for real.")
-    print("NOTE: scene data is mock; the solver and persistence are not wired yet.")
+    print("NOTE: the scene fixtures below are mock; the replan figures come from CP-SAT.")
 
     sentinel = ConflictSentinelAgent(grafana)
     replanner = ReplannerAgent()
@@ -71,7 +73,7 @@ def run_disruption_pipeline():
         "TOWER BRIDGE WHARF": {"condition": "Rain", "precipitation_probability": 90}
     }
 
-    print("\n[1/3] Conflict Sentinel inspecting schedule integrity...")
+    print("\n[1/2] Conflict Sentinel inspecting schedule integrity...")
     disruptions = sentinel.inspect_schedule_disruptions(mock_scenes, mock_availabilities, mock_permits, mock_weather)
     print(f"   -> Detected {len(disruptions)} disruption(s)!")
     for d in disruptions:
@@ -80,27 +82,34 @@ def run_disruption_pipeline():
         print(f"      • [{d['trigger_type']}] {d['description']}")
         print(f"        -> {published}")
 
-    print("\n[2/3] Replanner Agent formulating alternative options...")
-    proposals = replanner.generate_replan_proposals(disruptions[0], mock_scenes)
-    print(f"   -> Generated {len(proposals)} proposal options for Producer review:")
-    for prop in proposals:
-        print(f"\n   📋 {prop['title']}")
-        print(f"      • Extra Shoot Days: {prop['cost_deltas']['extra_shoot_days']}")
-        print(f"      • Cost Delta: +${prop['cost_deltas']['estimated_cost_delta_usd']:.2f}")
-        print(f"      • Justification: {prop['justification']}")
+    print("\n[2/2] Replanner agent (ADK) asking the solver for alternatives...")
+    result = asyncio.run(replanner.replan_async(
+        f"{disruptions[0]['description']} What are my options?"))
 
-    print("\n[3/3] Draft version registration (STUB — mcp-schedule is not contacted)...")
-    for prop in proposals:
-        res = replanner.register_draft_proposal(prop)
-        print(f"   -> Version {prop['proposal_id'][:8]} would be registered as: {res['version_status']}")
+    if result.tool_calls:
+        print(f"   -> {result.tool_calls[0]['name']}({result.tool_calls[0]['arguments']})")
+        print(f"   -> CP-SAT returned {len(result.options)} option(s):")
+        for option in result.options:
+            print(f"\n   📋 {option.get('title')}")
+            if not option.get("isFeasible"):
+                # No schedule exists for this strategy, so it has no metrics to show.
+                print(f"      • INFEASIBLE — {option.get('justification')}")
+                continue
+            delta = option.get("delta") or {}
+            print(f"      • Days:  {option.get('days')} ({delta.get('extraShootDays', 0):+d})")
+            print(f"      • Cost:  ${option.get('costUsd')}  (delta ${delta.get('costDeltaUsd', 0):+})")
+            print(f"      • Moves: {option.get('companyMoves')}  ·  "
+                  f"union violations: {option.get('unionViolations')}")
+    else:
+        print("   -> No solver run, so no plan.")
+
+    print("\n" + "-" * 60)
+    print(result.text)
 
     published = sum(1 for d in disruptions if d["published"])
     print("\n" + "=" * 60)
-    if published:
-        print(f"PIPELINE COMPLETED — {published} disruption(s) published to Grafana over MCP.")
-        print("Replan proposals are still stubbed (EV-24).")
-    else:
-        print("PIPELINE COMPLETED — nothing was published to Grafana.")
+    print(f"PIPELINE COMPLETED — {published} disruption(s) published to Grafana over MCP; "
+          f"{len(result.options)} replan option(s) computed by CP-SAT.")
     print("=" * 60)
 
     if grafana:

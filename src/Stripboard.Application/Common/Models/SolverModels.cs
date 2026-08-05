@@ -23,7 +23,15 @@ public record SolverInput(
     int MaxDaysAvailable = 10,
     int MaxHoursPerDay = 12,
     double MinimumTurnaroundHours = 12.0,
-    List<BlockedSceneDate>? BlockedSceneDates = null
+    List<BlockedSceneDate>? BlockedSceneDates = null,
+    /// <summary>
+    /// Hard cap on locations a single day may visit. The objective already discourages
+    /// moves; this forbids them, which is what a producer means by "stop putting four
+    /// locations in one day" — and it is the constraint that makes the trade-off visible,
+    /// because obeying it costs shooting days and the solver reports how many.
+    /// Null leaves the day length as the only limit.
+    /// </summary>
+    int? MaxLocationsPerDay = null
 );
 
 public record ScheduledDayResult(
