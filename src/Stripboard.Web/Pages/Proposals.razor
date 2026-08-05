@@ -8,7 +8,7 @@
 
 <PageTitle>Proposals &amp; Approval — Stripboard</PageTitle>
 
-<h1 class="mb-3">⚖️ Re-planning Proposals &amp; Governance</h1>
+<h1 class="mb-3">Re-planning proposals</h1>
 
 <p class="text-muted">
     Each option is a separate CP-SAT run under different constraints. The deltas below are the
@@ -112,7 +112,7 @@ else
                         @if (option.IsFeasible)
                         {
                             <hr />
-                            <h6>📊 Cost &amp; impact deltas</h6>
+                            <h6 class="label mb-2">Cost and impact deltas</h6>
                             <ul class="list-group list-group-flush mb-3">
                                 <li class="list-group-item d-flex justify-content-between">
                                     <span>Shoot days</span>
@@ -141,7 +141,7 @@ else
                         <button class="btn btn-primary w-100 fw-bold"
                                 @onclick="() => CommitAsync(option)"
                                 disabled="@(isCommitting || !option.IsFeasible)">
-                            ✓ Approve @option.Title
+                            Approve @option.Title
                         </button>
                     </div>
                 </div>
@@ -157,7 +157,7 @@ else
 @code {
     private RenderFragment ConsolidatePanel => @<div class="card mt-4 border-secondary">
         <div class="card-header bg-secondary text-white fw-bold">
-            🗺️ Too many locations in a day?
+            Too many locations in a day?
         </div>
         <div class="card-body">
             <p class="text-secondary mb-3">

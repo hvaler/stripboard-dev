@@ -6,17 +6,18 @@
 
 <PageTitle>Stripboard — Autonomous Line Producer</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4 pb-3 border-bottom">
     <div>
-        <h1 class="display-6 fw-bold mb-0">🎬 Shooting Stripboard</h1>
-        <p class="text-muted mb-0">
-            Schedule computed by the Google OR-Tools CP-SAT solver; union rules validated by the domain layer.
+        <h1 class="mb-1">Shooting stripboard</h1>
+        <p class="page-intro mb-0">
+            Computed by the Google OR-Tools CP-SAT solver. Union rules are enforced by the
+            domain layer, not by a prompt.
         </p>
     </div>
     <div class="d-flex gap-2">
-        <a class="btn btn-danger fw-bold" href="inject-disruption">⚡ Inject Disruption</a>
-        <a class="btn btn-primary fw-bold" href="proposals">⚖️ Proposals</a>
-        <a class="btn btn-secondary fw-bold" href="callsheets">📋 Call Sheets</a>
+        <a class="btn btn-danger" href="inject-disruption">Inject disruption</a>
+        <a class="btn btn-primary" href="proposals">Proposals</a>
+        <a class="btn btn-secondary" href="callsheets">Call sheets</a>
     </div>
 </div>
 
@@ -50,45 +51,39 @@ else if (board is null || board.Days.Count == 0)
 }
 else
 {
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white shadow-sm">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-1 opacity-75">Total Shoot Days</h6>
-                    <h2 class="card-title fw-bold mb-0">@board.Metrics.TotalDays days</h2>
-                </div>
+    var worstDay = board.Days.Count == 0 ? 0 : board.Days.Max(d => d.Locations.Count);
+
+    <div class="figures">
+        <div class="figure">
+            <div class="figure-label">Shooting days</div>
+            <div class="figure-value">@board.Metrics.TotalDays</div>
+            <div class="figure-note">@board.Metrics.TotalEighths eighths scheduled</div>
+        </div>
+        <div class="figure @(board.Metrics.UnionViolations == 0 ? "is-good" : "is-danger")">
+            <div class="figure-label">Union rules</div>
+            <div class="figure-value">
+                @(board.Metrics.UnionViolations == 0 ? "Clean" : board.Metrics.UnionViolations.ToString())
+            </div>
+            <div class="figure-note">
+                @(board.Metrics.UnionViolations == 0
+                    ? "Turnaround holds by construction"
+                    : "violation(s) — this is legal exposure")
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card @(board.Metrics.UnionViolations == 0 ? "bg-success" : "bg-danger") text-white shadow-sm">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-1 opacity-75">Union Rule Status</h6>
-                    <h2 class="card-title fw-bold mb-0">
-                        @(board.Metrics.UnionViolations == 0 ? "Compliant" : $"{board.Metrics.UnionViolations} violation(s)")
-                    </h2>
-                </div>
-            </div>
+        <div class="figure @(worstDay > 2 ? "is-warn" : "")">
+            <div class="figure-label">Company moves</div>
+            <div class="figure-value">@board.Metrics.CompanyMoves</div>
+            <div class="figure-note">worst day visits @worstDay location@(worstDay == 1 ? "" : "s")</div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white shadow-sm">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-1 opacity-75">Company Moves</h6>
-                    <h2 class="card-title fw-bold mb-0">@board.Metrics.CompanyMoves moves</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-dark text-white shadow-sm">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-1 opacity-75">Estimated Cost</h6>
-                    <h2 class="card-title fw-bold mb-0">@board.Metrics.EstimatedCostUsd.ToString("C0", Culture)</h2>
-                </div>
-            </div>
+        <div class="figure is-accent">
+            <div class="figure-label">Estimated cost</div>
+            <div class="figure-value">@board.Metrics.EstimatedCostUsd.ToString("C0", Culture)</div>
+            <div class="figure-note">crew and called cast, moves and penalties</div>
         </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-end mb-3">
-        <h4 class="fw-bold mb-0">📅 Master Schedule</h4>
+        <h4 class="mb-0">Master schedule</h4>
         <span class="text-muted small">
             Version <strong>v@(board.VersionNumber)</strong>
             @if (board.IsCommitted)
@@ -117,57 +112,82 @@ else
         </div>
     }
 
-    <div class="table-responsive shadow-sm rounded border">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th style="width: 90px;">Day</th>
-                    <th style="width: 80px;">Scene</th>
-                    <th style="width: 130px;">Type</th>
-                    <th>Location &amp; Setting</th>
-                    <th>Cast</th>
-                    <th style="width: 90px;">Pages</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var day in board.Days)
-                {
-                    <tr class="table-secondary fw-bold">
-                        <td colspan="6">
-                            📆 DAY @day.DayNumber — @day.Date.ToString("dddd, MMM d, yyyy", Culture)
-                            (Call @day.CallTime.ToString("HH:mm") · Wrap @day.WrapTime.ToString("HH:mm"))
-                            @if (day.Locations.Count > 1)
-                            {
-                                <span class="badge bg-info text-dark ms-2">@day.Locations.Count locations</span>
-                            }
-                            @if (day.DayNumber > 1)
-                            {
-                                <span class="badge @(day.TurnaroundHoursFromPreviousDay >= 12 ? "bg-success" : "bg-danger") ms-1">
-                                    @day.TurnaroundHoursFromPreviousDay.ToString("0.#")h turnaround
-                                </span>
-                            }
-                        </td>
-                    </tr>
-                    @foreach (var scene in day.Scenes)
-                    {
-                        <tr class="@RowClass(scene)">
-                            <td class="fw-bold text-center">Day @day.DayNumber</td>
-                            <td><span class="badge bg-dark">#@scene.Number</span></td>
-                            <td><span class="badge @BadgeClass(scene)">@Label(scene)</span></td>
-                            <td>
-                                <strong>@scene.SetLocation</strong>
-                                <div class="small text-muted">@scene.Synopsis</div>
-                            </td>
-                            <td>@(scene.Cast.Count == 0 ? "—" : string.Join(", ", scene.Cast))</td>
-                            <td>@scene.Eighths/8</td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
+    @* The colour code every 1st AD reads without thinking. Spelled out, because a code
+       nobody can decipher is decoration. *@
+    <div class="legend">
+        <span><i class="int-day"></i> Int · Day</span>
+        <span><i class="ext-day"></i> Ext · Day</span>
+        <span><i class="int-night"></i> Int · Night</span>
+        <span><i class="ext-night"></i> Ext · Night</span>
     </div>
 
-    <p class="text-muted small mt-2 mb-0">@board.SolverMessage</p>
+    <div class="board">
+        @foreach (var day in board.Days)
+        {
+            var isNight = day.CallTime.Hour >= 12;
+            <section class="shoot-day">
+                <header class="day-header">
+                    <span class="day-number">Day @day.DayNumber</span>
+                    <span class="day-date">@day.Date.ToString("ddd d MMM yyyy", Culture)</span>
+                    <span class="unit-badge @(isNight ? "is-night" : "is-day")">
+                        @(isNight ? "Night unit" : "Day unit")
+                    </span>
+                    <div class="day-meta">
+                        <span>Call <b>@day.CallTime.ToString("HH:mm")</b></span>
+                        <span>Wrap <b>@day.WrapTime.ToString("HH:mm")</b></span>
+                        @if (day.DayNumber > 1)
+                        {
+                            <span>
+                                Turnaround
+                                <b style="color: @(day.TurnaroundHoursFromPreviousDay >= 12 ? "var(--ext-night)" : "var(--danger)")">
+                                    @* With no culture this renders "20,5h" on a Spanish machine
+                                       and "20.5h" on an English one — the same page reading
+                                       differently depending on where the container happens to
+                                       run. The fourth locale-default bug in this project. *@
+                                    @day.TurnaroundHoursFromPreviousDay.ToString("0.#", Culture)h
+                                </b>
+                            </span>
+                        }
+                        <span><b>@day.Scenes.Sum(s => s.Eighths)/8</b> pages</span>
+                    </div>
+                </header>
+
+                @foreach (var scene in day.Scenes)
+                {
+                    <div class="strip @StripClass(scene)">
+                        <div class="strip-colour"></div>
+                        <div class="strip-scene">@scene.Number</div>
+                        <div class="strip-where">
+                            <div class="strip-location">
+                                @LocationOf(scene)@if (SetOf(scene) is { } set)
+                                {
+                                    <span class="strip-set"> · @set</span>
+                                }
+                            </div>
+                            <div class="strip-detail">
+                                @(scene.Cast.Count == 0 ? scene.Synopsis : string.Join(", ", scene.Cast))
+                            </div>
+                        </div>
+                        <div class="strip-right">
+                            <span class="strip-type">@Label(scene)</span>
+                            <span class="strip-eighths">@scene.Eighths/8</span>
+                        </div>
+                    </div>
+                }
+
+                @if (day.Locations.Count > 2)
+                {
+                    <div class="day-warning">
+                        @day.Locations.Count locations in one day —
+                        @(day.Locations.Count - 1) company move@(day.Locations.Count == 2 ? "" : "s"),
+                        roughly that many hours of light spent moving the unit.
+                    </div>
+                }
+            </section>
+        }
+    </div>
+
+    <p class="text-muted small mt-3 mb-0">@board.SolverMessage</p>
 }
 
 @code {
@@ -199,19 +219,38 @@ else
         }
     }
 
-    private static string RowClass(BoardScene scene) => scene.DayNight switch
+    /// <summary>
+    /// The industry strip colour: white INT DAY, yellow EXT DAY, blue INT NIGHT, green EXT
+    /// NIGHT. Dusk and dawn take the night colours, because magic hour is planned against
+    /// fading light rather than against a lunch break.
+    /// </summary>
+    private static string StripClass(BoardScene scene)
     {
-        DayNight.Night => "table-info",
-        DayNight.Dusk or DayNight.Dawn => "table-light",
-        _ => scene.IntExt == IntExt.Ext ? "table-success" : "table-warning",
-    };
+        var night = scene.DayNight is DayNight.Night or DayNight.Dusk or DayNight.Dawn;
+        var exterior = scene.IntExt is IntExt.Ext or IntExt.IntExt;
 
-    private static string BadgeClass(BoardScene scene) => scene.DayNight switch
+        return (night, exterior) switch
+        {
+            (true, true) => "ext-night",
+            (true, false) => "int-night",
+            (false, true) => "ext-day",
+            _ => "int-day",
+        };
+    }
+
+    // The board separates the place the trucks park from the set inside it, because moving
+    // between two rooms of one building is not a company move (ADR-013).
+    private static string LocationOf(BoardScene scene) => Split(scene.SetLocation).Location;
+
+    private static string? SetOf(BoardScene scene) => Split(scene.SetLocation).Set;
+
+    private static (string Location, string? Set) Split(string setLocation)
     {
-        DayNight.Night => "bg-primary",
-        DayNight.Dusk or DayNight.Dawn => "bg-secondary",
-        _ => scene.IntExt == IntExt.Ext ? "bg-success" : "bg-warning text-dark",
-    };
+        var separator = setLocation.IndexOf('/');
+        return separator > 0
+            ? (setLocation[..separator].TrimEnd(), setLocation[(separator + 1)..].TrimStart())
+            : (setLocation, null);
+    }
 
     private static string Label(BoardScene scene)
     {
