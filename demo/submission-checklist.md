@@ -212,6 +212,10 @@ Four criteria, 25% each.
   body is a claim, and a claim cannot commit (ADR-020).
 - Grafana is a participant rather than a destination: rules over the shoot's own metrics
   fire, and the sentinel reads them back over MCP to start a replan.
+- Least privilege that Google enforces, not just the application: one service account per
+  agent, four of them holding **no project role at all**, `sa-sentinel` unable to reach the
+  database, and both deployed services running as their own identity. One `gcloud` command
+  proves it (`docs/EVIDENCE.md` §8).
 - Stripboard is an MCP **server** as well as a client — four of them, official SDK, with 33
   contract tests that drive the protocol rather than the classes behind it (ADR-021).
 - The union rules are verified by mutation testing: 100%, 21 mutants killed, 0 survived. It
@@ -221,9 +225,10 @@ Four criteria, 25% each.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 
 **Do not claim:** Vertex AI Agent Engine deployment (the script exists and has not been
-run), the A2A wire protocol (agents coordinate through ADK sub-agent transfer), per-agent
-IAM enforced by Google (the accounts exist; the commit rule is enforced in the application),
-or that the four MCP servers are deployed (they run locally and speak the protocol).
+run), the A2A wire protocol (agents coordinate through ADK sub-agent transfer), that the
+four MCP servers are deployed (they run locally and speak the protocol), or Workload Identity
+— the Python agents run locally under a developer's credentials, not as their service
+accounts, which is what EV-26 would change.
 
 ---
 

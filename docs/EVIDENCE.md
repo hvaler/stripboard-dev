@@ -464,7 +464,48 @@ indistinguishable). The wider domain layer scores 43% and that figure is recorde
 [ADR-022](../adr/ADR-022-mutation-testing-the-union-rules.md) rather than hidden — those are
 constructors, and pointing the tool at them would measure nothing.
 
-## 8. What this file does not claim
+## 8. Least privilege, as Google sees it
+
+`infra/iam/setup-agent-iam.sh` creates one service account per agent. What each one is
+actually allowed to do, straight from the project's IAM policy:
+
+```bash
+gcloud projects get-iam-policy stripboard-hack \
+  --flatten='bindings[].members' --filter='bindings.members:sa-' \
+  --format='table(bindings.members,bindings.role)'
+```
+
+| Service account | Project roles | What that means |
+|---|---|---|
+| `sa-breakdown` | *(none)* | Exists and can do nothing |
+| `sa-scheduler` | *(none)* | Exists and can do nothing |
+| `sa-replanner` | *(none)* | Exists and can do nothing |
+| `sa-callsheets` | *(none)* | Exists and can do nothing |
+| `sa-sentinel` | `aiplatform.user`, `logging.logWriter` | Can call Gemini and write logs. **No `cloudsql.client`** — it cannot reach the database |
+| `sa-orchestrator` | `aiplatform.user`, `storage.objectViewer` | Can call Gemini and read the Agent Engine staging bucket. Nothing else |
+| `sa-stripboard-web` | `cloudsql.client` | The **only** identity that can reach the database |
+
+The four empty rows are the point. An agent with no bindings is not restrained by a prompt or
+by an application check — Google refuses it.
+
+And this is live rather than aspirational, because the deployed services run **as** those
+identities:
+
+```bash
+gcloud run services describe stripboard-sentinel --region europe-west1 \
+  --format='value(spec.template.spec.serviceAccountName)'
+# sa-sentinel@stripboard-hack.iam.gserviceaccount.com
+```
+
+`sa-sentinel` also holds `secretmanager.secretAccessor` on `grafana-sentinel-token` and
+nothing else, and `sa-stripboard-web` holds `run.invoker` on the sentinel service — which is
+why the sentinel can stay private while the web app still reaches it (ADR-015).
+
+Two honest limits: the Python agents that run **locally** do so under a developer's own
+credentials, not these accounts, and Workload Identity bindings only become meaningful once
+those agents run in GCP (EV-26). What is shown above is the deployed surface.
+
+## 9. What this file does not claim
 
 - The four MCP servers are **not deployed**. They run and speak the protocol; only the web
   app and the Conflict Sentinel are on Cloud Run.

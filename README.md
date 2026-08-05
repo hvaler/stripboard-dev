@@ -116,7 +116,7 @@ designed and not shipped**, and they are marked.
 | The four MCP servers run and speak the protocol, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run | `src/Stripboard.Mcp.*` | EV-23, deployment half |
 | The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived | `agents/orchestrator` | EV-26 |
 | Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol | `agents/orchestrator` | EV-25, second half |
-| Per-agent IAM is a setup script. Google is not yet the thing stopping an agent from reaching a service it should not — the accounts exist and hold almost nothing. The commit rule *is* enforced at runtime, in the application, by [EV-33](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md) | `infra/iam/` | EV-26 |
+| The Python agents run **locally**, under a developer's own credentials rather than as their service accounts. The accounts exist and are correctly scoped, and the two deployed services do run as theirs — but Workload Identity only becomes meaningful once the agents run in GCP | `agents/` | EV-26 |
 | The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
 
 Every evolutivo, with what is actually done, is in
@@ -183,11 +183,12 @@ Design principles the implementation is being held to:
   deltas; only the Producer role can commit a schedule version.
 - **Append-only versioning.** Every replan is a new `ScheduleVersion` with its parent,
   author (human or agent) and triggering disruption — the audit trail is free.
-- **Least-privilege agents.** The commit rule is enforced at runtime, in
-  `ScheduleService.CommitAsync`, against an identity the *platform* proved rather than one
-  the caller typed — behind an HTTP boundary no prompt can reach, and behind a credential no
-  payload can forge (EV-33). The per-agent IAM ring outside that
-  (`infra/iam/setup-agent-iam.sh`) is still script-only.
+- **Least-privilege agents, in two rings.** Inside: the commit rule is enforced in
+  `ScheduleService.CommitAsync` against an identity the *platform* proved rather than one the
+  caller typed (EV-33). Outside: one service account per agent, and four of them hold **no
+  project role at all** — `sa-sentinel` cannot reach the database, and only
+  `sa-stripboard-web` holds `cloudsql.client`. Both deployed services run as their own
+  identity. See [`docs/EVIDENCE.md`](docs/EVIDENCE.md) §8 for the policy dump.
 
 ## Technology
 
@@ -211,7 +212,7 @@ Design principles the implementation is being held to:
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud, `shoot_*` production metrics | ✅ working |
 | Governance | Commit requires a platform-proved Producer, not a name in the payload | ✅ working |
 | Mutation testing | Stryker.NET over `UnionRulesService` — 100%, 0 survivors | ✅ working |
-| Security | Secret Manager for every credential; per-agent service accounts | ✅ secrets · 🚧 per-agent IAM script only |
+| Security | Secret Manager for every credential; one service account per agent, four holding no role at all | ✅ working · 🚧 agents not yet running as them |
 
 ### Grafana partner track
 
