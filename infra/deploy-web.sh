@@ -14,10 +14,10 @@
 #                         has no idea about the caller's circuit.
 #   --min-instances=1     Scale-to-zero destroys every live circuit and adds a cold start
 #                         in front of the judge.
-#   --max-instances=1     The database is still in-memory (EV-22). A second instance would
-#                         serve a different schedule, so a disruption injected on one
-#                         instance would be invisible on the other. Raise this only once
-#                         Cloud SQL is wired.
+#   --max-instances=3     Raised from 1 now that state lives in Cloud SQL (EV-22). With
+#                         session affinity keeping a circuit on its instance and the
+#                         schedule shared in Postgres, a second instance no longer serves
+#                         a different film.
 #   --timeout=3600        The WebSocket is one long-lived request; the 300s default cuts it.
 #
 set -euo pipefail
@@ -31,6 +31,24 @@ SERVICE="${SERVICE_NAME:-stripboard-web}"
 # in the image, the repo or this script.
 OTLP_ENDPOINT="${OTLP_ENDPOINT:-https://otlp-gateway-prod-eu-north-0.grafana.net/otlp}"
 OTLP_SECRET="${OTLP_SECRET:-grafana-otlp-headers}"
+
+# Persistence (EV-22). The connection string lives in Secret Manager and reaches the
+# container as ConnectionStrings__Stripboard; the Cloud SQL connector mounts the instance
+# on a Unix socket, so no database password travels over the network from here.
+SQL_INSTANCE="${SQL_INSTANCE:-stripboard-db}"
+SQL_CONNECTION_NAME="${SQL_CONNECTION_NAME:-$(gcloud sql instances describe "${SQL_INSTANCE}" \
+  --project "${PROJECT}" --format='value(connectionName)' 2>/dev/null || true)}"
+DB_SECRET="${DB_SECRET:-stripboard-db-connection}"
+
+if [[ -n "${SQL_CONNECTION_NAME}" ]]; then
+  echo "Cloud SQL: ${SQL_CONNECTION_NAME}"
+  SQL_ARGS=(--add-cloudsql-instances "${SQL_CONNECTION_NAME}")
+  SECRET_ARGS="OTEL_EXPORTER_OTLP_HEADERS=${OTLP_SECRET}:latest,ConnectionStrings__Stripboard=${DB_SECRET}:latest"
+else
+  echo "Cloud SQL: no instance found - the app will run on an in-memory database and say so."
+  SQL_ARGS=()
+  SECRET_ARGS="OTEL_EXPORTER_OTLP_HEADERS=${OTLP_SECRET}:latest"
+fi
 
 # "Ask your shoot" is answered by the Conflict Sentinel, deployed separately by
 # infra/deploy-sentinel.sh. Discovered rather than hardcoded, and simply absent when the
@@ -61,12 +79,13 @@ gcloud run deploy "${SERVICE}" \
   --no-cpu-throttling \
   --session-affinity \
   --min-instances 1 \
-  --max-instances 1 \
+  --max-instances 3 \
   --timeout 3600 \
   --cpu 1 \
   --memory 1Gi \
   --set-env-vars "ASPNETCORE_ENVIRONMENT=Production,OTEL_EXPORTER_OTLP_ENDPOINT=${OTLP_ENDPOINT},OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf,OTEL_METRIC_EXPORT_INTERVAL=15000,Sentinel__BaseUrl=${SENTINEL_URL}" \
-  --set-secrets "OTEL_EXPORTER_OTLP_HEADERS=${OTLP_SECRET}:latest"
+  --set-secrets "${SECRET_ARGS}" \
+  "${SQL_ARGS[@]}"
 
 URL="$(gcloud run services describe "${SERVICE}" --project "${PROJECT}" --region "${REGION}" \
         --format='value(status.url)')"

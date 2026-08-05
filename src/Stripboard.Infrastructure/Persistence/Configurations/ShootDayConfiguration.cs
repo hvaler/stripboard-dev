@@ -15,7 +15,6 @@ public class ShootDayConfiguration : IEntityTypeConfiguration<ShootDay>
         builder.Property(s => s.CallTime).IsRequired();
         builder.Property(s => s.EstimatedWrapTime).IsRequired();
 
-        builder.Property(s => s.StripIds)
-            .HasColumnType("jsonb");
+        builder.Property(s => s.StripIds);
     }
 }

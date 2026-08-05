@@ -58,6 +58,9 @@ below is the target design, not a description of shipped functionality.**
 - **Disruption → replan → human approval**, end to end: a disruption becomes scene-date
   constraints, each replan strategy is a separate CP-SAT run, and only the Producer role
   can commit the result.
+- **State survives a restart** (EV-22): schedules, disruptions and the audit trail live in
+  Cloud SQL, reached over a Unix socket with the connection string held in Secret
+  Manager. See [ADR-016](adr/ADR-016-cloud-sql-persistence.md).
 - Union rules as pure, tested domain code (`src/Stripboard.Domain/Services/UnionRulesService.cs`):
   12-hour turnaround including midnight crossing, meal penalties, night→day transitions.
 - Four ASP.NET Core services exposing schedule / people / locations / weather operations.
@@ -71,7 +74,6 @@ below is the target design, not a description of shipped functionality.**
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| Persistence is in-memory. No Cloud SQL, no migrations | every `Program.cs` | EV-22 |
 | The four services are REST endpoints under an `/mcp/` path — they do **not** speak the MCP protocol | `src/Stripboard.Mcp.*` | EV-23 |
 | The replanner returns two hardcoded proposals with literal cost figures | `agents/replanner/replanner_agent.py` | EV-24 |
 | No ADK, no Vertex AI Agent Engine, no A2A orchestration | `agents/` | EV-24 → EV-26 |
@@ -141,7 +143,7 @@ Design principles the implementation is being held to:
 | Call sheets | QuestPDF | ✅ working |
 | Web UI | Blazor Server (.NET 10) | ✅ driven by the solver |
 | Services | ASP.NET Core (.NET 10) minimal APIs | ✅ REST · ❌ not MCP yet |
-| Data | EF Core 9 | 🚧 in-memory only, no Cloud SQL |
+| Data | EF Core 9 → **Cloud SQL (PostgreSQL 16)**, migrations applied at startup | ✅ working |
 | Grafana dashboard | Versioned JSON + provisioning script (`infra/grafana/`) | ✅ working |
 | Screenplay breakdown | Gemini 2.5 Flash on Vertex AI (`google-genai`, structured output) | ✅ working |
 | Agent orchestration | ADK, Vertex AI Agent Engine, A2A | ❌ not implemented |
@@ -179,7 +181,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-015)
+adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-016)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 

@@ -10,8 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 
 // Register EF Core DbContext
-builder.Services.AddDbContext<StripboardDbContext>(options =>
-    options.UseInMemoryDatabase("StripboardScheduleMcpDb"));
+builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardScheduleMcpDb");
 
 // Register Solver & Schedule Service
 builder.Services.AddScoped<IScheduleSolver, CpSatScheduleSolver>();

@@ -14,7 +14,6 @@ public class AnomalyConfiguration : IEntityTypeConfiguration<Anomaly>
         builder.Property(a => a.Message).HasMaxLength(1000).IsRequired();
         builder.Property(a => a.Timestamp).IsRequired();
 
-        builder.Property(a => a.SceneIds)
-            .HasColumnType("jsonb");
+        builder.Property(a => a.SceneIds);
     }
 }

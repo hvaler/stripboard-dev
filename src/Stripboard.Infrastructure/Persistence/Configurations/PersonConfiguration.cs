@@ -16,7 +16,6 @@ public class PersonConfiguration : IEntityTypeConfiguration<Person>
 
         // Day Out of Days availability, stored alongside the person like the other
         // collection properties in this model (EV-27).
-        builder.Property(p => p.UnavailableDates)
-            .HasColumnType("jsonb");
+        builder.Property(p => p.UnavailableDates);
     }
 }

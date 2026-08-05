@@ -17,10 +17,8 @@ public class SceneConfiguration : IEntityTypeConfiguration<Scene>
         builder.Property(s => s.Eighths).IsRequired();
         builder.Property(s => s.Synopsis).HasMaxLength(2000);
 
-        builder.Property(s => s.CastPersonIds)
-            .HasColumnType("jsonb");
+        builder.Property(s => s.CastPersonIds);
 
-        builder.Property(s => s.ElementIds)
-            .HasColumnType("jsonb");
+        builder.Property(s => s.ElementIds);
     }
 }

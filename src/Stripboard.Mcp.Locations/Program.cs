@@ -5,8 +5,7 @@ using Stripboard.Mcp.Locations.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddDbContext<StripboardDbContext>(options =>
-    options.UseInMemoryDatabase("StripboardLocationsMcpDb"));
+builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardLocationsMcpDb");
 builder.Services.AddScoped<LocationsMcpService>();
 
 var app = builder.Build();

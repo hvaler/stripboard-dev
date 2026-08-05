@@ -64,6 +64,7 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 |---|---|:---:|
 | **CP-SAT solver engine** — constraints in Google OR-Tools; union rules as pure C# domain code | Yes, and it is the strongest part of the project | ✅ |
 | **Call sheets PDF engine** — QuestPDF, role-scoped | Yes | ✅ |
+| **Persistence** — Cloud SQL PostgreSQL with EF Core migrations | Applied at startup; data survives a redeploy (ADR-016) | ✅ |
 | **Human-in-the-loop governance UI** — Blazor, side-by-side proposals, immutable audit trail | Driven by the solver: board, options and deltas all read from persisted versions | ✅ |
 | **LLM breakdown agent** — parses screenplays into structured JSON scene objects | Gemini 2.5 Flash on Vertex AI from Fountain, Final Draft and PDF (multimodal); structured output, validation-retry loop, location/set separation | ✅ |
 | **Conflict Sentinel** — active Grafana MCP Server client | Real MCP client; publishes annotations via `create_annotation` | ✅ |
@@ -113,7 +114,7 @@ Four criteria, 25% each.
 
 | Criterion | Today | Why |
 |---|:---:|---|
-| Technological implementation | 8/10 | Solver, domain layer, Gemini breakdown, a hand-implemented MCP client, and a UI driven end to end by the engine. What holds it back is in-memory persistence, no OTLP export, and REST rather than MCP on our own services. |
+| Technological implementation | 9/10 | Solver, domain layer, Gemini breakdown from three screenplay formats, a hand-implemented MCP client, production telemetry the shoot itself emits, and persistence that survives a redeploy. What is left is that our own four services speak REST rather than MCP, and the agent layer is not yet ADK. |
 | Design | 7/10 | Every page is driven by the engine, the hosted demo is stable and the governance story is visible on screen. Held back by crude scheduling output (a day still hops between eight locations) until EV-27. |
 | Potential impact | 8/10 | The problem is real, specific and expensive; the framing is credible to a 1st AD. |
 | Quality of the idea | 9/10 | *"The LLM formulates, the solver decides, a human approves"* is a non-obvious architecture that removes hallucination risk from a domain with legal and financial consequences. |

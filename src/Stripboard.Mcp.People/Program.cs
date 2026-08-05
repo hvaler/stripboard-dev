@@ -5,8 +5,7 @@ using Stripboard.Mcp.People.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddDbContext<StripboardDbContext>(options =>
-    options.UseInMemoryDatabase("StripboardPeopleMcpDb"));
+builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardPeopleMcpDb");
 builder.Services.AddScoped<PeopleMcpService>();
 
 var app = builder.Build();

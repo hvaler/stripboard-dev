@@ -39,8 +39,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-builder.Services.AddDbContext<StripboardDbContext>(options =>
-    options.UseInMemoryDatabase("StripboardWebDb"));
+builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardWebDb");
 
 // The solver is what makes the UI real (EV-21). Before this registration the web app
 // resolved ScheduleMcpService without ever providing an IScheduleSolver to satisfy it.
@@ -78,10 +77,13 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
-// Seed the demo screenplay so the database is populated before anything is served.
+// Bring the schema up to date, then seed, before anything is served. Against the
+// in-memory provider the migration step is a no-op (EV-22).
 using (var scope = app.Services.CreateScope())
 {
-    await DataSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<StripboardDbContext>());
+    var db = scope.ServiceProvider.GetRequiredService<StripboardDbContext>();
+    await DatabaseRegistration.MigrateAsync(db, app.Logger);
+    await DataSeeder.SeedAsync(db);
 }
 
 // Solve the initial schedule only once the host has started. Doing it above would run the
