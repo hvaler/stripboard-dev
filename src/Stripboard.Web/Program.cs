@@ -53,6 +53,7 @@ builder.Services.AddScoped<ScheduleMcpService>();
 builder.Services.AddSingleton<CallSheetPdfGenerator>();
 builder.Services.AddSingleton<ShootMetrics>();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<Stripboard.Web.Services.SentinelClient>();
 
 // Observability (EV-20/EV-29). The exporter is configured entirely through the standard
 // OTEL_* environment variables, so the Grafana Cloud credentials stay in Secret Manager

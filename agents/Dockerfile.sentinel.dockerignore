@@ -1,0 +1,20 @@
+# Build context for the sentinel image only.
+#
+# The repository-root .dockerignore excludes agents/ because the web image does not need
+# it. BuildKit reads a per-Dockerfile ignore file when one exists, so the two images can
+# have opposite needs without either weakening the other's exclusions.
+
+# Nothing by default.
+*
+
+# ...except the two agent packages the sentinel runs.
+!agents/sentinel/
+!agents/breakdown/
+
+# Never, under any circumstances.
+.secrets/
+**/.secrets/
+*.env
+**/__pycache__/
+**/*.pyc
+agents/breakdown/demo_cache.json

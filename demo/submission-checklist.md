@@ -80,7 +80,8 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
    Grafana Cloud; every Mission Control panel queries them (ADR-014).
 5. **Metrics-driven reasoning over MCP** — ✅ "Ask your shoot": Gemini discovers the MCP
    server's tools at runtime and answers questions from live Grafana data, with the
-   queries shown beneath the answer. Runs locally; not yet deployed alongside the app.
+   queries shown beneath the answer. Deployed as a private multi-container Cloud Run
+   service and answering from the public URL (ADR-015).
 
 ### Findings and learnings
 *To be written from actual experience before submission — this is a required field.*

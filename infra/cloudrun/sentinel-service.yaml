@@ -1,0 +1,93 @@
+# Conflict Sentinel on Cloud Run: the agent and the Grafana MCP server in one service
+# (EV-31).
+#
+# Two containers, one network namespace. The sentinel reaches the MCP server on
+# localhost:8000, which means the Grafana service-account token never leaves the instance
+# and the MCP server is never exposed to the internet.
+#
+# The `container-dependencies` annotation makes the sentinel start after the MCP server, so
+# the first request does not race the sidecar's boot.
+#
+# Placeholders (__PROJECT__, __REGION__, __GRAFANA_URL__) are substituted by
+# infra/deploy-sentinel.sh.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: stripboard-sentinel
+  labels:
+    cloud.googleapis.com/location: __REGION__
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/container-dependencies: '{"sentinel":["mcp-grafana"]}'
+    spec:
+      serviceAccountName: sa-sentinel@__PROJECT__.iam.gserviceaccount.com
+      # A question costs several Gemini rounds; give it room without letting it hang.
+      timeoutSeconds: 300
+      containers:
+        - name: sentinel
+          image: __REGION__-docker.pkg.dev/__PROJECT__/stripboard/sentinel:latest
+          ports:
+            - name: http1
+              containerPort: 8080
+          env:
+            - name: SENTINEL_PORT
+              value: "8080"
+            # The sidecar, on the loopback interface of this instance.
+            - name: GRAFANA_MCP_ENDPOINT
+              value: http://localhost:8000/mcp
+            # Vertex AI via the service account's own credentials — no API key anywhere.
+            - name: GOOGLE_CLOUD_PROJECT
+              value: __PROJECT__
+            - name: GOOGLE_CLOUD_LOCATION
+              value: global
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            failureThreshold: 10
+            periodSeconds: 3
+
+        - name: mcp-grafana
+          image: __REGION__-docker.pkg.dev/__PROJECT__/stripboard/mcp-grafana:latest
+          args:
+            - "-t"
+            - "streamable-http"
+            - "-address"
+            - "0.0.0.0:8000"
+            # Loopback only: nothing outside this instance can reach the MCP server, so
+            # the permissive host check has no external surface.
+            - "-allowed-hosts"
+            - "*"
+          env:
+            - name: GRAFANA_URL
+              value: __GRAFANA_URL__
+            - name: GRAFANA_SERVICE_ACCOUNT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-sentinel-token
+                  key: latest
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          # Required by Cloud Run: a container others depend on must declare when it is
+          # ready, otherwise the dependency ordering has nothing to wait for.
+          startupProbe:
+            tcpSocket:
+              port: 8000
+            failureThreshold: 10
+            periodSeconds: 3
+            timeoutSeconds: 3
+  traffic:
+    - percent: 100
+      latestRevision: true

@@ -1,0 +1,30 @@
+# Conflict Sentinel — the agent that answers questions about the shoot from Grafana.
+#
+# Runs as the ingress container of a multi-container Cloud Run service; the official
+# grafana/mcp-grafana image runs beside it as a sidecar on localhost (EV-31).
+FROM python:3.12-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SENTINEL_PORT=8080
+
+WORKDIR /app
+
+# Dependencies first so a code change does not reinstall them.
+COPY agents/sentinel/requirements.txt agents/sentinel/
+COPY agents/breakdown/requirements.txt agents/breakdown/
+RUN pip install --no-cache-dir -r agents/sentinel/requirements.txt \
+                                 -r agents/breakdown/requirements.txt
+
+# The sentinel shares the Gemini client with the breakdown agent. EV-24 unifies the agent
+# packages; until then both directories travel together.
+COPY agents/sentinel/ agents/sentinel/
+COPY agents/breakdown/ agents/breakdown/
+
+# Never runs as root, and never carries a build-time secret: the Grafana token and the
+# Google credentials are injected by Cloud Run at start.
+RUN useradd --create-home --uid 10001 sentinel && chown -R sentinel:sentinel /app
+USER sentinel
+
+EXPOSE 8080
+CMD ["python", "agents/sentinel/service.py"]

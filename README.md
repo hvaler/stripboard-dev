@@ -38,8 +38,10 @@ below is the target design, not a description of shipped functionality.**
   per-actor idle time — to Grafana Cloud, and every Mission Control panel queries them.
   **"Ask your shoot"** answers questions in plain English by discovering the Grafana MCP
   server's tools at runtime and letting Gemini query them; the first turn is forced to
-  call a tool so an answer can never be a number the model made up. See
-  [ADR-014](adr/ADR-014-observing-the-shoot.md).
+  call a tool so an answer can never be a number the model made up. It runs as a private
+  multi-container Cloud Run service — agent plus Grafana MCP sidecar — reachable only by
+  the web app. See [ADR-014](adr/ADR-014-observing-the-shoot.md) and
+  [ADR-015](adr/ADR-015-deploying-the-sentinel.md).
 - **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`), speaking the MCP
   Streamable HTTP transport to the official `grafana/mcp-grafana` server: 73 tools
   discovered on Grafana Cloud, disruptions published as real annotations via
@@ -177,7 +179,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-014)
+adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-015)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 
@@ -280,8 +282,11 @@ export GRAFANA_URL=http://host.docker.internal:3000
 ### Deploying
 
 ```bash
-# Deploys to Cloud Run with the settings a Blazor Server circuit needs (ADR-011)
-# and refuses to run without a .dockerignore, so .secrets/ can never enter an image.
+# The Conflict Sentinel and the Grafana MCP server, as one private service (ADR-015)
+bash infra/deploy-sentinel.sh
+
+# The web app, with the settings a Blazor Server circuit needs (ADR-011). Discovers the
+# sentinel's URL; refuses to run without a .dockerignore so .secrets/ cannot enter an image.
 bash infra/deploy-web.sh
 
 # Readiness — note /api/health, not /healthz: Google intercepts that path on run.app

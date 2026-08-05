@@ -1,8 +1,6 @@
 @page "/ask"
-@using System.Net.Http.Json
-@using System.Text.Json.Serialization
-@inject IHttpClientFactory HttpClientFactory
-@inject IConfiguration Configuration
+@using Stripboard.Web.Services
+@inject SentinelClient Sentinel
 
 <PageTitle>Ask your shoot — Stripboard</PageTitle>
 
@@ -114,28 +112,8 @@ else if (answer is not null)
     private string question = string.Empty;
     private bool isAsking;
     private string? error;
-    private AskResponse? answer;
+    private SentinelClient.AskResponse? answer;
 
-    private sealed class AskResponse
-    {
-        [JsonPropertyName("question")] public string Question { get; set; } = string.Empty;
-        [JsonPropertyName("answer")] public string Answer { get; set; } = string.Empty;
-        [JsonPropertyName("rounds")] public int Rounds { get; set; }
-        [JsonPropertyName("total_tokens")] public int TotalTokens { get; set; }
-        [JsonPropertyName("tool_calls")] public List<ToolCall> ToolCalls { get; set; } = new();
-    }
-
-    private sealed class ToolCall
-    {
-        [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
-        [JsonPropertyName("arguments")] public Dictionary<string, object>? Arguments { get; set; }
-        [JsonPropertyName("error")] public string? Error { get; set; }
-    }
-
-    private sealed class AskError
-    {
-        [JsonPropertyName("error")] public string? Error { get; set; }
-    }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
@@ -153,13 +131,10 @@ else if (answer is not null)
 
     private async Task AskAsync()
     {
-        var baseUrl = Configuration["Sentinel:BaseUrl"]
-                      ?? Environment.GetEnvironmentVariable("SENTINEL_URL");
-
-        if (string.IsNullOrWhiteSpace(baseUrl))
+        if (!Sentinel.IsConfigured)
         {
-            error = "The Conflict Sentinel service is not configured for this deployment, so "
-                  + "there is nothing to ask. This runs locally today.";
+            error = "The Conflict Sentinel is not configured for this deployment, so there is "
+                  + "nothing to ask.";
             answer = null;
             return;
         }
@@ -171,19 +146,11 @@ else if (answer is not null)
 
         try
         {
-            var http = HttpClientFactory.CreateClient("sentinel");
-            http.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
-            http.Timeout = TimeSpan.FromSeconds(90);
-
-            var response = await http.PostAsJsonAsync("api/ask", new { question });
-            if (!response.IsSuccessStatusCode)
-            {
-                var problem = await response.Content.ReadFromJsonAsync<AskError>();
-                error = problem?.Error ?? $"The sentinel answered {(int)response.StatusCode}.";
-                return;
-            }
-
-            answer = await response.Content.ReadFromJsonAsync<AskResponse>();
+            answer = await Sentinel.AskAsync(question);
+        }
+        catch (SentinelClient.SentinelUnavailableException ex)
+        {
+            error = ex.Message;
         }
         catch (Exception ex)
         {

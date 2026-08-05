@@ -31,6 +31,17 @@ SERVICE="${SERVICE_NAME:-stripboard-web}"
 # in the image, the repo or this script.
 OTLP_ENDPOINT="${OTLP_ENDPOINT:-https://otlp-gateway-prod-eu-north-0.grafana.net/otlp}"
 OTLP_SECRET="${OTLP_SECRET:-grafana-otlp-headers}"
+
+# "Ask your shoot" is answered by the Conflict Sentinel, deployed separately by
+# infra/deploy-sentinel.sh. Discovered rather than hardcoded, and simply absent when the
+# sentinel has not been deployed — the page then says so instead of failing obscurely.
+SENTINEL_URL="${SENTINEL_URL:-$(gcloud run services describe "${SENTINEL_SERVICE:-stripboard-sentinel}" \
+  --project "${PROJECT}" --region "${REGION}" --format='value(status.url)' 2>/dev/null || true)}"
+if [[ -n "${SENTINEL_URL}" ]]; then
+  echo "Conflict Sentinel: ${SENTINEL_URL}"
+else
+  echo "Conflict Sentinel: not deployed — 'Ask your shoot' will report itself unconfigured."
+fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ ! -f "${REPO_ROOT}/.dockerignore" ]]; then
@@ -54,7 +65,7 @@ gcloud run deploy "${SERVICE}" \
   --timeout 3600 \
   --cpu 1 \
   --memory 1Gi \
-  --set-env-vars "ASPNETCORE_ENVIRONMENT=Production,OTEL_EXPORTER_OTLP_ENDPOINT=${OTLP_ENDPOINT},OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf,OTEL_METRIC_EXPORT_INTERVAL=15000" \
+  --set-env-vars "ASPNETCORE_ENVIRONMENT=Production,OTEL_EXPORTER_OTLP_ENDPOINT=${OTLP_ENDPOINT},OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf,OTEL_METRIC_EXPORT_INTERVAL=15000,Sentinel__BaseUrl=${SENTINEL_URL}" \
   --set-secrets "OTEL_EXPORTER_OTLP_HEADERS=${OTLP_SECRET}:latest"
 
 URL="$(gcloud run services describe "${SERVICE}" --project "${PROJECT}" --region "${REGION}" \

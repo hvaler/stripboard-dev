@@ -1,1 +1,3 @@
+# Grafana MCP transport and the Annotations API. No third-party AI SDK: the Gemini client
+# is shared with the breakdown agent (agents/breakdown/requirements.txt).
 requests>=2.31.0
