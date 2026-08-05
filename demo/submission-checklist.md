@@ -76,8 +76,11 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
    tool call against Grafana Cloud and verified by reading them back.
 3. **"Shoot Mission Control" dashboard** — ✅ versioned JSON plus a provisioning script
    that now fails loudly instead of reporting success on error.
-4. **OpenTelemetry OTLP exporter** — ❌ packages declared but not wired, EV-20.
-5. **Metrics-driven reasoning over MCP** — ❌ EV-29.
+4. **OpenTelemetry OTLP exporter** — ✅ traces and `shoot_*` production metrics stream to
+   Grafana Cloud; every Mission Control panel queries them (ADR-014).
+5. **Metrics-driven reasoning over MCP** — ✅ "Ask your shoot": Gemini discovers the MCP
+   server's tools at runtime and answers questions from live Grafana data, with the
+   queries shown beneath the answer. Runs locally; not yet deployed alongside the app.
 
 ### Findings and learnings
 *To be written from actual experience before submission — this is a required field.*
@@ -126,7 +129,7 @@ Four criteria, 25% each.
   published to Grafana says `published=False` instead of implying success.
 - The MCP transport is implemented rather than imported — session negotiation, SSE and
   JSON response handling, paginated tool discovery — in ~200 lines with one dependency.
-- 50 xUnit tests and 40 Python tests, green, including integration tests that run against
+- 50 xUnit tests and 44 Python tests, green, including integration tests that run against
   the real Grafana Cloud stack and Vertex AI.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 

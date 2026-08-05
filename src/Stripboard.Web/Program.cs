@@ -5,7 +5,11 @@ using Stripboard.Application.Services;
 using Stripboard.CallSheets.Services;
 using Stripboard.Infrastructure.Persistence;
 using Stripboard.Infrastructure.Persistence.Seeding;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Stripboard.Infrastructure.Services;
+using Stripboard.Infrastructure.Telemetry;
 using Stripboard.Mcp.Schedule.Services;
 using Stripboard.Solver;
 
@@ -47,32 +51,63 @@ builder.Services.AddScoped<ReplanService>();
 builder.Services.AddScoped<BreakdownImportService>();
 builder.Services.AddScoped<ScheduleMcpService>();
 builder.Services.AddSingleton<CallSheetPdfGenerator>();
+builder.Services.AddSingleton<ShootMetrics>();
+builder.Services.AddHttpClient();
+
+// Observability (EV-20/EV-29). The exporter is configured entirely through the standard
+// OTEL_* environment variables, so the Grafana Cloud credentials stay in Secret Manager
+// and never appear in code — see infra/deploy-web.sh.
+//
+// The metrics that matter here are shoot.* : days, company moves, cost burn, risk index
+// and cast utilisation. Request latency is table stakes; a production schedule burning
+// budget is the thing a 1st AD would actually put on a wall.
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(
+        serviceName: "stripboard-web",
+        serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0"))
+    .WithMetrics(metrics => metrics
+        .AddMeter(ShootMetrics.MeterName)
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter())
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter());
 
 var app = builder.Build();
 
-// Seed the demo screenplay and solve an initial schedule, so the board has something real
-// to render on first load rather than placeholder markup.
+// Seed the demo screenplay so the database is populated before anything is served.
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<StripboardDbContext>();
-    await DataSeeder.SeedAsync(db);
-
-    if (!await db.ShootDays.AnyAsync(d => d.ScheduleVersionId != null))
-    {
-        var schedules = scope.ServiceProvider.GetRequiredService<ScheduleService>();
-        try
-        {
-            await schedules.GenerateAsync(
-                createdBy: AgentAuthorizationService.RoleProducer,
-                startDate: new DateOnly(2026, 8, 10),
-                commit: true);
-        }
-        catch (Exception ex)
-        {
-            app.Logger.LogError(ex, "Could not generate the initial schedule at startup.");
-        }
-    }
+    await DataSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<StripboardDbContext>());
 }
+
+// Solve the initial schedule only once the host has started. Doing it above would run the
+// solver before the OpenTelemetry pipeline exists, so the first solve — the one that
+// produces the schedule everyone sees — would never appear in solver.* metrics.
+// /api/health reports degraded until this finishes, which is what the deploy script waits on.
+app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(async () =>
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<StripboardDbContext>();
+    if (await db.ShootDays.AnyAsync(d => d.ScheduleVersionId != null))
+    {
+        return;
+    }
+
+    try
+    {
+        await scope.ServiceProvider.GetRequiredService<ScheduleService>().GenerateAsync(
+            createdBy: AgentAuthorizationService.RoleProducer,
+            startDate: new DateOnly(2026, 8, 10),
+            commit: true);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Could not generate the initial schedule at startup.");
+    }
+}));
 
 app.UseForwardedHeaders();
 

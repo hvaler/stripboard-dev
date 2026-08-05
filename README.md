@@ -15,7 +15,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-orange)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
-![Tests](https://img.shields.io/badge/tests-50%20xUnit%20%2B%2040%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-50%20xUnit%20%2B%2044%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -33,6 +33,13 @@ below is the target design, not a description of shipped functionality.**
   *location* the unit travels to from the *set* within it, which is what makes the
   company-move count real. See [ADR-009](adr/ADR-009-gemini-structured-output-breakdown.md)
   and [ADR-013](adr/ADR-013-screenplay-formats-and-location-vs-set.md).
+- **Grafana observes the shoot, not the app** (EV-29): OpenTelemetry exports `shoot_*`
+  metrics — days, company moves, cost, union violations, a schedule risk index and
+  per-actor idle time — to Grafana Cloud, and every Mission Control panel queries them.
+  **"Ask your shoot"** answers questions in plain English by discovering the Grafana MCP
+  server's tools at runtime and letting Gemini query them; the first turn is forced to
+  call a tool so an answer can never be a number the model made up. See
+  [ADR-014](adr/ADR-014-observing-the-shoot.md).
 - **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`), speaking the MCP
   Streamable HTTP transport to the official `grafana/mcp-grafana` server: 73 tools
   discovered on Grafana Cloud, disruptions published as real annotations via
@@ -54,7 +61,7 @@ below is the target design, not a description of shipped functionality.**
 - Four ASP.NET Core services exposing schedule / people / locations / weather operations.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with five pages, and a versioned Grafana dashboard definition.
-- 50 xUnit tests and 40 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 50 xUnit tests and 44 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -62,7 +69,6 @@ below is the target design, not a description of shipped functionality.**
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| OpenTelemetry packages are declared but never referenced or initialised, so no traces or metrics reach Grafana Cloud | `Directory.Packages.props` | EV-20 |
 | Persistence is in-memory. No Cloud SQL, no migrations | every `Program.cs` | EV-22 |
 | The four services are REST endpoints under an `/mcp/` path — they do **not** speak the MCP protocol | `src/Stripboard.Mcp.*` | EV-23 |
 | The replanner returns two hardcoded proposals with literal cost figures | `agents/replanner/replanner_agent.py` | EV-24 |
@@ -137,8 +143,8 @@ Design principles the implementation is being held to:
 | Grafana dashboard | Versioned JSON + provisioning script (`infra/grafana/`) | ✅ working |
 | Screenplay breakdown | Gemini 2.5 Flash on Vertex AI (`google-genai`, structured output) | ✅ working |
 | Agent orchestration | ADK, Vertex AI Agent Engine, A2A | ❌ not implemented |
-| Observability (partner) | OpenTelemetry OTLP → Grafana Cloud | ❌ not wired |
 | **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
+| Observability (partner) | OpenTelemetry OTLP → Grafana Cloud, `shoot_*` production metrics | ✅ working |
 | Security | Cloud IAM, per-agent service accounts, Secret Manager | 🚧 script only |
 
 ### Grafana partner track
@@ -171,7 +177,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer (breakdown, sentinel, replanner) — see status above
 tests/      xUnit: domain rules, solver, service contracts, call sheets
 infra/      Grafana dashboard + provisioning, per-agent IAM setup
-adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-013)
+adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-014)
 demo/       Sample screenplay, demo harness, submission notes
 ```
 

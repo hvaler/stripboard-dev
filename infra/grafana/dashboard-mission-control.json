@@ -1,4 +1,23 @@
 {
+  "uid": "stripboard-mission-control",
+  "title": "Shoot Mission Control — Stripboard",
+  "description": "The shoot as an observable system: days, cost burn, company moves, schedule risk and cast idle time. These are production signals, not application signals — request latency lives in Application Observability.",
+  "tags": ["stripboard", "production"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "grafanacloud-prom", "value": "grafanacloud-prom" },
+        "hide": 0
+      }
+    ]
+  },
   "annotations": {
     "list": [
       {
@@ -10,74 +29,150 @@
         "type": "dashboard"
       },
       {
+        "name": "Disruptions",
         "enable": true,
         "iconColor": "red",
-        "name": "Disruption Events",
-        "tags": ["stripboard", "conflict-sentinel"],
-        "type": "tags"
+        "target": { "type": "tags", "matchAny": false, "tags": ["stripboard", "conflict-sentinel"], "limit": 100 }
       }
     ]
   },
-  "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": null,
-  "links": [],
-  "liveNow": false,
   "panels": [
     {
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
       "id": 1,
-      "title": "🚨 Active Disruptions",
       "type": "stat",
-      "targets": [],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
-      }
+      "title": "📅 Shooting days",
+      "description": "Days in the committed schedule.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "max(shoot_days_total)", "instant": true, "legendFormat": "days" }
+      ]
     },
     {
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
       "id": 2,
-      "title": "⚡ CP-SAT Solver Execution Time (ms)",
       "type": "stat",
-      "targets": [],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area"
-      }
+      "title": "💷 Estimated cost",
+      "description": "Crew and called cast per shooting day, plus company-move and union-penalty costs.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 5, "x": 4, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 0 }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "max(shoot_cost_estimate_usd)", "instant": true, "legendFormat": "cost" }
+      ]
     },
     {
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
       "id": 3,
-      "title": "📅 Active Schedule Versions",
       "type": "stat",
-      "targets": []
+      "title": "🚚 Company moves",
+      "description": "Times the unit changes location across the shoot. Each one costs an hour of the shooting day.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 5, "x": 9, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 6 }, { "color": "red", "value": 12 }
+          ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "expr": "max(shoot_company_moves)", "instant": true, "legendFormat": "moves" }
+      ]
     },
     {
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 6 },
       "id": 4,
-      "title": "📜 Disruption & Governance Audit Stream",
-      "type": "table",
-      "targets": []
+      "type": "gauge",
+      "title": "⚠️ Schedule risk index",
+      "description": "Heuristic 0-100 index of schedule fragility, not a probability: 15 per union violation, 3 per company move, 10 per day visiting more than one location.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 5, "x": 14, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "none",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "orange", "value": 40 }, { "color": "red", "value": 70 }
+          ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "expr": "max(shoot_risk_index)", "instant": true, "legendFormat": "risk" }
+      ]
     },
     {
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 6 },
       "id": 5,
-      "title": "🤖 Multi-Agent Telemetry & OTLP Traces",
+      "type": "stat",
+      "title": "⚖️ Union violations",
+      "description": "Violations the domain layer found in the committed schedule. Anything above zero is a schedule that cannot legally be shot.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 5, "x": 19, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "red", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "expr": "max(shoot_union_violations)", "instant": true, "legendFormat": "violations" }
+      ]
+    },
+    {
+      "id": 6,
       "type": "timeseries",
-      "targets": []
+      "title": "💸 Cost burn-down",
+      "description": "How the estimated cost of the shoot moves as disruptions are absorbed and schedules re-committed. Disruption annotations are overlaid.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 14, "x": 0, "y": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "expr": "max(shoot_cost_estimate_usd)", "legendFormat": "estimated cost" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "🎭 Cast utilisation — who is being paid to wait",
+      "description": "Fraction of shooting days each cast member is called for. A low bar is an actor on payroll and not on set, which is the cost a Day Out of Days schedule exists to avoid.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1, "unit": "percentunit",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "green", "value": 0.8 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal" },
+      "targets": [
+        { "refId": "A", "expr": "max by (actor) (shoot_cast_utilization)", "instant": true, "legendFormat": "{{actor}}" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "⚡ CP-SAT solve time",
+      "description": "Wall-clock time for one solve. A replan the producer waits on is one solve per strategy.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(solver_solve_duration_milliseconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        { "refId": "B", "expr": "sum(rate(solver_solves_total[5m])) * 60", "legendFormat": "solves/min" }
+      ]
     }
-  ],
-  "refresh": "5s",
-  "schemaVersion": 38,
-  "style": "dark",
-  "tags": ["stripboard", "mission-control", "hackathon"],
-  "time": { "from": "now-6h", "to": "now" },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "Shoot Mission Control — Stripboard",
-  "uid": "stripboard-mission-control"
+  ]
 }

@@ -4,8 +4,11 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from google.genai import types
+
 from grafana_mcp_client import GrafanaMcpClient, GrafanaMcpError
 from sentinel_agent import ConflictSentinelAgent, to_epoch_ms
+from shoot_analyst import ShootAnalyst, _sanitise_schema
 
 SCENES = [
     {"number": 1, "set_location": "221B BAKER STREET", "int_ext": "INT",
@@ -124,6 +127,97 @@ class TestSseFrameMatching(unittest.TestCase):
         message = GrafanaMcpClient._parse_body(_FakeResponse(body, "application/json"), expect_id=7)
 
         self.assertEqual(message["result"], {"tools": []})
+
+
+class TestShootAnalyst(unittest.TestCase):
+    """
+    The analyst answers questions about the shoot from Grafana. Its one hard rule is that
+    a figure must come from a query, so these tests are about groundedness rather than
+    about phrasing.
+    """
+
+    def test_mcp_schemas_are_stripped_to_what_gemini_accepts(self):
+        # Gemini rejects a whole declaration if it contains vocabulary it does not model,
+        # and MCP schemas are full JSON Schema.
+        cleaned = _sanitise_schema({
+            "type": "object",
+            "additionalProperties": False,
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "required": ["uid"],
+            "properties": {
+                "uid": {"type": "string", "description": "Datasource", "default": "x"},
+                "tags": {"type": "array", "items": {"type": "string", "pattern": "^a"}},
+            },
+        })
+
+        self.assertNotIn("additionalProperties", cleaned)
+        self.assertNotIn("$schema", cleaned)
+        self.assertNotIn("default", cleaned["properties"]["uid"])
+        self.assertNotIn("pattern", cleaned["properties"]["tags"]["items"])
+        self.assertEqual(cleaned["required"], ["uid"])
+
+    def test_an_empty_object_schema_still_declares_properties(self):
+        self.assertEqual(_sanitise_schema({"type": "object"}), {"type": "object", "properties": {}})
+
+    def test_an_answer_with_no_query_behind_it_is_refused(self):
+        # During development the model reported a risk index of 75 without querying
+        # anything; the real value was 54. An answer with no tool call is not evidence,
+        # and publishing it would be worse than saying nothing.
+        analyst = ShootAnalyst(_ModelThatNeverQueries(), _NoGrafana())
+
+        answer = analyst.ask("What is the schedule risk index?")
+
+        self.assertIn("no Grafana query was made", answer.text)
+        self.assertNotIn("75", answer.text)
+        self.assertEqual(answer.tool_calls, [])
+
+    def test_only_read_only_tools_are_offered_to_the_model(self):
+        analyst = ShootAnalyst(_ModelThatNeverQueries(), _ToolListingGrafana())
+
+        names = {t["name"] for t in analyst.available_tools()}
+
+        self.assertIn("query_prometheus", names)
+        self.assertNotIn("create_annotation", names, "the analyst answers questions; it does not write")
+        self.assertNotIn("update_dashboard", names)
+
+
+class _NoGrafana:
+    server_info: dict = {}
+
+    def list_tools(self):
+        return [{"name": "query_prometheus", "description": "q", "inputSchema": {"type": "object", "properties": {}}}]
+
+    def call_tool(self, *_a, **_k):
+        raise AssertionError("the model should not have reached a tool in this test")
+
+
+class _ToolListingGrafana(_NoGrafana):
+    def list_tools(self):
+        return [
+            {"name": "query_prometheus", "description": "q", "inputSchema": {"type": "object", "properties": {}}},
+            {"name": "create_annotation", "description": "w", "inputSchema": {"type": "object", "properties": {}}},
+            {"name": "update_dashboard", "description": "w", "inputSchema": {"type": "object", "properties": {}}},
+        ]
+
+
+class _ModelThatNeverQueries:
+    """Stands in for Gemini answering straight from its own head."""
+
+    model = "stub-model"
+
+    def _ensure_client(self):
+        return self
+
+    @property
+    def models(self):
+        return self
+
+    def generate_content(self, **_kwargs):
+        part = types.Part(text="The schedule risk index is 75.")
+        candidate = types.Candidate(
+            content=types.Content(role="model", parts=[part]),
+            finish_reason=types.FinishReason.STOP)
+        return types.GenerateContentResponse(candidates=[candidate])
 
 
 class TestClientRefusesToPretend(unittest.TestCase):

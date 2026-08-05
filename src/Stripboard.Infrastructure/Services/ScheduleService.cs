@@ -5,6 +5,7 @@ using Stripboard.Application.Services;
 using Stripboard.Domain.Entities;
 using Stripboard.Domain.Services;
 using Stripboard.Infrastructure.Persistence;
+using Stripboard.Infrastructure.Telemetry;
 
 namespace Stripboard.Infrastructure.Services;
 
@@ -20,16 +21,20 @@ public class ScheduleService
     private readonly StripboardDbContext _db;
     private readonly IScheduleSolver _solver;
     private readonly AgentAuthorizationService _authorization;
+    private readonly ShootMetrics? _metrics;
     private readonly UnionRulesService _unionRules = new();
 
     public ScheduleService(
         StripboardDbContext db,
         IScheduleSolver solver,
-        AgentAuthorizationService authorization)
+        AgentAuthorizationService authorization,
+        ShootMetrics? metrics = null)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
         _solver = solver ?? throw new ArgumentNullException(nameof(solver));
         _authorization = authorization ?? throw new ArgumentNullException(nameof(authorization));
+        // Optional so tests can construct the service without a metrics pipeline.
+        _metrics = metrics;
     }
 
     public sealed class NotAuthorizedException(string message) : InvalidOperationException(message);
@@ -70,7 +75,15 @@ public class ScheduleService
             BlockedSceneDates: blocked?.ToList()
         );
 
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var result = await _solver.SolveAsync(input, ct);
+        stopwatch.Stop();
+
+        _metrics?.SolveDuration.Record(stopwatch.Elapsed.TotalMilliseconds);
+        _metrics?.SolveCount.Add(1,
+            new KeyValuePair<string, object?>("feasible", result.IsFeasible),
+            new KeyValuePair<string, object?>("optimal", result.IsOptimal));
+
         if (!result.IsFeasible)
         {
             throw new InvalidOperationException(
@@ -78,8 +91,14 @@ public class ScheduleService
         }
 
         var version = await PersistAsync(result, createdBy, parentVersionId, disruptionId, commit, ct);
-        return await GetBoardAsync(version.Id, result.IsOptimal, result.SolverMessage, ct)
+        var board = await GetBoardAsync(version.Id, result.IsOptimal, result.SolverMessage, ct)
                ?? throw new InvalidOperationException("Schedule version disappeared immediately after being written.");
+
+        if (commit)
+        {
+            _metrics?.Observe(board);
+        }
+        return board;
     }
 
     private async Task<ScheduleVersion> PersistAsync(
@@ -173,8 +192,12 @@ public class ScheduleService
             relatedEntityId: version.Id));
 
         await _db.SaveChangesAsync(ct);
-        return await GetBoardAsync(versionId, ct: ct)!
+        var board = await GetBoardAsync(versionId, ct: ct)
                ?? throw new InvalidOperationException("Committed version could not be read back.");
+
+        // The shoot the world should now be watching is the one that was just committed.
+        _metrics?.Observe(board);
+        return board;
     }
 
     public async Task<ScheduleBoard?> GetActiveBoardAsync(CancellationToken ct = default)

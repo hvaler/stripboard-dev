@@ -25,6 +25,12 @@ set -euo pipefail
 PROJECT="${GCP_PROJECT:-stripboard-hack}"
 REGION="${GCP_REGION:-europe-west1}"
 SERVICE="${SERVICE_NAME:-stripboard-web}"
+
+# Observability (EV-20/EV-29). The OpenTelemetry SDK reads these standard variables, so
+# the Grafana Cloud credential is mounted straight from Secret Manager and never appears
+# in the image, the repo or this script.
+OTLP_ENDPOINT="${OTLP_ENDPOINT:-https://otlp-gateway-prod-eu-north-0.grafana.net/otlp}"
+OTLP_SECRET="${OTLP_SECRET:-grafana-otlp-headers}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ ! -f "${REPO_ROOT}/.dockerignore" ]]; then
@@ -48,7 +54,8 @@ gcloud run deploy "${SERVICE}" \
   --timeout 3600 \
   --cpu 1 \
   --memory 1Gi \
-  --set-env-vars "ASPNETCORE_ENVIRONMENT=Production"
+  --set-env-vars "ASPNETCORE_ENVIRONMENT=Production,OTEL_EXPORTER_OTLP_ENDPOINT=${OTLP_ENDPOINT},OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf,OTEL_METRIC_EXPORT_INTERVAL=15000" \
+  --set-secrets "OTEL_EXPORTER_OTLP_HEADERS=${OTLP_SECRET}:latest"
 
 URL="$(gcloud run services describe "${SERVICE}" --project "${PROJECT}" --region "${REGION}" \
         --format='value(status.url)')"

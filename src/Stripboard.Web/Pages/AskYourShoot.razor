@@ -1,0 +1,197 @@
+@page "/ask"
+@using System.Net.Http.Json
+@using System.Text.Json.Serialization
+@inject IHttpClientFactory HttpClientFactory
+@inject IConfiguration Configuration
+
+<PageTitle>Ask your shoot — Stripboard</PageTitle>
+
+<h1 class="mb-3">🔎 Ask your shoot</h1>
+
+<p class="text-muted">
+    Ask about the production in plain English. Gemini answers by querying the live Grafana
+    stack through the MCP server — the tools it uses are discovered at runtime, and every
+    figure below comes from a query you can see.
+</p>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="input-group">
+            <input class="form-control form-control-lg" placeholder="e.g. Which actor am I paying for the most idle time?"
+                   @bind="question" @bind:event="oninput" @onkeydown="OnKeyDown" disabled="@isAsking" />
+            <button class="btn btn-primary fw-bold px-4" @onclick="AskAsync"
+                    disabled="@(isAsking || string.IsNullOrWhiteSpace(question))">
+                Ask
+            </button>
+        </div>
+        <div class="mt-3 d-flex flex-wrap gap-2">
+            @foreach (var suggestion in Suggestions)
+            {
+                <button class="btn btn-outline-secondary btn-sm" disabled="@isAsking"
+                        @onclick="() => AskAsync(suggestion)">@suggestion</button>
+            }
+        </div>
+    </div>
+</div>
+
+@if (isAsking)
+{
+    <div class="d-flex align-items-center gap-3 p-4 bg-light border rounded">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Querying…</span></div>
+        <div>
+            <strong>Querying Grafana…</strong>
+            <div class="text-muted small">Gemini is choosing which metrics to read. This takes a few seconds.</div>
+        </div>
+    </div>
+}
+else if (error is not null)
+{
+    <div class="alert alert-danger">
+        <h5 class="alert-heading fw-bold">Could not answer</h5>
+        <p class="mb-2">@error</p>
+        <p class="mb-0 small text-muted">
+            The Conflict Sentinel service answers these questions. Start it alongside the
+            Grafana MCP sidecar and point <code>Sentinel:BaseUrl</code> at it:
+            <code>python agents/sentinel/service.py</code>
+        </p>
+    </div>
+}
+else if (answer is not null)
+{
+    <div class="card shadow-sm border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">@answer.Question</h5>
+        </div>
+        <div class="card-body">
+            <p class="fs-5 mb-3">@answer.Answer</p>
+
+            @if (answer.ToolCalls.Count > 0)
+            {
+                <hr />
+                <h6 class="text-muted">Grafana queries behind this answer</h6>
+                <ul class="list-group list-group-flush small">
+                    @foreach (var call in answer.ToolCalls)
+                    {
+                        <li class="list-group-item">
+                            <code class="fw-bold">@call.Name</code>
+                            @if (call.Error is not null)
+                            {
+                                <span class="badge bg-danger ms-2">failed</span>
+                                <div class="text-danger">@call.Error</div>
+                            }
+                            @if (call.Arguments is { Count: > 0 })
+                            {
+                                <div class="text-muted">
+                                    @string.Join(" · ", call.Arguments.Select(a => $"{a.Key}={a.Value}"))
+                                </div>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <div class="alert alert-warning mb-0 small">
+                    No Grafana query was made, so this answer is not evidence.
+                </div>
+            }
+        </div>
+        <div class="card-footer bg-white text-muted small">
+            @answer.Rounds round(s) · @answer.TotalTokens tokens
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly string[] Suggestions =
+    {
+        "How many shooting days and company moves?",
+        "Which actor am I paying for the most idle time?",
+        "What is the schedule risk index and what is driving it?",
+        "What disruptions were raised on this shoot?",
+    };
+
+    private string question = string.Empty;
+    private bool isAsking;
+    private string? error;
+    private AskResponse? answer;
+
+    private sealed class AskResponse
+    {
+        [JsonPropertyName("question")] public string Question { get; set; } = string.Empty;
+        [JsonPropertyName("answer")] public string Answer { get; set; } = string.Empty;
+        [JsonPropertyName("rounds")] public int Rounds { get; set; }
+        [JsonPropertyName("total_tokens")] public int TotalTokens { get; set; }
+        [JsonPropertyName("tool_calls")] public List<ToolCall> ToolCalls { get; set; } = new();
+    }
+
+    private sealed class ToolCall
+    {
+        [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+        [JsonPropertyName("arguments")] public Dictionary<string, object>? Arguments { get; set; }
+        [JsonPropertyName("error")] public string? Error { get; set; }
+    }
+
+    private sealed class AskError
+    {
+        [JsonPropertyName("error")] public string? Error { get; set; }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isAsking && !string.IsNullOrWhiteSpace(question))
+        {
+            await AskAsync();
+        }
+    }
+
+    private Task AskAsync(string preset)
+    {
+        question = preset;
+        return AskAsync();
+    }
+
+    private async Task AskAsync()
+    {
+        var baseUrl = Configuration["Sentinel:BaseUrl"]
+                      ?? Environment.GetEnvironmentVariable("SENTINEL_URL");
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            error = "The Conflict Sentinel service is not configured for this deployment, so "
+                  + "there is nothing to ask. This runs locally today.";
+            answer = null;
+            return;
+        }
+
+        isAsking = true;
+        error = null;
+        answer = null;
+        StateHasChanged();
+
+        try
+        {
+            var http = HttpClientFactory.CreateClient("sentinel");
+            http.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+            http.Timeout = TimeSpan.FromSeconds(90);
+
+            var response = await http.PostAsJsonAsync("api/ask", new { question });
+            if (!response.IsSuccessStatusCode)
+            {
+                var problem = await response.Content.ReadFromJsonAsync<AskError>();
+                error = problem?.Error ?? $"The sentinel answered {(int)response.StatusCode}.";
+                return;
+            }
+
+            answer = await response.Content.ReadFromJsonAsync<AskResponse>();
+        }
+        catch (Exception ex)
+        {
+            error = $"{ex.GetType().Name}: {ex.Message}";
+        }
+        finally
+        {
+            isAsking = false;
+        }
+    }
+}
