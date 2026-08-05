@@ -15,19 +15,21 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Status](https://img.shields.io/badge/status-feature%20complete%20%C2%B7%20video%20pending-yellow)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
+![MCP](https://img.shields.io/badge/MCP-client%20%2B%204%20servers-6E56CF)
 ![Tests](https://img.shields.io/badge/tests-93%20xUnit%20%2B%2074%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
 
-This is an in-progress hackathon entry, and this section is the contract between what the
-rest of this README describes and what the code actually does today. **The architecture
-below is the target design, not a description of shipped functionality.**
+This is a hackathon entry, and this section is the contract between what the rest of this
+README describes and what the code actually does today. Everything below the gap table is
+built and verified; **the diagram further down still shows one or two things that are
+designed and not shipped**, and they are marked.
 
 **Working today:**
 
-- **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`) from
-  **Fountain, Final Draft `.fdx` or PDF** — a scanned script is read by Gemini
+- **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`, EV-18 and
+  EV-28) from **Fountain, Final Draft `.fdx` or PDF** — a scanned script is read by Gemini
   multimodal. Native structured output against a Pydantic schema, a validation-feedback
   retry loop, and an explicitly-labelled fallback. The agent also separates the
   *location* the unit travels to from the *set* within it, which is what makes the
@@ -50,13 +52,13 @@ below is the target design, not a description of shipped functionality.**
   person starting it (`demo/run_alert_loop.py`). A gauge with no schedule to describe now
   publishes **nothing** rather than `0`, because a rule watching for union violations reads
   zero as a clean shoot. See [ADR-019](adr/ADR-019-alerting-on-the-shoot.md).
-- **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`), speaking the MCP
+- **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`, EV-19), speaking the MCP
   Streamable HTTP transport to the official `grafana/mcp-grafana` server: 73 tools
   discovered on Grafana Cloud, disruptions published as real annotations via
   `create_annotation`. See
   [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
 - **Deterministic shooting-schedule solver on Google OR-Tools CP-SAT**
-  (`src/Stripboard.Solver`): day/night units, Day Out of Days cast availability, permit
+  (`src/Stripboard.Solver`, EV-27): day/night units, Day Out of Days cast availability, permit
   windows, disruption blocks, an optional hard cap on locations per day, and a day length
   that includes its meal break and company moves. Union turnaround holds **by construction**
   rather than being checked afterwards — see [ADR-012](adr/ADR-012-scheduling-model.md).
@@ -72,7 +74,7 @@ below is the target design, not a description of shipped functionality.**
   constraints, each replan strategy is a separate CP-SAT run, and only the Producer role
   can commit the result.
 - **The replanner is a Google ADK agent that explains options it did not compute**
-  (`agents/replanner`): its single tool calls the solver, so every figure it states is
+  (`agents/replanner`, EV-24): its single tool calls the solver, so every figure it states is
   traceable to a CP-SAT run. See [ADR-017](adr/ADR-017-adk-replanner.md).
 - **A multi-agent orchestrator that delegates rather than answers** (`agents/orchestrator`,
   EV-25): a root ADK agent with **no tools at all** routes each request to `scheduler`,
@@ -87,15 +89,15 @@ below is the target design, not a description of shipped functionality.**
   `tools/call`. An ADK agent consumes them with `MCPToolset` exactly as it consumes
   Grafana's. 33 contract tests drive the protocol itself rather than the classes behind it.
   See [ADR-021](adr/ADR-021-our-own-mcp-servers.md).
-- **An identity is not a string the caller sends** (EV-26): committing requires a principal
+- **An identity is not a string the caller sends** (EV-33): committing requires a principal
   the *platform* proved — Cloud Run's validated identity token, or an authenticated human
   session. A name in a request body is a claim, and a claim cannot commit. Before this, an
   agent told not to commit only had to send `identity: "Producer"`. See
   [ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md).
-- **The union rules are verified by mutation testing** — 100%, 21 mutants killed, 0 survived
-  over `UnionRulesService` (`dotnet stryker`). It found two real gaps: the night-to-day rule
-  was never tested for *not* applying, and the 14-hour boundary was unpinned. See
-  [ADR-022](adr/ADR-022-mutation-testing-the-union-rules.md).
+- **The union rules are verified by mutation testing** (EV-34) — 100%, 21 mutants killed,
+  0 survived over `UnionRulesService` (`dotnet stryker`). It found two real gaps: the
+  night-to-day rule was never tested for *not* applying, and the 14-hour boundary was
+  unpinned. See [ADR-022](adr/ADR-022-mutation-testing-the-union-rules.md).
 - **State survives a restart** (EV-22): schedules, disruptions and the audit trail live in
   Cloud SQL, reached over a Unix socket with the connection string held in Secret
   Manager. See [ADR-016](adr/ADR-016-cloud-sql-persistence.md).
@@ -111,10 +113,14 @@ below is the target design, not a description of shipped functionality.**
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| The four MCP servers run and speak the protocol, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run | `src/Stripboard.Mcp.*` | EV-23 (deployment) |
+| The four MCP servers run and speak the protocol, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run | `src/Stripboard.Mcp.*` | EV-23, deployment half |
 | The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived | `agents/orchestrator` | EV-26 |
-| Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol | `agents/orchestrator` | EV-25 (partial) |
-| Per-agent IAM is a setup script; Google is not yet the thing stopping an agent from reaching a service it should not. The commit rule *is* enforced at runtime ([ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md)) | `infra/iam/` | EV-26 |
+| Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol | `agents/orchestrator` | EV-25, second half |
+| Per-agent IAM is a setup script. Google is not yet the thing stopping an agent from reaching a service it should not — the accounts exist and hold almost nothing. The commit rule *is* enforced at runtime, in the application, by [EV-33](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md) | `infra/iam/` | EV-26 |
+| The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
+
+Every evolutivo, with what is actually done, is in
+[`EVOLUTIVOS.md`](EVOLUTIVOS.md#estado-real--ev-17--ev-34).
 
 **Live demo: <https://stripboard-web-wc7oib7k6q-ew.a.run.app>** — deployed on Cloud Run and
 verified end to end in a browser with zero console errors: inject a disruption, compare the
@@ -135,10 +141,11 @@ actor gets sick, weather turns, a permit falls through — and the 1st Assistant
 replans the whole thing by hand, often overnight, then redistributes call sheets to the
 entire crew.
 
-## Target architecture
+## Architecture
 
-> Components marked `[✓]` exist today; `[ ]` are designed but not built. See the status
-> section above.
+> Components marked `[✓]` exist today; `[ ]` are designed but not built. Two things carry a
+> deliberate half-mark — the MCP servers run but are not hosted, and the orchestrator runs
+> but is not on Agent Engine. See the status section above.
 
 ```
                      ┌─────────────────────────────┐
@@ -150,7 +157,9 @@ entire crew.
    (Gemini →   (reads the     (options +      (role-scoped  (availability,
     typed       committed      cost deltas)    PDFs)         locations,
     scenes)     board)   │                                    weather)
-      [✓]          [✓]             [✓]             [✓]          [ ]
+      [✓]          [✓]             [✓]             [✓]          [✓] as MCP
+                                                                   tools, no
+                                                                   agent yet
                     ▼                                            │
              CP-SAT solver (Google OR-Tools)              Conflict Sentinel
              deterministic, tested                  [✓]   (reads firing alerts
@@ -174,10 +183,11 @@ Design principles the implementation is being held to:
   deltas; only the Producer role can commit a schedule version.
 - **Append-only versioning.** Every replan is a new `ScheduleVersion` with its parent,
   author (human or agent) and triggering disruption — the audit trail is free.
-- **Least-privilege agents.** Each agent gets its own service account
-  (`infra/iam/setup-agent-iam.sh`). The commit rule is enforced at runtime today, in
-  `ScheduleService.CommitAsync` behind the HTTP boundary, where no prompt can reach it; the
-  per-agent IAM boundaries around it are still script-only.
+- **Least-privilege agents.** The commit rule is enforced at runtime, in
+  `ScheduleService.CommitAsync`, against an identity the *platform* proved rather than one
+  the caller typed — behind an HTTP boundary no prompt can reach, and behind a credential no
+  payload can forge (EV-33). The per-agent IAM ring outside that
+  (`infra/iam/setup-agent-iam.sh`) is still script-only.
 
 ## Technology
 
@@ -195,8 +205,9 @@ Design principles the implementation is being held to:
 | Replanner agent | Google ADK `LlmAgent` over the solver API | ✅ working |
 | Orchestration | Google ADK root agent + sub-agent transfer | ✅ working |
 | Agent hosting | Vertex AI Agent Engine | 🚧 deploy script written, not run |
-| Agent-to-agent | A2A wire protocol | ❌ not implemented |
+| Agent-to-agent | A2A wire protocol | ❌ not implemented, and [deliberately not planned](EVOLUTIVOS.md#nota-sobre-a2a-ev-25) |
 | **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
+| MCP servers of our own | `ModelContextProtocol.AspNetCore` 2.1.0, 33 contract tests | ✅ built · 🚧 not hosted |
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud, `shoot_*` production metrics | ✅ working |
 | Governance | Commit requires a platform-proved Producer, not a name in the payload | ✅ working |
 | Mutation testing | Stryker.NET over `UnionRulesService` — 100%, 0 survivors | ✅ working |
@@ -234,21 +245,25 @@ notices when it goes wrong.
 ## Repository layout
 
 ```
-src/        .NET solution: Domain, Application, Infrastructure, Solver,
-            Mcp.* services, CallSheets, Web (Blazor)
-agents/     Python agent layer: breakdown, sentinel, replanner, orchestrator
-tests/      xUnit: domain rules, solver, service contracts, telemetry, call sheets
-infra/      Cloud Run deploy scripts, Grafana dashboard + alert rules, per-agent IAM
-adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-022)
-demo/       Sample screenplays (Fountain, .fdx, PDF), demo harnesses, submission notes
-docs/       EVIDENCE.md — logs and figures behind the claims above
+src/           .NET solution: Domain, Application, Infrastructure, Solver,
+               four Mcp.* servers, CallSheets, Web (Blazor)
+agents/        Python agent layer: breakdown, sentinel, replanner, orchestrator
+tests/         xUnit: domain rules, solver, MCP protocol contracts, telemetry, call sheets
+infra/         Cloud Run deploy scripts, Grafana dashboard + alert rules, per-agent IAM
+adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-022)
+demo/          Sample screenplays (Fountain, .fdx, PDF), demo harnesses, pitch deck
+docs/          EVIDENCE.md — logs and figures behind the claims above
+EVOLUTIVOS.md  Every evolutivo and what is actually done
+stryker-config.json  Mutation testing, scoped to the union rules
 ```
 
 ## Quickstart
 
-> Verified locally on Windows with the .NET 10 SDK and Python 3.12. The full cloud
-> deployment path (Cloud Run, Cloud SQL, Agent Engine, Grafana provisioning) is not
-> scripted yet — that is EV-31.
+> Verified locally on Windows with the .NET 10 SDK and Python 3.12. The cloud path is
+> scripted and used daily — `infra/deploy-web.sh`, `infra/deploy-sentinel.sh`,
+> `infra/grafana/provision-*.py` — with the exception of Agent Engine, which is written and
+> deliberately unrun. **This has not been reproduced on a clean machine yet** (EV-31), so
+> treat it as instructions rather than as a guarantee.
 
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
