@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-net/master/src/Stryker.Core/Stryker.Core/Schemas/stryker-config.json",
+  "stryker-config": {
+    "project": "Stripboard.Domain.csproj",
+    "solution": "Stripboard.slnx",
+    "test-projects": [
+      "tests/Stripboard.Domain.Tests/Stripboard.Domain.Tests.csproj"
+    ],
+    "mutate": [
+      "**/Services/UnionRulesService.cs"
+    ],
+    "reporters": ["html", "progress", "cleartext"],
+    "mutation-level": "Standard",
+    "thresholds": {
+      "high": 95,
+      "low": 85,
+      "break": 85
+    },
+    "ignore-mutations": ["string"]
+  }
+}

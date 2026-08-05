@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- CallerIdentityResolver reads the caller from the HTTP request, so this layer needs
+       ASP.NET's abstractions. FrameworkReference rather than a package: it pulls only the
+       shared framework already present in every host that runs this code. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Stripboard.Application\Stripboard.Application.csproj" />
   </ItemGroup>

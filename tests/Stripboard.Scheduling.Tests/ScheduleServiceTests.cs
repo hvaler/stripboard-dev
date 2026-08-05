@@ -145,6 +145,9 @@ public class ScheduleServiceTests
             "the sentinel is a read-only watcher and must not be able to run the solver");
     }
 
+    private static CallerIdentity Producer =>
+        CallerIdentity.FromHumanSession(AgentAuthorizationService.RoleProducer);
+
     [Fact]
     public async Task CommitAsync_IsRefusedForAgentsAndAllowedForTheProducer()
     {
@@ -153,12 +156,30 @@ public class ScheduleServiceTests
         var service = NewService(db);
         var draft = await service.GenerateAsync(AgentAuthorizationService.SaReplanner, Start);
 
-        var agentAttempt = () => service.CommitAsync(draft.VersionId, AgentAuthorizationService.SaReplanner);
+        var agentAttempt = () => service.CommitAsync(draft.VersionId,
+            CallerIdentity.FromToken(AgentAuthorizationService.SaReplanner));
         await agentAttempt.Should().ThrowAsync<ScheduleService.NotAuthorizedException>(
             "agents propose; only a human Producer commits (ADR-002)");
 
-        var committed = await service.CommitAsync(draft.VersionId, AgentAuthorizationService.RoleProducer);
+        var committed = await service.CommitAsync(draft.VersionId, Producer);
         committed.IsCommitted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CommitAsync_RefusesAnIdentityNothingVerified()
+    {
+        // The string overload builds an asserted identity on purpose, so the old call shape
+        // — commit(versionId, "Producer") — now fails. That call is a caller vouching for
+        // itself, which is precisely what an agent would do to get around ADR-002.
+        using var db = NewDb();
+        await SeedAsync(db);
+        var service = NewService(db);
+        var draft = await service.GenerateAsync(AgentAuthorizationService.RoleProducer, Start);
+
+        var act = () => service.CommitAsync(draft.VersionId, AgentAuthorizationService.RoleProducer);
+
+        (await act.Should().ThrowAsync<ScheduleService.NotAuthorizedException>())
+            .WithMessage("*nothing verified it*");
     }
 
     [Fact]
@@ -170,7 +191,7 @@ public class ScheduleServiceTests
 
         var first = await service.GenerateAsync(AgentAuthorizationService.RoleProducer, Start, commit: true);
         var second = await service.GenerateAsync(AgentAuthorizationService.RoleProducer, Start);
-        await service.CommitAsync(second.VersionId, AgentAuthorizationService.RoleProducer);
+        await service.CommitAsync(second.VersionId, Producer);
 
         var committed = await db.ScheduleVersions.Where(v => v.IsCommitted).ToListAsync();
         committed.Should().ContainSingle().Which.Id.Should().Be(second.VersionId);

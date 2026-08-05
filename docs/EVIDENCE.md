@@ -332,7 +332,7 @@ Three things worth reading twice:
 
 ```bash
 # .NET: solver, domain rules, service contracts, telemetry, scheduling
-dotnet test Stripboard.slnx                       # 60 tests
+dotnet test Stripboard.slnx                       # 93 tests
 
 # Python agents. The Gemini and Grafana tests make real calls and FAIL — not skip —
 # when the service is configured but broken.
@@ -364,12 +364,114 @@ instance. It used to crash-loop instead, which is why this is written down.
 
 Restart both and confirm `/api/health` reports a committed schedule before recording anything.
 
-## 6. What this file does not claim
+## 6. Stripboard is an MCP server too
 
-- The four `Stripboard.Mcp.*` services are REST endpoints under an `/mcp/` path. They do not
-  speak MCP. Stripboard is an MCP **client**, not a server (EV-23).
+The four `Stripboard.Mcp.*` services used to be REST endpoints under a path beginning
+`/mcp/`, which is not the same thing as speaking the protocol. They now use the official
+`ModelContextProtocol.AspNetCore` SDK. Against a running server:
+
+```bash
+dotnet run --project src/Stripboard.Mcp.Weather
+
+curl -s -X POST http://localhost:5075/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05",
+       "capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+```
+
+```
+event: message
+data: {"result":{"protocolVersion":"2024-11-05",
+                 "capabilities":{"logging":{},"tools":{}},
+                 "serverInfo":{"name":"Stripboard.Mcp.Weather","version":"1.0.0.0"}},
+       "id":1,"jsonrpc":"2.0"}
+```
+
+```
+tools/list ->
+  {"tools":[
+    {"name":"get_forecast",
+     "description":"Weather for a location on a date … SYNTHETIC — generated
+                    deterministically for demo reproducibility, not fetched from any
+                    weather service.",
+     "inputSchema":{"type":"object",
+       "properties":{"locationName":{"type":"string","description":"…"},
+                     "date":{"type":"string","description":"The date, ISO format (YYYY-MM-DD)."}},
+       "required":["locationName","date"]}}, … ]}
+```
+
+Two things in that output are the point. The schema is **generated from the method
+signature**, so it cannot drift from what the tool accepts. And the word SYNTHETIC is in the
+*description*, not only in the payload, because a model picks a tool from its description and
+may never read the provenance field underneath.
+
+### The governance rule, over MCP
+
+```bash
+dotnet test tests/Stripboard.Mcp.Contract.Tests    # 33 tests, all through tools/call
+```
+
+The one that matters: an agent calls `commit_schedule` and sends `identity: "Producer"`. It
+is refused. The identity comes from the credential on the request, not the payload
+(ADR-020) — before this, an agent told not to commit only had to claim a different name.
+
+### An identity is not a string you send — against the deployed service
+
+```bash
+curl -s -X POST https://stripboard-web-wc7oib7k6q-ew.a.run.app/api/schedule/commit \
+  -H 'Content-Type: application/json' \
+  -d '{"versionId":"ecfc13dd-9cce-49c3-9332-74ca32073e5e","identity":"Producer"}'
+```
+
+```
+HTTP 403
+{"committed": false,
+ "error": "'Producer' claims the Producer role but nothing verified it. A commit requires
+           an authenticated caller — an identity supplied in the request body is a claim,
+           not a credential."}
+```
+
+And with an agent's own name, which is the wrong role rather than an unproved one:
+
+```
+HTTP 403
+{"committed": false,
+ "error": "'sa-replanner' cannot commit a schedule. Only the Producer role may commit
+           — agents propose, humans decide."}
+```
+
+Two different refusals because they need two different fixes: one says *ask a Producer*, the
+other says *authenticate*. A caller who cannot tell them apart will try the wrong one.
+
+The Blazor page commits successfully because a human session is an authenticated principal.
+Everything reaching the API anonymously — which is every agent, today — cannot.
+
+## 7. Mutation testing
+
+```bash
+dotnet tool install --global dotnet-stryker
+dotnet stryker
+```
+
+```
+Services\UnionRulesService.cs   100.00 %   21 killed   0 survived
+```
+
+Scoped to `UnionRulesService`, which is the file that decides whether a schedule is legal.
+It found two real gaps: the night-to-day rule was never tested for *not* applying (flipping
+`&&` to `||` survived), and the 14-hour boundary was unpinned (`<` and `<=` were
+indistinguishable). The wider domain layer scores 43% and that figure is recorded in
+[ADR-022](../adr/ADR-022-mutation-testing-the-union-rules.md) rather than hidden — those are
+constructors, and pointing the tool at them would measure nothing.
+
+## 8. What this file does not claim
+
+- The four MCP servers are **not deployed**. They run and speak the protocol; only the web
+  app and the Conflict Sentinel are on Cloud Run.
 - The orchestrator has not been deployed to Vertex AI Agent Engine.
   `agents/deploy_agent_engine.py` is written and passes its own preflight; it has not been
   run, because Agent Engine is a billed resource (EV-26).
 - Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol.
-- No mutation testing is configured.
+- Per-agent IAM is a setup script. Google is not yet the thing stopping an agent from
+  reaching a service it should not; the commit rule is enforced in the application.
+- Mutation testing covers the union rules, not the codebase.

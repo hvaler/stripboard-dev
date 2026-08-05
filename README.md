@@ -15,7 +15,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Status](https://img.shields.io/badge/status-feature%20complete%20%C2%B7%20video%20pending-yellow)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
-![Tests](https://img.shields.io/badge/tests-60%20xUnit%20%2B%2074%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-93%20xUnit%20%2B%2074%20python-brightgreen)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -81,15 +81,29 @@ below is the target design, not a description of shipped functionality.**
   governance agent **has** the commit tool and is refused by the service with HTTP 403 —
   the rule is tested by being broken, not by being withheld. See
   [ADR-018](adr/ADR-018-orchestration-and-delegated-authority.md).
+- **Stripboard is an MCP server too, not only a client** (EV-23): the four
+  `Stripboard.Mcp.*` services speak the real protocol through the official
+  `ModelContextProtocol.AspNetCore` SDK — `initialize`, `tools/list` with generated schemas,
+  `tools/call`. An ADK agent consumes them with `MCPToolset` exactly as it consumes
+  Grafana's. 33 contract tests drive the protocol itself rather than the classes behind it.
+  See [ADR-021](adr/ADR-021-our-own-mcp-servers.md).
+- **An identity is not a string the caller sends** (EV-26): committing requires a principal
+  the *platform* proved — Cloud Run's validated identity token, or an authenticated human
+  session. A name in a request body is a claim, and a claim cannot commit. Before this, an
+  agent told not to commit only had to send `identity: "Producer"`. See
+  [ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md).
+- **The union rules are verified by mutation testing** — 100%, 21 mutants killed, 0 survived
+  over `UnionRulesService` (`dotnet stryker`). It found two real gaps: the night-to-day rule
+  was never tested for *not* applying, and the 14-hour boundary was unpinned. See
+  [ADR-022](adr/ADR-022-mutation-testing-the-union-rules.md).
 - **State survives a restart** (EV-22): schedules, disruptions and the audit trail live in
   Cloud SQL, reached over a Unix socket with the connection string held in Secret
   Manager. See [ADR-016](adr/ADR-016-cloud-sql-persistence.md).
 - Union rules as pure, tested domain code (`src/Stripboard.Domain/Services/UnionRulesService.cs`):
   12-hour turnaround including midnight crossing, meal penalties, night→day transitions.
-- Four ASP.NET Core services exposing schedule / people / locations / weather operations.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with six pages, and a versioned Grafana dashboard and alert rules.
-- 60 xUnit tests and 74 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 93 xUnit tests and 74 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -97,9 +111,10 @@ below is the target design, not a description of shipped functionality.**
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| The four services are REST endpoints under an `/mcp/` path — they do **not** speak the MCP protocol | `src/Stripboard.Mcp.*` | EV-23 |
-| The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived. The Conflict Sentinel *is* deployed (Cloud Run, private) | `agents/orchestrator` | EV-26 |
+| The four MCP servers run and speak the protocol, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run | `src/Stripboard.Mcp.*` | EV-23 (deployment) |
+| The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived | `agents/orchestrator` | EV-26 |
 | Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol | `agents/orchestrator` | EV-25 (partial) |
+| Per-agent IAM is a setup script; Google is not yet the thing stopping an agent from reaching a service it should not. The commit rule *is* enforced at runtime ([ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md)) | `infra/iam/` | EV-26 |
 
 **Live demo: <https://stripboard-web-wc7oib7k6q-ew.a.run.app>** — deployed on Cloud Run and
 verified end to end in a browser with zero console errors: inject a disruption, compare the
@@ -143,7 +158,7 @@ entire crew.
                     ▼                                      annotations)
         ┌───────────────────────────────────────────┐            [✓]
         │  Service layer: mcp-schedule · mcp-people │
-        │  · mcp-locations · mcp-weather            │  REST [✓] / MCP [ ]
+        │  · mcp-locations · mcp-weather            │  MCP [✓] / deployed [ ]
         └───────────────────────────────────────────┘
 
         Governance: an agent may call /api/schedule/commit.
@@ -172,7 +187,7 @@ Design principles the implementation is being held to:
 | Domain & union rules | C# / .NET 10, pure domain layer | ✅ working |
 | Call sheets | QuestPDF | ✅ working |
 | Web UI | Blazor Server (.NET 10) | ✅ driven by the solver |
-| Services | ASP.NET Core (.NET 10) minimal APIs | ✅ REST · ❌ not MCP yet |
+| Services | Four MCP servers (`ModelContextProtocol.AspNetCore`) | ✅ speak MCP · 🚧 not deployed |
 | Data | EF Core 9 → **Cloud SQL (PostgreSQL 16)**, migrations applied at startup | ✅ working |
 | Grafana dashboard | Versioned JSON + provisioning script (`infra/grafana/`) | ✅ working |
 | Grafana alert rules | Versioned JSON over `shoot_*` metrics, provisioned by script | ✅ working |
@@ -183,8 +198,9 @@ Design principles the implementation is being held to:
 | Agent-to-agent | A2A wire protocol | ❌ not implemented |
 | **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud, `shoot_*` production metrics | ✅ working |
-| Governance | Commit refused for any non-Producer identity, in the service behind HTTP | ✅ working |
-| Security | Cloud IAM, per-agent service accounts, Secret Manager | 🚧 secrets in Secret Manager; per-agent IAM script only |
+| Governance | Commit requires a platform-proved Producer, not a name in the payload | ✅ working |
+| Mutation testing | Stryker.NET over `UnionRulesService` — 100%, 0 survivors | ✅ working |
+| Security | Secret Manager for every credential; per-agent service accounts | ✅ secrets · 🚧 per-agent IAM script only |
 
 ### Grafana partner track
 
@@ -223,7 +239,7 @@ src/        .NET solution: Domain, Application, Infrastructure, Solver,
 agents/     Python agent layer: breakdown, sentinel, replanner, orchestrator
 tests/      xUnit: domain rules, solver, service contracts, telemetry, call sheets
 infra/      Cloud Run deploy scripts, Grafana dashboard + alert rules, per-agent IAM
-adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-019)
+adr/        Architecture Decision Records (ADR-005, ADR-008 … ADR-022)
 demo/       Sample screenplays (Fountain, .fdx, PDF), demo harnesses, submission notes
 docs/       EVIDENCE.md — logs and figures behind the claims above
 ```
@@ -237,19 +253,44 @@ docs/       EVIDENCE.md — logs and figures behind the claims above
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (60 tests)
+# Build and run the .NET test suite (93 tests)
 dotnet test Stripboard.slnx
 
 # Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a
 # schedule on first start, so the stripboard has real data immediately.
 dotnet run --project src/Stripboard.Web
 
-# Run a service, e.g. the schedule API
-dotnet run --project src/Stripboard.Mcp.Schedule
-
 # Run the local demo harness (stubbed pipeline, no cloud dependencies)
 python demo/run_demo.py
 ```
+
+### Our own MCP servers
+
+Four of them — schedule, people, locations, weather. They speak the protocol, so any MCP
+client can discover their tools:
+
+```bash
+dotnet run --project src/Stripboard.Mcp.Schedule    # then also People, Locations, Weather
+
+curl -s -X POST http://localhost:5075/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+`commit_schedule` is there on purpose and will refuse you. Running locally there is nothing
+authenticating anyone, so every caller is unverified — and an unverified caller cannot
+commit no matter what identity it sends
+([ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md)).
+
+### Mutation testing the union rules
+
+```bash
+dotnet tool install --global dotnet-stryker
+dotnet stryker          # scoped to UnionRulesService; breaks below 85%
+```
+
+Last run: **100%, 21 mutants killed, 0 survived**
+([ADR-022](adr/ADR-022-mutation-testing-the-union-rules.md)).
 
 ### Screenplay breakdown with Gemini
 

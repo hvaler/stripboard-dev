@@ -1,64 +1,46 @@
-using Microsoft.EntityFrameworkCore;
 using Stripboard.Application.Common.Interfaces;
-using Stripboard.Application.Common.Models;
+using Stripboard.Application.Services;
 using Stripboard.Infrastructure.Persistence;
-using Stripboard.Mcp.Schedule.Services;
+using Stripboard.Infrastructure.Services;
+using Stripboard.Mcp.Schedule.Tools;
 using Stripboard.Solver;
 
+// mcp-schedule: a real Model Context Protocol server (EV-23).
+//
+// This used to be four REST endpoints under an /mcp/ path, which is not the same thing as
+// speaking MCP — there was no initialize handshake, no tools/list, no typed input schemas,
+// and no client could discover it. ADR-001 claimed "the Python/.NET boundary is the MCP
+// boundary"; until now that was only true in one direction, because we were a client of
+// Grafana's server and not a server ourselves.
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
-
-// Register EF Core DbContext
 builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardScheduleMcpDb");
-
-// Register Solver & Schedule Service
 builder.Services.AddScoped<IScheduleSolver, CpSatScheduleSolver>();
-builder.Services.AddScoped<ScheduleMcpService>();
+builder.Services.AddScoped<AgentAuthorizationService>();
+builder.Services.AddScoped<ScheduleService>();
+builder.Services.AddScoped<ReplanService>();
+
+// Who is calling comes from the request, not from the request body. Behind Cloud Run that
+// is the identity token Google already validated; locally it is nobody, and nobody cannot
+// commit. See CallerIdentityResolver.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<CallerIdentityResolver>();
+
+builder.Services.AddMcpServer()
+    // Stateless: these tools are request/response over the database and never call back to
+    // the client for sampling or elicitation, so there is no session state worth keeping —
+    // and a stateless server survives Cloud Run moving a request to another instance.
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<ScheduleTools>();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    var db = scope.ServiceProvider.GetRequiredService<StripboardDbContext>();
+    await DatabaseRegistration.MigrateAsync(db, app.Logger);
 }
 
-app.UseHttpsRedirection();
-
-// MCP Tool Endpoints (§6 / ADR-004)
-app.MapPost("/mcp/tools/get_schedule", async (GetScheduleRequest request, ScheduleMcpService service) =>
-{
-    var version = await service.GetScheduleAsync(request.VersionId);
-    return version != null ? Results.Ok(version) : Results.NotFound();
-});
-
-app.MapPost("/mcp/tools/create_schedule", async (SolverInput input, ScheduleMcpService service) =>
-{
-    var result = await service.CreateScheduleAsync(input);
-    return Results.Ok(result);
-});
-
-app.MapPost("/mcp/tools/commit_schedule", async (CommitScheduleRequest request, ScheduleMcpService service) =>
-{
-    try
-    {
-        var committedVersion = await service.CommitScheduleAsync(request.ScheduleId, request.ProducerId);
-        return Results.Ok(committedVersion);
-    }
-    catch (KeyNotFoundException ex)
-    {
-        return Results.NotFound(ex.Message);
-    }
-});
-
-app.MapPost("/mcp/tools/validate_rules", async (ValidateRulesRequest request, ScheduleMcpService service) =>
-{
-    var anomalies = await service.ValidateRulesAsync(request.ScheduleId);
-    return Results.Ok(anomalies);
-});
+app.MapMcp("/mcp");
 
 app.Run();
-
-public record GetScheduleRequest(Guid VersionId);
-public record CommitScheduleRequest(Guid ScheduleId, string ProducerId);
-public record ValidateRulesRequest(Guid ScheduleId);

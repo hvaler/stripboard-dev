@@ -11,7 +11,6 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Stripboard.Infrastructure.Services;
 using Stripboard.Infrastructure.Telemetry;
-using Stripboard.Mcp.Schedule.Services;
 using Stripboard.Domain.Enums;
 using Stripboard.Solver;
 
@@ -43,14 +42,16 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardWebDb");
 
-// The solver is what makes the UI real (EV-21). Before this registration the web app
-// resolved ScheduleMcpService without ever providing an IScheduleSolver to satisfy it.
+// The solver is what makes the UI real (EV-21).
 builder.Services.AddScoped<IScheduleSolver, CpSatScheduleSolver>();
 builder.Services.AddScoped<AgentAuthorizationService>();
 builder.Services.AddScoped<ScheduleService>();
 builder.Services.AddScoped<ReplanService>();
 builder.Services.AddScoped<BreakdownImportService>();
-builder.Services.AddScoped<ScheduleMcpService>();
+
+// Who is calling comes from the request, not from the request body (ADR-020).
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<CallerIdentityResolver>();
 builder.Services.AddSingleton<CallSheetPdfGenerator>();
 builder.Services.AddSingleton<ShootMetrics>();
 builder.Services.AddHttpClient();
@@ -66,8 +67,6 @@ builder.Services.AddSingleton<Stripboard.Web.Services.SentinelClient>();
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(
         serviceName: "stripboard-web",
-        // Not typeof(Program): this project references Stripboard.Mcp.Schedule, whose own
-        // top-level Program makes that name ambiguous and resolves by luck rather than intent.
         serviceVersion: System.Reflection.Assembly.GetExecutingAssembly()
             .GetName().Version?.ToString() ?? "1.0.0"))
     .WithMetrics(metrics => metrics
@@ -288,11 +287,14 @@ app.MapGet("/api/schedule", async (ScheduleService schedules, CancellationToken 
 app.MapPost("/api/schedule/commit", async (
     CommitRequest request,
     ScheduleService schedules,
+    CallerIdentityResolver callers,
     CancellationToken ct) =>
 {
     try
     {
-        var board = await schedules.CommitAsync(request.VersionId, request.Identity, ct);
+        // The resolved caller wins over the payload. An agent sending identity="Producer"
+        // is making a claim, and a claim is not a credential (ADR-020).
+        var board = await schedules.CommitAsync(request.VersionId, callers.Resolve(request.Identity), ct);
         return Results.Ok(new
         {
             committed = true,

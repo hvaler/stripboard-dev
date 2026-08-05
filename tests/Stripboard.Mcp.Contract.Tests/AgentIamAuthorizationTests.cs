@@ -4,57 +4,85 @@ using Xunit;
 
 namespace Stripboard.Mcp.Contract.Tests;
 
+/// <summary>
+/// Least-privilege identity, at the level where it is decided (ADR-002 / ADR-004).
+///
+/// These tests used to pass a plain string to <c>CanExecuteCommit</c>, which is exactly the
+/// hole they were meant to guard: the rule was checked against a name the caller wrote
+/// itself, so an agent that wanted to commit only had to send "Producer". The role check was
+/// never wrong — it was answering a question whose premise nobody had verified.
+/// </summary>
 public class AgentIamAuthorizationTests
 {
-    private readonly AgentAuthorizationService _authService = new();
+    private readonly AgentAuthorizationService _authorization = new();
 
-    [Fact]
-    public void SentinelAgent_CannotExecuteSolve_NegativeTest()
+    [Theory]
+    [InlineData(AgentAuthorizationService.SaSentinel)]
+    [InlineData(AgentAuthorizationService.SaReplanner)]
+    [InlineData(AgentAuthorizationService.SaOrchestrator)]
+    [InlineData(AgentAuthorizationService.SaBreakdown)]
+    public void NoAgentMayCommit_EvenWithAProvenIdentity(string serviceAccount)
     {
-        // Act
-        bool canSolve = _authService.CanExecuteSolve("sa-sentinel");
-
-        // Assert
-        canSolve.Should().BeFalse("sa-sentinel is a read-only monitoring identity and cannot invoke solver");
+        // Proving who you are does not make you a Producer. This is the ADR-002 rule.
+        _authorization.CanExecuteCommit(CallerIdentity.FromToken(serviceAccount)).Should().BeFalse();
     }
 
     [Fact]
-    public void SentinelAgent_CannotExecuteCommit_NegativeTest()
+    public void AnAgentClaimingToBeTheProducerIsStillRefused()
     {
-        // Act
-        bool canCommit = _authService.CanExecuteCommit("sa-sentinel");
+        // The attack the old signature invited: put "Producer" in the payload and commit.
+        var claim = CallerIdentity.Asserted(AgentAuthorizationService.RoleProducer);
 
-        // Assert
-        canCommit.Should().BeFalse("sa-sentinel cannot commit schedules");
+        _authorization.CanExecuteCommit(claim).Should().BeFalse(
+            "an identity nothing verified is a claim, not a credential");
     }
 
     [Fact]
-    public void ReplannerAgent_CannotExecuteCommit_NegativeTest()
+    public void TheProducerMayCommitOnceTheIdentityIsProven()
     {
-        // Act
-        bool canCommit = _authService.CanExecuteCommit("sa-replanner");
-
-        // Assert
-        canCommit.Should().BeFalse("ADR-002 enforces Human-in-the-Loop; sa-replanner can only propose draft options");
+        _authorization.CanExecuteCommit(
+            CallerIdentity.FromHumanSession(AgentAuthorizationService.RoleProducer))
+            .Should().BeTrue();
     }
 
     [Fact]
-    public void Producer_CanExecuteCommit_PositiveTest()
+    public void AServiceAccountEmailIsRecognisedAsItsRole()
     {
-        // Act
-        bool canCommit = _authService.CanExecuteCommit("Producer");
+        // Google presents the caller as a full email. Comparing the whole string would
+        // refuse the very identity the platform just proved — the agent would be locked out
+        // of solving, which looks like a broken deployment rather than a policy.
+        var replanner = CallerIdentity.FromToken("sa-replanner@stripboard-hack.iam.gserviceaccount.com");
 
-        // Assert
-        canCommit.Should().BeTrue("Human Producer is authorized to commit schedule versions");
+        _authorization.CanExecuteSolve(replanner).Should().BeTrue();
+        _authorization.CanExecuteCommit(replanner).Should().BeFalse();
     }
 
     [Fact]
-    public void SentinelAgent_CanRaiseAnomaly_PositiveTest()
+    public void SolvingAcceptsAnAssertedIdentity_BecauseADraftBindsNobody()
     {
-        // Act
-        bool canRaise = _authService.CanRaiseAnomaly("sa-sentinel");
+        // A draft schedule is a proposal a human still has to accept, so requiring proof to
+        // produce one would add friction without protecting anything. The line is drawn at
+        // the commit, which is where a schedule starts costing money.
+        _authorization.CanExecuteSolve(
+            CallerIdentity.Asserted(AgentAuthorizationService.SaScheduler)).Should().BeTrue();
+    }
 
-        // Assert
-        canRaise.Should().BeTrue("sa-sentinel is authorized to emit anomaly events and Grafana annotations");
+    [Fact]
+    public void TheSentinelCanRaiseAnomaliesButNotSolveOrCommit()
+    {
+        // The watcher reads and reports. It has no business changing the plan.
+        var sentinel = CallerIdentity.FromToken(AgentAuthorizationService.SaSentinel);
+
+        _authorization.CanRaiseAnomaly(sentinel.Name).Should().BeTrue();
+        _authorization.CanExecuteSolve(sentinel).Should().BeFalse();
+        _authorization.CanExecuteCommit(sentinel).Should().BeFalse();
+    }
+
+    [Fact]
+    public void AnEmptyOrAnonymousCallerIsRefusedEverything()
+    {
+        _authorization.CanExecuteSolve(CallerIdentity.Asserted(null)).Should().BeFalse();
+        _authorization.CanExecuteCommit(CallerIdentity.Asserted("")).Should().BeFalse();
+        _authorization.CanRaiseAnomaly("  ").Should().BeFalse();
     }
 }

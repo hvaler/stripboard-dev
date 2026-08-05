@@ -39,3 +39,7 @@ appsettings.*.local.json
 # === OS ===
 .DS_Store
 Thumbs.db
+
+# Mutation testing reports (dotnet stryker). Regenerated on demand; the score that
+# matters is recorded in adr/ADR-022 and the README.
+StrykerOutput/

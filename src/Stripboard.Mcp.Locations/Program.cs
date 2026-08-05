@@ -1,43 +1,25 @@
-using Microsoft.EntityFrameworkCore;
 using Stripboard.Infrastructure.Persistence;
 using Stripboard.Mcp.Locations.Services;
+using Stripboard.Mcp.Locations.Tools;
 
+// mcp-locations: a real Model Context Protocol server (EV-23). See Stripboard.Mcp.Schedule.
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
 builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardLocationsMcpDb");
 builder.Services.AddScoped<LocationsMcpService>();
 
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<LocationsTools>();
+
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    var db = scope.ServiceProvider.GetRequiredService<StripboardDbContext>();
+    await DatabaseRegistration.MigrateAsync(db, app.Logger);
 }
 
-app.UseHttpsRedirection();
-
-// MCP Tool Endpoints for mcp-locations (§6 / ADR-004)
-app.MapPost("/mcp/tools/get_location", async (GetLocationRequest request, LocationsMcpService service) =>
-{
-    var info = await service.GetLocationAsync(request.LocationName);
-    return info != null ? Results.Ok(info) : Results.NotFound();
-});
-
-app.MapPost("/mcp/tools/get_permits", async (GetPermitsRequest request, LocationsMcpService service) =>
-{
-    var permits = await service.GetPermitsAsync(request.LocationName);
-    return Results.Ok(permits);
-});
-
-app.MapPost("/mcp/tools/check_access", async (CheckAccessRequest request, LocationsMcpService service) =>
-{
-    var access = await service.CheckAccessAsync(request.LocationName, request.Date);
-    return Results.Ok(access);
-});
+app.MapMcp("/mcp");
 
 app.Run();
-
-public record GetLocationRequest(string LocationName);
-public record GetPermitsRequest(string LocationName);
-public record CheckAccessRequest(string LocationName, DateOnly Date);

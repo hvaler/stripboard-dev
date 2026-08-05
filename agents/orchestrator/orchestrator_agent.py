@@ -63,12 +63,17 @@ def get_schedule() -> Dict[str, Any]:
 
 
 def commit_schedule(version_id: str, identity: str) -> Dict[str, Any]:
-    """Commit a schedule version, which only a human Producer is allowed to do.
+    """Commit a schedule version, which only an authenticated human Producer may do.
+
+    The identity below is advisory. The service decides who you are from the credential on
+    the request, not from this argument — so claiming to be the Producer changes nothing.
+    That is deliberate: an agent told not to commit would otherwise only have to say it was
+    somebody else.
 
     Args:
         version_id: The version to commit, as returned by a replan option.
-        identity: Who is committing. Agents must pass their own service account name;
-            they will be refused, which is the intended behaviour.
+        identity: Who you are. Agents must pass their own service account name; they will be
+            refused, which is the intended behaviour.
 
     Returns:
         Whether the commit happened, and the reason if it did not.

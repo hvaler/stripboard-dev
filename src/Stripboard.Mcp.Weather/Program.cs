@@ -1,34 +1,20 @@
 using Stripboard.Mcp.Weather.Services;
+using Stripboard.Mcp.Weather.Tools;
 
+// mcp-weather: a real Model Context Protocol server (EV-23). See Stripboard.Mcp.Schedule.
+//
+// The forecast behind it is synthetic and every response says so — see WeatherTools.
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<WeatherMcpService>();
 
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<WeatherTools>();
+
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseHttpsRedirection();
-
-// MCP Tool Endpoints for mcp-weather (§6 / ADR-004)
-app.MapPost("/mcp/tools/get_forecast", async (GetForecastRequest request, WeatherMcpService service) =>
-{
-    var forecast = await service.GetForecastAsync(request.LocationName, request.Date);
-    return Results.Ok(forecast);
-});
-
-app.MapPost("/mcp/tools/check_risk", async (CheckRiskRequest request, WeatherMcpService service) =>
-{
-    var risk = await service.CheckRiskAsync(request.LocationName, request.Date, request.IsOutdoor);
-    return Results.Ok(risk);
-});
+app.MapMcp("/mcp");
 
 app.Run();
-
-public record GetForecastRequest(string LocationName, DateOnly Date);
-public record CheckRiskRequest(string LocationName, DateOnly Date, bool IsOutdoor);

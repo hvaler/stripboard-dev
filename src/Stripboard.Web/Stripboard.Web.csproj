@@ -3,9 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Stripboard.Application\Stripboard.Application.csproj" />
     <ProjectReference Include="..\Stripboard.Infrastructure\Stripboard.Infrastructure.csproj" />
-    <ProjectReference Include="..\Stripboard.Mcp.Schedule\Stripboard.Mcp.Schedule.csproj">
-      <ExcludeAssets>contentFiles</ExcludeAssets>
-    </ProjectReference>
     <ProjectReference Include="..\Stripboard.CallSheets\Stripboard.CallSheets.csproj" />
     <ProjectReference Include="..\Stripboard.Solver\Stripboard.Solver.csproj" />
   </ItemGroup>
@@ -14,7 +11,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
 

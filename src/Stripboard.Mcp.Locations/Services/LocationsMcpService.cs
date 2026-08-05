@@ -24,8 +24,19 @@ public class LocationsMcpService
         var count = await _dbContext.Scenes
             .CountAsync(s => s.SetLocation.ToLower() == locationName.ToLower(), cancellationToken);
 
-        return new LocationInfoResult(locationName, count, count > 0 ? "Active" : "Available");
+        // A location exists because scenes happen there. Nothing else defines one, so zero
+        // scenes means the name is not part of this production — and this used to answer
+        // "Available" for any string at all, inventing a location on demand.
+        return count == 0 ? null : new LocationInfoResult(locationName, count, "Active");
     }
+
+    /// <summary>Every location the production actually visits, so a caller can recover from a typo.</summary>
+    public async Task<List<string>> GetKnownLocationsAsync(CancellationToken cancellationToken = default) =>
+        await _dbContext.Scenes
+            .Select(s => s.SetLocation)
+            .Distinct()
+            .OrderBy(name => name)
+            .ToListAsync(cancellationToken);
 
     /// <summary>
     /// MCP Tool: get_permits(location_name)

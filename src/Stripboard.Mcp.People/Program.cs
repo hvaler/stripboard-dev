@@ -1,43 +1,26 @@
-using Microsoft.EntityFrameworkCore;
 using Stripboard.Infrastructure.Persistence;
 using Stripboard.Mcp.People.Services;
+using Stripboard.Mcp.People.Tools;
 
+// mcp-people: a real Model Context Protocol server (EV-23). See Stripboard.Mcp.Schedule for
+// why "REST endpoints under an /mcp/ path" was not the same thing as speaking MCP.
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
 builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardPeopleMcpDb");
 builder.Services.AddScoped<PeopleMcpService>();
 
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<PeopleTools>();
+
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    var db = scope.ServiceProvider.GetRequiredService<StripboardDbContext>();
+    await DatabaseRegistration.MigrateAsync(db, app.Logger);
 }
 
-app.UseHttpsRedirection();
-
-// MCP Tool Endpoints for mcp-people (§6 / ADR-004)
-app.MapPost("/mcp/tools/get_person", async (GetPersonRequest request, PeopleMcpService service) =>
-{
-    var person = await service.GetPersonAsync(request.PersonId);
-    return person != null ? Results.Ok(person) : Results.NotFound();
-});
-
-app.MapPost("/mcp/tools/get_dood", async (GetDoodRequest request, PeopleMcpService service) =>
-{
-    var dood = await service.GetDoodAsync(request.PersonId, request.StartDate, request.EndDate);
-    return Results.Ok(dood);
-});
-
-app.MapPost("/mcp/tools/update_availability", async (UpdateAvailabilityRequest request, PeopleMcpService service) =>
-{
-    var success = await service.UpdateAvailabilityAsync(request.PersonId, request.UnavailableDates);
-    return success ? Results.Ok(new { success = true }) : Results.NotFound();
-});
+app.MapMcp("/mcp");
 
 app.Run();
-
-public record GetPersonRequest(Guid PersonId);
-public record GetDoodRequest(Guid PersonId, DateOnly StartDate, DateOnly EndDate);
-public record UpdateAvailabilityRequest(Guid PersonId, List<DateOnly> UnavailableDates);

@@ -166,14 +166,31 @@ public class ScheduleService
         return version;
     }
 
-    /// <summary>Commits a draft version. Only a human Producer may do this (ADR-002).</summary>
-    public async Task<ScheduleBoard> CommitAsync(Guid versionId, string identity, CancellationToken ct = default)
+    /// <summary>
+    /// Commits a draft version. Only a human Producer may do this (ADR-002), and only when
+    /// the platform proved they are one — a name in a request body is a claim, not a
+    /// credential.
+    /// </summary>
+    public Task<ScheduleBoard> CommitAsync(Guid versionId, string identity, CancellationToken ct = default) =>
+        CommitAsync(versionId, CallerIdentity.Asserted(identity), ct);
+
+    public async Task<ScheduleBoard> CommitAsync(Guid versionId, CallerIdentity caller, CancellationToken ct = default)
     {
-        if (!_authorization.CanExecuteCommit(identity))
+        ArgumentNullException.ThrowIfNull(caller);
+
+        if (!_authorization.CanExecuteCommit(caller))
         {
-            throw new NotAuthorizedException(
-                $"'{identity}' cannot commit a schedule. Only the Producer role may commit — agents propose, humans decide.");
+            // Two different refusals, because they need two different fixes: the wrong role
+            // means ask a Producer, an unverified identity means authenticate.
+            throw new NotAuthorizedException(_authorization.HasCommitRole(caller.Name)
+                ? $"'{caller.Name}' claims the Producer role but nothing verified it. A commit "
+                  + "requires an authenticated caller — an identity supplied in the request "
+                  + "body is a claim, not a credential."
+                : $"'{caller.Name}' cannot commit a schedule. Only the Producer role may commit "
+                  + "— agents propose, humans decide.");
         }
+
+        var identity = caller.Name;
 
         var version = await _db.ScheduleVersions.FirstOrDefaultAsync(v => v.Id == versionId, ct)
                       ?? throw new KeyNotFoundException($"Schedule version {versionId} not found.");
@@ -244,7 +261,6 @@ public class ScheduleService
         decimal cost = 0m;
 
         ShootDay? previous = null;
-        string? lastLocation = null;
         foreach (var day in days)
         {
             // Grouped by location, then by scene number within it. A day is shot that way:

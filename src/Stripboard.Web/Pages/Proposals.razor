@@ -259,7 +259,15 @@ else
 
         try
         {
-            var board = await Schedules.CommitAsync(option.VersionId, identity);
+            // A human at a browser session, acting as the role they selected above. The
+            // governance story is about agents being unable to decide — a production
+            // deployment would put this page behind IAP and take the role from the login
+            // rather than from a dropdown (ADR-020).
+            var caller = identity == AgentAuthorizationService.RoleProducer
+                ? CallerIdentity.FromHumanSession(identity)
+                : CallerIdentity.Asserted(identity);
+
+            var board = await Schedules.CommitAsync(option.VersionId, caller);
             commitMessage = $"Schedule v{board.VersionNumber} committed by {identity}. "
                           + $"{board.Metrics.TotalDays} days, {board.Metrics.CompanyMoves} moves, "
                           + $"{board.Metrics.EstimatedCostUsd.ToString("C0", Culture)}.";

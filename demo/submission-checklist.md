@@ -75,6 +75,9 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 | **Replanner agent** — alternative proposals with computed cost deltas | Google ADK agent whose single tool calls the CP-SAT solver; every figure it states is traceable to a solver run (ADR-017) | ✅ |
 | **Orchestrator** — routes work between specialist agents | Google ADK root agent with no tools of its own, delegating to scheduler / replanner / governance; the governance agent's commit is refused with HTTP 403 (ADR-018) | ✅ |
 | **Grafana drives the loop** — alerts on the shoot start a replan | Four rules over `shoot_*` metrics, read back over MCP and handed to the agents (ADR-019) | ✅ |
+| **Our own MCP servers** — schedule, people, locations, weather | Real protocol on the official `ModelContextProtocol.AspNetCore` SDK: `initialize`, `tools/list` with generated schemas, `tools/call`. 33 contract tests drive the protocol (ADR-021). Not deployed | ✅ built · 🚧 hosted |
+| **Governance you cannot talk your way past** — identity from the credential, not the payload | An agent sending `identity: "Producer"` is refused; a commit needs a platform-proved principal (ADR-020) | ✅ |
+| **Mutation testing** — union rules | Stryker.NET, 100%, 21 killed, 0 survived (ADR-022) | ✅ |
 | **Agent hosting** — Vertex AI Agent Engine | Deploy script written and passing preflight; **not deployed** — it is a billed resource | 🚧 |
 
 ### Partner integration (Grafana track)
@@ -187,7 +190,7 @@ Four criteria, 25% each.
 
 | Criterion | Today | Why |
 |---|:---:|---|
-| Technological implementation | 9/10 | Solver, domain layer, Gemini breakdown from three screenplay formats, a hand-implemented MCP client, an ADK agent tree whose root has no tools, production telemetry the shoot itself emits with alert rules over it, and persistence that survives a redeploy. What is left is that our own four services speak REST rather than MCP, and that the agents are not hosted on Agent Engine. |
+| Technological implementation | 9.5/10 | Solver, domain layer at 100% mutation score, Gemini breakdown from three screenplay formats, a hand-implemented MCP client *and* four MCP servers on the official SDK, an ADK agent tree whose root has no tools, governance that checks a credential rather than a claim, production telemetry the shoot itself emits with alert rules over it, and persistence that survives a redeploy. What is left is deployment: the MCP servers and the orchestrator run but are not hosted. |
 | Design | 8/10 | Every page is driven by the engine, the hosted demo is stable, and the governance refusal is visible on screen rather than described. Still held back by schedules that pack too many locations into a day — now measured (`shoot_locations_per_day_max`) and alerted on rather than merely admitted. |
 | Potential impact | 8/10 | The problem is real, specific and expensive; the framing is credible to a 1st AD. |
 | Quality of the idea | 9/10 | *"The LLM formulates, the solver decides, a human approves"* is a non-obvious architecture that removes hallucination risk from a domain with legal and financial consequences. |
@@ -204,18 +207,23 @@ Four criteria, 25% each.
   published to Grafana says `published=False` instead of implying success.
 - The MCP transport is implemented rather than imported — session negotiation, SSE and
   JSON response handling, paginated tool discovery — in ~200 lines with one dependency.
-- Governance is enforced where a prompt cannot reach it. The governance agent holds the
-  commit tool, uses it, and is refused with HTTP 403 by the scheduling service.
+- Governance is enforced where a prompt cannot reach it — and where the *caller* cannot
+  reach it either. Committing requires an identity the platform proved; a name in a request
+  body is a claim, and a claim cannot commit (ADR-020).
 - Grafana is a participant rather than a destination: rules over the shoot's own metrics
   fire, and the sentinel reads them back over MCP to start a replan.
-- 60 xUnit tests and 74 Python tests, green, including integration tests that run against
+- Stripboard is an MCP **server** as well as a client — four of them, official SDK, with 33
+  contract tests that drive the protocol rather than the classes behind it (ADR-021).
+- The union rules are verified by mutation testing: 100%, 21 mutants killed, 0 survived. It
+  found two real gaps before it passed (ADR-022).
+- 93 xUnit tests and 74 Python tests, green, including integration tests that run against
   the real Grafana Cloud stack and Vertex AI.
 - Clean Architecture/DDD layering, conventional commits, ADRs.
 
-**Do not claim:** mutation testing (not configured), Vertex AI Agent Engine deployment (the
-script exists and has not been run), or the A2A wire protocol (agents coordinate through ADK
-sub-agent transfer). Note the project exposes *no* MCP servers of its own — the four
-`Stripboard.Mcp.*` services are REST (EV-23); it is an MCP **client**.
+**Do not claim:** Vertex AI Agent Engine deployment (the script exists and has not been
+run), the A2A wire protocol (agents coordinate through ADK sub-agent transfer), per-agent
+IAM enforced by Google (the accounts exist; the commit rule is enforced in the application),
+or that the four MCP servers are deployed (they run locally and speak the protocol).
 
 ---
 
