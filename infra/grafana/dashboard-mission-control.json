@@ -14,18 +14,7 @@
     "to": "now"
   },
   "templating": {
-    "list": [
-      {
-        "name": "datasource",
-        "type": "datasource",
-        "query": "prometheus",
-        "current": {
-          "text": "grafanacloud-prom",
-          "value": "grafanacloud-prom"
-        },
-        "hide": 0
-      }
-    ]
+    "list": []
   },
   "annotations": {
     "list": [
@@ -61,7 +50,7 @@
       "description": "Days in the committed schedule.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 4,
@@ -91,7 +80,7 @@
       "description": "Crew and called cast per shooting day, plus company-move and union-penalty costs.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 4,
@@ -122,7 +111,7 @@
       "description": "Times the unit changes location across the shoot. Each one costs an hour of the shooting day.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 4,
@@ -169,7 +158,7 @@
       "description": "Heuristic 0-100 index of schedule fragility, not a probability: 15 per union violation, 3 per company move, 10 per day visiting more than one location.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 8,
@@ -218,7 +207,7 @@
       "description": "Violations the domain layer found in the committed schedule. Anything above zero is a schedule that cannot legally be shot.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 8,
@@ -261,7 +250,7 @@
       "description": "How the estimated cost of the shoot moves as disruptions are absorbed and schedules re-committed. Disruption annotations are overlaid.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 8,
@@ -294,7 +283,7 @@
       "description": "Fraction of shooting days each cast member is called for. A low bar is an actor on payroll and not on set, which is the cost a Day Out of Days schedule exists to avoid.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 8,
@@ -347,7 +336,7 @@
       "description": "Wall-clock time for one solve. A replan the producer waits on is one solve per strategy.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 8,
@@ -384,7 +373,7 @@
       "description": "Locations visited on the busiest shooting day. Two is a company move; three or more is a day largely spent in the van. Alert rule: > 2.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "grafanacloud-prom"
       },
       "gridPos": {
         "h": 8,

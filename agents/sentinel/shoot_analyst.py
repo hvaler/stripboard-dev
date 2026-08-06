@@ -67,7 +67,12 @@ How to answer:
 - Asked who or which, name them. "Every actor is used to some extent" is a true sentence that
   answers nothing; the producer wants the names and their figures, lowest first. An actor at
   0.5 on a four-day shoot is two days of a contract paid against no work.
-- When a metric name is uncertain, list metric names first instead of guessing."""
+- When a metric name is uncertain, list metric names first instead of guessing.
+- Write plain prose, with no Markdown. The page renders your answer as text, so asterisks
+  and bullet characters arrive on screen exactly as you typed them. When you have several
+  figures to give, put them in a sentence — "Clerk, Dr. Priya Nair and Figure are each called
+  on a quarter of the shooting days" reads better on a call sheet than a bulleted list
+  anyway."""
 
 
 @dataclass

@@ -421,6 +421,29 @@ code, kbd, samp, pre { font-family: var(--mono); }
 
 .card { border-radius: 0; border-color: var(--rule); }
 
+/* Bootstrap's bg-* utilities set a colour directly, so they slip past the component
+   overrides below and put its stock blue on card headers. Bring the ones we actually use
+   into the palette — a card header is the board, not a hyperlink. */
+.card-header.bg-primary   { background: var(--board) !important; }
+.card-header.bg-secondary { background: var(--board-raised) !important; }
+.card-header.bg-danger    { background: var(--danger) !important; }
+.card-header.bg-primary,
+.card-header.bg-secondary { border-bottom: 3px solid var(--accent); }
+.card-header.bg-danger    { border-bottom: 3px solid color-mix(in srgb, var(--danger) 60%, #000); }
+
+/* Headings carry their own colour, which beats the .text-white inherited from the header
+   and left the title invisible on the dark bar. Give them the on-board ink explicitly. */
+.card-header.bg-primary :is(h1, h2, h3, h4, h5, h6),
+.card-header.bg-secondary :is(h1, h2, h3, h4, h5, h6),
+.card-header.bg-danger :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--on-board);
+  font-family: var(--body);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+.card.border-primary { border-color: var(--rule) !important; }
+.card.border-danger  { border-color: var(--danger) !important; }
+
 .btn {
   border-radius: 0;
   font-family: var(--mono);

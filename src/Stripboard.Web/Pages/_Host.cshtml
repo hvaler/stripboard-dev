@@ -16,8 +16,13 @@
        wwwroot/lib and the page was loading it from jsdelivr anyway — so the one artefact a
        judge clicks would have rendered unstyled behind a corporate firewall, or on any
        network where that host is slow. Nothing here reaches outside the container. *@
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/site.css" />
+    @* asp-append-version appends a hash of the file's contents, so a deploy that changes
+       the stylesheet changes its URL. Without it the browser keeps the copy it cached on a
+       previous visit — which meant a returning visitor kept seeing the old design after a
+       redeploy, indefinitely and silently. Caught while re-taking a screenshot: the served
+       file was correct and the rendered page was not. *@
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
     <component type="typeof(App)" render-mode="ServerPrerendered" />

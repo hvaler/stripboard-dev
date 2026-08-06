@@ -1,8 +1,16 @@
 using System.Diagnostics.Metrics;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Stripboard.Application.Common.Interfaces;
 using Stripboard.Application.Common.Models;
+using Stripboard.Application.Services;
+using Stripboard.Domain.Entities;
 using Stripboard.Domain.Enums;
+using Stripboard.Infrastructure.Persistence;
+using Stripboard.Infrastructure.Services;
 using Stripboard.Infrastructure.Telemetry;
+using Stripboard.Solver;
 
 namespace Stripboard.Scheduling.Tests;
 
@@ -99,6 +107,90 @@ public class ShootMetricsTests
         var readings = Collect(metrics => metrics.Observe(withABadDay));
 
         readings["shoot.locations_per_day_max"].Should().Equal(3);
+    }
+
+    [Fact]
+    public async Task TheRefresherRepublishesWhateverIsCommitted_SoInstancesCannotDisagree()
+    {
+        // The bug: ShootMetrics caches the board in memory, and only the instance that
+        // handled a commit called Observe. Every other instance carried on publishing the
+        // schedule it last saw, so Grafana got two contradictory answers for the same
+        // question and max() picked whichever was larger. Two plausible numbers, one of them
+        // describing a shoot nobody was on.
+        var databaseName = Guid.NewGuid().ToString();
+        await using (var db = NewDb(databaseName))
+        {
+            await SeedAsync(db);
+        }
+
+        var services = ServicesFor(databaseName);
+        using var metrics = new ShootMetrics();
+
+        using var scope = services.CreateScope();
+        var committed = await scope.ServiceProvider.GetRequiredService<ScheduleService>()
+            .GenerateAsync(AgentAuthorizationService.RoleProducer, new DateOnly(2026, 8, 10), commit: true);
+
+        // This ShootMetrics never saw the commit — it is standing in for the other instance.
+        Read(metrics).Should().NotContainKey("shoot.days_total", "nothing has been observed yet");
+
+        await new ShootMetricsRefresher(services, metrics).RefreshAsync();
+
+        var readings = Read(metrics);
+        readings["shoot.days_total"].Should().ContainSingle()
+            .Which.Should().Be(committed.Metrics.TotalDays);
+        readings["shoot.company_moves"].Should().ContainSingle()
+            .Which.Should().Be(committed.Metrics.CompanyMoves);
+    }
+
+    private static StripboardDbContext NewDb(string name) => new(
+        new DbContextOptionsBuilder<StripboardDbContext>().UseInMemoryDatabase(name).Options);
+
+    private static async Task SeedAsync(StripboardDbContext db)
+    {
+        var holmes = Guid.NewGuid();
+        db.People.AddRange(
+            new Person(holmes, "Sherlock Holmes", PersonRole.Cast, 1500m),
+            new Person(Guid.NewGuid(), "1st AD", PersonRole.FirstAssistantDirector, 900m));
+
+        for (var i = 1; i <= 4; i++)
+        {
+            db.Scenes.Add(new Scene(Guid.NewGuid(), i,
+                i <= 2 ? "221B BAKER STREET" : "SCOTLAND YARD",
+                IntExt.Int, DayNight.Day, 8, [holmes], null, $"Scene {i}"));
+        }
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>A provider whose scopes all reach the same in-memory store, like one instance.</summary>
+    private static ServiceProvider ServicesFor(string databaseName)
+    {
+        var services = new ServiceCollection();
+        services.AddDbContext<StripboardDbContext>(o => o.UseInMemoryDatabase(databaseName));
+        services.AddScoped<IScheduleSolver, CpSatScheduleSolver>();
+        services.AddScoped<AgentAuthorizationService>();
+        services.AddScoped<ScheduleService>();
+        return services.BuildServiceProvider();
+    }
+
+    private static Dictionary<string, List<double>> Read(ShootMetrics metrics)
+    {
+        var readings = new Dictionary<string, List<double>>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == ShootMetrics.MeterName) l.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<double>((instrument, value, _, _) =>
+        {
+            if (!readings.TryGetValue(instrument.Name, out var values))
+            {
+                readings[instrument.Name] = values = [];
+            }
+            values.Add(value);
+        });
+        listener.Start();
+        listener.RecordObservableInstruments();
+        return readings;
     }
 
     [Fact]

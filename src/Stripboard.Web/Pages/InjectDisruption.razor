@@ -39,7 +39,7 @@ else
     <div class="row g-4">
         <div class="col-md-6">
             <div class="card shadow-sm border-danger h-100">
-                <div class="card-header bg-danger text-white"><h5 class="mb-0">🎭 Cast unavailability</h5></div>
+                <div class="card-header bg-danger text-white"><h5 class="mb-0">Cast unavailability</h5></div>
                 <div class="card-body">
                     <label class="form-label fw-semibold">Cast member</label>
                     <select class="form-select mb-3" @bind="selectedPersonId" disabled="@isWorking">
@@ -65,7 +65,7 @@ else
 
         <div class="col-md-6">
             <div class="card shadow-sm border-warning h-100">
-                <div class="card-header bg-warning text-dark"><h5 class="mb-0">⛈️ Weather alert (exteriors)</h5></div>
+                <div class="card-header bg-warning text-dark"><h5 class="mb-0">Weather alert (exteriors)</h5></div>
                 <div class="card-body">
                     <label class="form-label fw-semibold">Location <span class="text-muted fw-normal">(exteriors only)</span></label>
                     <select class="form-select mb-3" @bind="selectedLocation" disabled="@isWorking">
@@ -113,7 +113,7 @@ else
 @if (result is not null)
 {
     <div class="alert alert-success mt-4">
-        <h5 class="alert-heading fw-bold">🚨 Disruption recorded — @result.Count option(s) produced</h5>
+        <h5 class="alert-heading fw-bold">Disruption recorded — @result.Count option(s) produced</h5>
         <ul class="mb-3">
             @foreach (var option in result)
             {

@@ -54,6 +54,11 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CallerIdentityResolver>();
 builder.Services.AddSingleton<CallSheetPdfGenerator>();
 builder.Services.AddSingleton<ShootMetrics>();
+
+// The shoot is one fact in Cloud SQL, but ShootMetrics caches it per instance — so an
+// instance that did not handle the commit kept publishing the previous schedule, and
+// Grafana received two contradictory answers at once. The cache has to expire.
+builder.Services.AddHostedService<ShootMetricsRefresher>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<Stripboard.Web.Services.SentinelClient>();
 
