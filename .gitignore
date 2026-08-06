@@ -2,6 +2,7 @@
 _hilo/
 _patron/
 Documentos_Base/
+06_Documentacion/
 ecosystem.config.json
 
 # Agent tooling & workspace config (development tooling, not product)

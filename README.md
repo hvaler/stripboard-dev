@@ -17,6 +17,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
 ![MCP](https://img.shields.io/badge/MCP-client%20%2B%204%20servers-6E56CF)
 ![Tests](https://img.shields.io/badge/tests-93%20xUnit%20%2B%2074%20python-brightgreen)
+[![Grafana Live Dashboard](https://img.shields.io/badge/Grafana-Live%20Public%20Dashboard-F46800)](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ## ⚠️ Implementation status
@@ -168,8 +169,8 @@ replan. Nobody is watching a screen when it happens.
    │ "Shoot Mission Control" · 4 alert rules over shoot_* metrics         │
    │ grafana/mcp-grafana, run as a sidecar we control — 73 tools          │
    └──▲─────────────────────────────────────────────────────────────┬─────┘
-      │ 6  OTLP: metrics about the SHOOT,                           │ 1  a rule
-      │    not about the app                                        │    fires
+      │ 6  OTLP: metrics about the SHOOT & MCP create_annotation    │ 1  a rule
+      │    (timeline decision written back)                         │    fires
       │                                                             ▼
    ┌──┴─────────────────────────┐            ┌──────────────────────┬─────┐
    │ Blazor UI              [✓] │            │ Conflict Sentinel      [✓] │
@@ -200,9 +201,27 @@ replan. Nobody is watching a screen when it happens.
    Call sheets — QuestPDF, role-scoped          [✓]
 ```
 
+```mermaid
+flowchart TD
+    Grafana["Grafana Cloud (Hosted)<br>Shoot Mission Control + 4 Alert Rules"]
+    Sentinel["Conflict Sentinel (Cloud Run)<br>Grafana MCP Client + Ask Your Shoot"]
+    Orchestrator["Orchestrator Agent (ADK)<br>line_producer Root Agent"]
+    Solver["CP-SAT Solver (Google OR-Tools)<br>Union Rules & Optimization"]
+    Blazor["Blazor UI & Backend (Cloud Run)<br>Schedule Versions, Audit Trail, Call Sheets"]
+
+    Grafana -- "1. Firing alert (shoot_* metrics)" --> Sentinel
+    Sentinel -- "2. Replan / Consolidate trigger" --> Orchestrator
+    Orchestrator -- "3. Solves schedule options" --> Solver
+    Solver -- "4. Costed options & deltas" --> Orchestrator
+    Orchestrator -- "Proposes options" --> Blazor
+    Blazor -- "5. Producer approves commit (403 for agents)" --> Blazor
+    Blazor -- "6. OTLP metrics & MCP create_annotation" --> Grafana
+```
+
 The governance step is drawn as an arrow rather than a note because it is one: an agent may
 call `/api/schedule/commit` and the service answers **403** for every identity but a human
-Producer.
+Producer. Commit approval triggers `create_annotation` over MCP to write the decision back to
+Grafana Cloud, closing the loop.
 
 Design principles the implementation is being held to:
 
