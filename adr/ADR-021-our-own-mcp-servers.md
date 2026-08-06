@@ -100,7 +100,11 @@ absent**, which is why none of the three failed loudly.
 - A tool that fails returns an ordinary result with `isError: true` rather than a protocol
   error, so a model can read the reason and try something else. Our tools throw
   `McpException` for that; an escaped exception would be a broken server.
-- Stripboard is now an MCP **server** as well as a client. An ADK agent can consume our
-  schedule tools with `MCPToolset` exactly as it consumes Grafana's.
+- Stripboard is now an MCP **server** as well as a client. ~~An ADK agent can consume our
+  schedule tools with `MCPToolset` exactly as it consumes Grafana's.~~ *Can* was true and
+  became *does* in the README, which was not. The agents consume these servers as of
+  [ADR-023](ADR-023-agents-consume-our-own-mcp-servers.md) — over our own transport, not
+  `MCPToolset`, which imports a dependency [ADR-010 §2](ADR-010-grafana-mcp-sidecar-transport.md)
+  refused.
 - The four servers are not yet deployed. They run and speak the protocol; putting them on
   Cloud Run is deployment work, not protocol work.

@@ -16,7 +16,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
 ![MCP](https://img.shields.io/badge/MCP-client%20%2B%204%20servers-6E56CF)
-![Tests](https://img.shields.io/badge/tests-93%20xUnit%20%2B%2074%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-94%20xUnit%20%2B%2083%20python-brightgreen)
 [![Grafana Live Dashboard](https://img.shields.io/badge/Grafana-Live%20Public%20Dashboard-F46800)](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
@@ -87,9 +87,17 @@ designed and not shipped**, and they are marked.
 - **Stripboard is an MCP server too, not only a client** (EV-23): the four
   `Stripboard.Mcp.*` services speak the real protocol through the official
   `ModelContextProtocol.AspNetCore` SDK — `initialize`, `tools/list` with generated schemas,
-  `tools/call`. An ADK agent consumes them with `MCPToolset` exactly as it consumes
-  Grafana's. 33 contract tests drive the protocol itself rather than the classes behind it.
+  `tools/call`. 33 contract tests drive the protocol itself rather than the classes behind it.
   See [ADR-021](adr/ADR-021-our-own-mcp-servers.md).
+- **And the agents consume them** (EV-23): the orchestrator's `scheduler` and `governance`
+  specialists have **no tools written in Python**. They are read from `mcp-schedule` with
+  `tools/list` at startup, their MCP schemas become Gemini function declarations, and calling
+  one is a `tools/call` — so adding a tool in `ScheduleTools.cs` gives the agents a new
+  capability with no Python change. The commit refusal now travels that path too: the
+  governance agent calls `commit_schedule` over MCP and the **server** refuses it. Not ADK's
+  `MCPToolset`, which imports the reference SDK from a vendor the rules name — the toolset is
+  ~80 lines on the transport we already wrote for Grafana. See
+  [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
 - **An identity is not a string the caller sends** (EV-33): committing requires a principal
   the *platform* proved — Cloud Run's validated identity token, or an authenticated human
   session. A name in a request body is a claim, and a claim cannot commit. Before this, an
@@ -106,7 +114,7 @@ designed and not shipped**, and they are marked.
   12-hour turnaround including midnight crossing, meal penalties, night→day transitions.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with six pages, and a versioned Grafana dashboard and alert rules.
-- 93 xUnit tests and 74 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 94 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -114,7 +122,8 @@ designed and not shipped**, and they are marked.
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| The four MCP servers run and speak the protocol, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run | `src/Stripboard.Mcp.*` | EV-23, deployment half |
+| The four MCP servers run, speak the protocol and are consumed by the agents, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run, so the MCP path is a local one and the REST fallback is what runs in the cloud | `src/Stripboard.Mcp.*` | EV-23, deployment half |
+| The **replanner** still reaches the engine over REST (`POST /api/replan`), not MCP — `mcp-schedule` has no replan-from-disruption tool. The scheduler and governance specialists do go over MCP | `agents/replanner` | EV-23, remainder |
 | The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived | `agents/orchestrator` | EV-26 |
 | Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol. **This one is a decision, not a backlog item** — A2A solves separately-owned agents discovering each other across a network; ours are four `LlmAgent` objects in one ADK process. Implementing the protocol so the README could name it is the exact inflation this project spent EV-17 removing | `agents/orchestrator` | closed, not planned |
 | The Python agents run **locally**, under a developer's own credentials rather than as their service accounts. The accounts exist and are correctly scoped, and the two deployed services do run as theirs — but Workload Identity only becomes meaningful once the agents run in GCP | `agents/` | EV-26 |
@@ -185,15 +194,15 @@ replan. Nobody is watching a screen when it happens.
    │    scheduler · replanner · governance    runs locally         [✓]    │
    │                                          Vertex AI Agent Engine [ ]  │  EV-26
    └──────────────────────────────┬───────────────────────────────────────┘
-                                  │ 4  no agent does arithmetic — every figure
-                                  ▼    it states comes from a solver run
+                                  │ 4  tools/call over MCP. No agent does arithmetic:
+                                  ▼    every figure comes from a solver run
    ┌──────────────────────────────┬───────────────────────────────────────┐
    │ CP-SAT solver (Google OR-Tools) · union rules by construction  [✓]   │
    └──────────────────────────────┬───────────────────────────────────────┘
                                   │ people · locations · weather
    ┌──────────────────────────────┬───────────────────────────────────────┐
    │ mcp-schedule · mcp-people · mcp-locations · mcp-weather              │
-   │ speak the real protocol [✓]  ·  deployed [ ]                         │  EV-23
+   │ speak MCP [✓] · consumed by the agents [✓] · deployed [ ]            │  EV-23
    └──────────────────────────────────────────────────────────────────────┘
 
    Feeding the loop, outside it:
@@ -257,7 +266,7 @@ Design principles the implementation is being held to:
 | Agent hosting | Vertex AI Agent Engine | 🚧 deploy script written, not run |
 | Agent-to-agent | A2A wire protocol | ❌ not implemented, and deliberately not planned — see the gap table above |
 | **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
-| MCP servers of our own | `ModelContextProtocol.AspNetCore` 2.1.0, 33 contract tests | ✅ built · 🚧 not hosted |
+| MCP servers of our own | `ModelContextProtocol.AspNetCore` 2.1.0, 33 contract tests | ✅ built · ✅ consumed by the agents · 🚧 not hosted |
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud, `shoot_*` production metrics | ✅ working |
 | Governance | Commit requires a platform-proved Producer, not a name in the payload | ✅ working |
 | Mutation testing | Stryker.NET over `UnionRulesService` — 100%, 0 survivors | ✅ working |
@@ -355,10 +364,11 @@ notices when it goes wrong.
 ```
 src/           .NET solution: Domain, Application, Infrastructure, Solver,
                four Mcp.* servers, CallSheets, Web (Blazor)
-agents/        Python agent layer: breakdown, sentinel, replanner, orchestrator
+agents/        Python agent layer: breakdown, sentinel, replanner, orchestrator,
+               common/ (the MCP transport all of them share)
 tests/         xUnit: domain rules, solver, MCP protocol contracts, telemetry, call sheets
 infra/         Cloud Run deploy scripts, Grafana dashboard + alert rules, per-agent IAM
-adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-022)
+adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-023)
 demo/          Sample screenplays (Fountain, .fdx, PDF), demo harnesses, pitch deck
 docs/          EVIDENCE.md — logs and figures behind the claims above
 stryker-config.json  Mutation testing, scoped to the union rules
@@ -386,7 +396,7 @@ what it adds.
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (93 tests)
+# Build and run the .NET test suite (94 tests)
 dotnet test Stripboard.slnx
 
 # Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a
@@ -405,15 +415,42 @@ client can discover their tools:
 ```bash
 dotnet run --project src/Stripboard.Mcp.Schedule    # then also People, Locations, Weather
 
-curl -s -X POST http://localhost:5075/mcp \
+curl -s -X POST http://localhost:5067/mcp \
   -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+`mcp-schedule` seeds and solves an initial schedule at startup, so there is something real to
+ask about the moment it is up.
 
 `commit_schedule` is there on purpose and will refuse you. Running locally there is nothing
 authenticating anyone, so every caller is unverified — and an unverified caller cannot
 commit no matter what identity it sends
 ([ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md)).
+
+**The agents consume this server.** Point the orchestrator at it and its `scheduler` and
+`governance` specialists take their tools from `tools/list` rather than from Python:
+
+```bash
+export STRIPBOARD_MCP_SCHEDULE_ENDPOINT=http://localhost:5067/mcp
+python demo/run_orchestrator.py
+```
+
+```
+Engine reached over: MCP — tools/call against http://localhost:5067/mcp
+Tools discovered:    commit_schedule, consolidate_schedule, create_schedule,
+                     get_schedule, validate_rules
+
+  handled by: scheduler
+  tool:       scheduler  -> get_schedule({})
+  handled by: governance
+  tool:       governance -> commit_schedule({'identity': 'sa-stripboard-replanner', …})
+              → refused by the server, not by a prompt
+```
+
+Unset the variable and the same demo runs against the web app's REST API instead — the
+fallback that exists only until the MCP servers are deployed
+([ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md)).
 
 ### Mutation testing the union rules
 
@@ -469,7 +506,7 @@ credentials are configured):
 python -m unittest discover -s agents/breakdown    -p "test_*.py"   # 25
 python -m unittest discover -s agents/sentinel     -p "test_*.py"   # 27
 python -m unittest discover -s agents/replanner    -p "test_*.py"   # 12
-python -m unittest discover -s agents/orchestrator -p "test_*.py"   # 10
+python -m unittest discover -s agents/orchestrator -p "test_*.py"   # 19
 ```
 
 ### The agents

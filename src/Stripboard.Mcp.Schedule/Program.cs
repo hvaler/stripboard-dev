@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Stripboard.Application.Common.Interfaces;
 using Stripboard.Application.Services;
 using Stripboard.Infrastructure.Persistence;
+using Stripboard.Infrastructure.Persistence.Seeding;
 using Stripboard.Infrastructure.Services;
 using Stripboard.Mcp.Schedule.Tools;
 using Stripboard.Solver;
@@ -35,10 +37,30 @@ builder.Services.AddMcpServer()
 
 var app = builder.Build();
 
+// Migrate, then seed, exactly as the web app does. Seeding matters more here than it looks:
+// with no connection string this server gets its own in-memory database, so without a seed a
+// client completes the handshake, discovers five tools, calls one, and is told there is
+// nothing to schedule. The protocol works and the server appears empty — which reads as a
+// broken integration rather than as an unseeded database. DataSeeder is idempotent, so
+// against a shared Cloud SQL instance this is a no-op.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<StripboardDbContext>();
     await DatabaseRegistration.MigrateAsync(db, app.Logger);
+    await DataSeeder.SeedAsync(db);
+
+    // And solve one, if nobody has. Same guard as the web app: a schedule already in the
+    // database is left exactly as it is, so pointing this server at Cloud SQL alongside the
+    // web app does not produce a second, competing plan.
+    var schedules = scope.ServiceProvider.GetRequiredService<ScheduleService>();
+    if (!await db.ShootDays.AnyAsync(d => d.ScheduleVersionId != null))
+    {
+        await schedules.GenerateAsync(
+            createdBy: AgentAuthorizationService.RoleProducer,
+            startDate: new DateOnly(2026, 8, 10),
+            commit: true);
+        app.Logger.LogInformation("Solved and committed an initial schedule for MCP clients.");
+    }
 }
 
 app.MapMcp("/mcp");

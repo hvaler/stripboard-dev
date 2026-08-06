@@ -13,12 +13,19 @@ result back in English.
 
 import json
 import logging
+import os
+import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from google.genai import types
 
-from grafana_mcp_client import GrafanaMcpClient, GrafanaMcpError
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "common")))
+
+from grafana_mcp_client import GrafanaMcpClient, GrafanaMcpError  # noqa: E402
+# One schema adapter for every MCP server we expose to Gemini. It used to live here, which
+# was fine until a second caller needed it.
+from mcp_client import sanitise_schema as _sanitise_schema  # noqa: E402,F401
 
 logger = logging.getLogger("ShootAnalyst")
 
@@ -89,35 +96,6 @@ class Answer:
     tool_calls: List[ToolCall] = field(default_factory=list)
     total_tokens: int = 0
     rounds: int = 0
-
-
-def _sanitise_schema(schema: Any) -> Any:
-    """
-    Convert an MCP JSON Schema into something Gemini accepts as a function parameter
-    schema. Gemini rejects vocabulary it does not model — `additionalProperties`, `$schema`,
-    `default` — so those are dropped rather than passed through and rejected wholesale.
-    """
-    if not isinstance(schema, dict):
-        return schema
-
-    allowed = {"type", "description", "properties", "required", "items", "enum", "nullable"}
-    cleaned: Dict[str, Any] = {}
-
-    for key, value in schema.items():
-        if key not in allowed:
-            continue
-        if key == "properties" and isinstance(value, dict):
-            cleaned[key] = {k: _sanitise_schema(v) for k, v in value.items()}
-        elif key == "items":
-            cleaned[key] = _sanitise_schema(value)
-        else:
-            cleaned[key] = value
-
-    if cleaned.get("type") == "object" and "properties" not in cleaned:
-        # Gemini rejects an object schema with no properties.
-        cleaned["properties"] = {}
-
-    return cleaned
 
 
 class ShootAnalyst:

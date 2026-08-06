@@ -419,6 +419,44 @@ signature**, so it cannot drift from what the tool accepts. And the word SYNTHET
 *description*, not only in the payload, because a model picks a tool from its description and
 may never read the provenance field underneath.
 
+### And the agents consume it
+
+A server with no client is a second interface that drifts. The orchestrator's `scheduler` and
+`governance` specialists take their tools from this server rather than from Python
+(ADR-023):
+
+```bash
+dotnet run --project src/Stripboard.Mcp.Schedule
+STRIPBOARD_MCP_SCHEDULE_ENDPOINT=http://localhost:5067/mcp python demo/run_orchestrator.py
+```
+
+```
+Engine reached over: MCP — tools/call against http://localhost:5067/mcp
+Tools discovered:    commit_schedule, consolidate_schedule, create_schedule,
+                     get_schedule, validate_rules
+Committed schedule:  v2, 3 days, 6 company moves, $36,600
+
+  handled by: scheduler
+  tool:       line_producer -> transfer_to_agent({'agent_name': 'scheduler'})
+  tool:       scheduler     -> get_schedule({})
+
+  handled by: governance
+  tool:       line_producer -> transfer_to_agent({'agent_name': 'governance'})
+  tool:       governance    -> commit_schedule({'identity': 'sa-stripboard-replanner',
+                                                'versionId': '11bb15cd-…'})
+```
+
+The last line is the one to read. The refusal that comes back is the **server's**, not a
+sentence the model produced from its instructions:
+
+```
+'Producer' claims the Producer role but nothing verified it. A commit requires an
+authenticated caller — an identity supplied in the request body is a claim, not a credential.
+```
+
+The tool-call log is what distinguishes those two cases, which is why the demo prints it. An
+agent that had simply repeated its instruction would show no `commit_schedule` line at all.
+
 ### The governance rule, over MCP
 
 ```bash

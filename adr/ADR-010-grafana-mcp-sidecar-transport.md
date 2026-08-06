@@ -49,8 +49,11 @@ Reasons for hand-rolling roughly 200 lines instead of taking a dependency:
   vendor the rules name explicitly. Implementing the transport removes the question
   entirely.
 - The only runtime dependency is `requests`.
-- EV-24 will consume the same server through ADK's `MCPToolset`; having our own client
-  keeps the Sentinel working independently of that migration.
+- ~~EV-24 will consume the same server through ADK's `MCPToolset`~~ — superseded. That
+  migration never happened, and for the reason stated directly above it: ADK's `MCPToolset`
+  opens with `from mcp import SamplingCapability`. The transport written here was instead
+  generalised into `agents/common/mcp_client.py` and now serves both the Grafana server and
+  our own ([ADR-023](ADR-023-agents-consume-our-own-mcp-servers.md)).
 
 ### 3. Annotations go through MCP, not the REST API
 

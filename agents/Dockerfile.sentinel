@@ -18,6 +18,11 @@ RUN pip install --no-cache-dir -r agents/sentinel/requirements.txt \
 
 # The sentinel shares the Gemini client with the breakdown agent. EV-24 unifies the agent
 # packages; until then both directories travel together.
+#
+# agents/common/ carries the MCP transport the sentinel speaks to Grafana with — the same
+# one the orchestrator uses against our own C# servers. It is not optional: without it the
+# image builds and then dies on `from mcp_client import ...` at start.
+COPY agents/common/ agents/common/
 COPY agents/sentinel/ agents/sentinel/
 COPY agents/breakdown/ agents/breakdown/
 

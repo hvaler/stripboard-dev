@@ -7,9 +7,12 @@
 # Nothing by default.
 *
 
-# ...except the two agent packages the sentinel runs.
+# ...except the agent packages the sentinel runs, and the MCP transport they share.
+# agents/common/ holds the MCP client. Leave it out and the image builds cleanly and then
+# fails on its first import at runtime, which is the worst place to find out.
 !agents/sentinel/
 !agents/breakdown/
+!agents/common/
 
 # Never, under any circumstances.
 .secrets/

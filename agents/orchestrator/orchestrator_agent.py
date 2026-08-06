@@ -15,22 +15,40 @@ Three specialists today:
 The commit path is worth reading twice. The agent is allowed to try, and the service
 refuses it. Authority lives in the service, not in a prompt that an agent might talk its
 way around.
+
+**Two ways to reach the engine, and they are not equivalent.** Pass a connected
+`StripboardMcpToolset` and the scheduler and governance specialists get tools *discovered
+from our own C# MCP server* — `tools/list` at startup, `tools/call` at use. Pass nothing and
+they fall back to the REST functions below, which reach the same engine through the web app.
+
+The MCP path is the one this architecture claims (ADR-001: the Python/.NET boundary is the
+MCP boundary) and the one the demo uses. REST remains because the MCP servers are not
+deployed yet (EV-23), so a cloud-only environment still has a working path. When they ship,
+this fallback goes.
+
+The tool *names* are identical on both paths — `get_schedule`, `commit_schedule` — because
+the C# tools and these functions are two adapters over one service. That is why the
+specialists' instructions below need not know which path is in use.
 """
 
 import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import requests
 from google.adk.agents import LlmAgent
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "replanner")))
 from replanner_agent import (  # noqa: E402  reuse the solver-backed tools, never re-implement
     consolidate_schedule, propose_replan,
+)
+from mcp_tools import (  # noqa: E402
+    GOVERNANCE_TOOLS, SCHEDULER_TOOLS, StripboardMcpToolset,
 )
 
 logger = logging.getLogger("Orchestrator")
@@ -140,14 +158,37 @@ class OrchestratorResult:
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
 
 
-def build_orchestrator(model: str = MODEL) -> LlmAgent:
-    """The root agent and its specialists, wired for ADK's delegation transfer."""
+def build_orchestrator(
+    model: str = MODEL,
+    toolset: Optional[StripboardMcpToolset] = None,
+) -> LlmAgent:
+    """
+    The root agent and its specialists, wired for ADK's delegation transfer.
+
+    `toolset` is read explicitly rather than from the environment, so that what this
+    function returns depends only on what it was given. A build that quietly changed shape
+    with an env var would be a build whose tests prove nothing about the deployed one.
+    """
+    if toolset is not None:
+        # Discovered from the C# server, not written here. Adding a tool in ScheduleTools.cs
+        # gives these agents a new capability with no change to this file.
+        scheduler_tools = toolset.tools(SCHEDULER_TOOLS)
+        governance_tools = toolset.tools(GOVERNANCE_TOOLS)
+        logger.info("Specialists driven by MCP: %s from %s",
+                    ", ".join(t.name for t in scheduler_tools + governance_tools),
+                    toolset.client.endpoint)
+    else:
+        scheduler_tools = [get_schedule]
+        governance_tools = [commit_schedule]
+        logger.info("Specialists driven by the REST fallback at %s "
+                    "(no MCP toolset given; see EV-23)", _url())
+
     scheduler = LlmAgent(
         name="scheduler",
         model=model,
         description="Reports the committed shooting schedule: days, units, moves, cost, violations.",
         instruction=SCHEDULER_INSTRUCTION,
-        tools=[get_schedule],
+        tools=scheduler_tools,
     )
 
     replanner = LlmAgent(
@@ -164,7 +205,7 @@ def build_orchestrator(model: str = MODEL) -> LlmAgent:
         model=model,
         description="Commits a schedule version on a Producer's instruction. Agents are refused.",
         instruction=GOVERNANCE_INSTRUCTION,
-        tools=[commit_schedule],
+        tools=governance_tools,
     )
 
     return LlmAgent(
@@ -179,13 +220,19 @@ def build_orchestrator(model: str = MODEL) -> LlmAgent:
 class Orchestrator:
     """Drives the agent tree and records who actually did the work."""
 
-    def __init__(self, model: str = MODEL, app_name: str = "stripboard-orchestrator"):
+    def __init__(
+        self,
+        model: str = MODEL,
+        app_name: str = "stripboard-orchestrator",
+        toolset: Optional[StripboardMcpToolset] = None,
+    ):
         # Match the credential convention the rest of the agent layer uses.
         if os.getenv("GOOGLE_CLOUD_PROJECT") and not os.getenv("GOOGLE_GENAI_USE_VERTEXAI"):
             os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "TRUE"
             os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
-        self.agent = build_orchestrator(model)
+        self.toolset = toolset
+        self.agent = build_orchestrator(model, toolset=toolset)
         self.runner = InMemoryRunner(agent=self.agent, app_name=app_name)
         self.app_name = app_name
 
