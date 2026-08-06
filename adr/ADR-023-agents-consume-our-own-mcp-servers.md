@@ -61,12 +61,43 @@ tool the server does not offer raises rather than silently yielding a smaller to
 rename in C# must not quietly remove an agent's ability to do its job, because the first
 symptom would be a confident answer that skipped a step.
 
-### REST stays until the servers are deployed
+### REST stays as a fallback
 
-`build_orchestrator(toolset=None)` still wires the REST functions. The MCP servers are not on
-Cloud Run yet, so a cloud-only environment needs a working path. The toolset is passed
-explicitly and never read from the environment inside the builder: a build whose shape changes
-with an env var is a build whose tests describe a different program.
+`build_orchestrator(toolset=None)` still wires the REST functions, for an environment with no
+MCP server in reach. The toolset is passed explicitly and never read from the environment
+inside the builder: a build whose shape changes with an env var is a build whose tests
+describe a different program.
+
+### Deployment, and what it changes about the rule
+
+`infra/deploy-mcp.sh` puts all four on Cloud Run — private, one service account each, three
+with `cloudsql.client` and `sa-mcp-weather` with **no project role at all**. `Dockerfile.mcp`
+takes the project name as a build argument rather than existing in four drifting copies.
+
+The interesting part is not that they are hosted. It is that hosting is what makes
+[ADR-020](ADR-020-identity-is-not-a-string-the-caller-sends.md) observable. `CallerIdentityResolver`
+only trusts a principal when `K_SERVICE` says it is on Cloud Run, so:
+
+```
+locally      'Producer' claims the Producer role but nothing verified it.
+on Cloud Run 'you@example.com' cannot commit a schedule. Only the Producer role may commit.
+```
+
+Locally the answer is *nobody can commit*, which is safe and proves little. Deployed, Google
+validates the token and the service refuses **a caller it can name**. Same code, same tool,
+and only in the second case is there an identity to have a rule about.
+
+Deploying also changed a behaviour we had not thought to predict, and it caught a test.
+`create_schedule` succeeds locally — the platform proves nothing, so the payload's
+`identity: "sa-orchestrator"` is taken at face value and the solver runs. On Cloud Run the
+caller is whoever Google says they are, and an account holding no scheduling role is told
+`'you@example.com' is not permitted to run the solver`. That is the rule working, not a
+regression: authority stops coming from the request the moment there is a credential to read.
+
+The live test had encoded the local behaviour by creating a draft before trying to commit it,
+so it failed the first time it ran against Cloud Run. It now reads the committed schedule
+instead and asserts the invariant that holds in both — *sending `identity: "Producer"` never
+commits anything* — matching on the grounds for refusal rather than on the sentence.
 
 ## Two bugs this surfaced, both of the house type
 

@@ -1,6 +1,6 @@
 # ADR-012 — What the scheduling model actually models
 
-**Status:** Accepted · 2026-08-04 · Implements EV-27 · Refines [ADR-002](ADR-002-solver.md)
+**Status:** Accepted · 2026-08-04 · Implements EV-27 · Supersedes the never-written ADR-002
 
 ## Context
 

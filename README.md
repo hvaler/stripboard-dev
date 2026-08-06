@@ -98,6 +98,14 @@ designed and not shipped**, and they are marked.
   `MCPToolset`, which imports the reference SDK from a vendor the rules name — the toolset is
   ~80 lines on the transport we already wrote for Grafana. See
   [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
+- **The four MCP servers are on Cloud Run, and private** (EV-23): each runs as its own
+  service account, three reaching Cloud SQL and `sa-mcp-weather` holding **no project role at
+  all** — the weather server cannot read the schedule rather than merely not doing so. An
+  anonymous caller gets 403; an authenticated one completes the MCP handshake. Deployment
+  changes what the governance rule can say: locally nothing is verified so *nobody* may
+  commit, while on Cloud Run the identity is one Google validated, and the refusal names the
+  caller. `infra/deploy-mcp.sh`, and see
+  [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
 - **An identity is not a string the caller sends** (EV-33): committing requires a principal
   the *platform* proved — Cloud Run's validated identity token, or an authenticated human
   session. A name in a request body is a claim, and a claim cannot commit. Before this, an
@@ -122,16 +130,15 @@ designed and not shipped**, and they are marked.
 
 | Gap | Where | Tracked by |
 |---|---|---|
-| The four MCP servers run, speak the protocol and are consumed by the agents, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run, so the MCP path is a local one and the REST fallback is what runs in the cloud | `src/Stripboard.Mcp.*` | EV-23, deployment half |
 | The **replanner** still reaches the engine over REST (`POST /api/replan`), not MCP — `mcp-schedule` has no replan-from-disruption tool. The scheduler and governance specialists do go over MCP | `agents/replanner` | EV-23, remainder |
 | The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived | `agents/orchestrator` | EV-26 |
 | Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol. **This one is a decision, not a backlog item** — A2A solves separately-owned agents discovering each other across a network; ours are four `LlmAgent` objects in one ADK process. Implementing the protocol so the README could name it is the exact inflation this project spent EV-17 removing | `agents/orchestrator` | closed, not planned |
 | The Python agents run **locally**, under a developer's own credentials rather than as their service accounts. The accounts exist and are correctly scoped, and the two deployed services do run as theirs — but Workload Identity only becomes meaningful once the agents run in GCP | `agents/` | EV-26 |
 | The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
 
-Three of those five rows close with cloud credits and no further design work — deploying the
-MCP servers, and EV-26 twice over. One closes with time. One is already closed the other way,
-by a decision. **Nothing in that table is waiting on a problem we have not solved.**
+Two of those rows close with cloud credits and no further design work — EV-26, twice over.
+One closes with time. One is already closed the other way, by a decision. **Nothing in that
+table is waiting on a problem we have not solved.**
 
 The runtime evidence behind every claim in the working list above — with the commands to
 reproduce each one — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
@@ -169,8 +176,8 @@ fires on them, and the Conflict Sentinel reads that firing rule back over MCP an
 replan. Nobody is watching a screen when it happens.
 
 > Every box carries **what it is** and **where it runs**. `[✓]` is true today; `[ ]` is
-> written and not shipped, tagged with the evolutivo that would close it. Those are the only
-> two open marks in the system — see the status section above.
+> written and not shipped, tagged with the evolutivo that would close it. There is exactly
+> one open mark left — Agent Engine — see the status section above.
 
 ```
    ┌──────────────────────────────────────────────────────────────────────┐
@@ -202,7 +209,7 @@ replan. Nobody is watching a screen when it happens.
                                   │ people · locations · weather
    ┌──────────────────────────────┬───────────────────────────────────────┐
    │ mcp-schedule · mcp-people · mcp-locations · mcp-weather              │
-   │ speak MCP [✓] · consumed by the agents [✓] · deployed [ ]            │  EV-23
+   │ speak MCP [✓] · consumed by the agents [✓] · private on Cloud Run [✓]│
    └──────────────────────────────────────────────────────────────────────┘
 
    Feeding the loop, outside it:
@@ -243,10 +250,12 @@ Design principles the implementation is being held to:
   author (human or agent) and triggering disruption — the audit trail is free.
 - **Least-privilege agents, in two rings.** Inside: the commit rule is enforced in
   `ScheduleService.CommitAsync` against an identity the *platform* proved rather than one the
-  caller typed (EV-33). Outside: one service account per agent, and four of them hold **no
-  project role at all** — `sa-sentinel` cannot reach the database, and only
-  `sa-stripboard-web` holds `cloudsql.client`. Both deployed services run as their own
-  identity. See [`docs/EVIDENCE.md`](docs/EVIDENCE.md) §8 for the policy dump.
+  caller typed (EV-33). Outside: one service account per agent and per MCP server — twelve in
+  all — of which **five hold no project role whatsoever**: `sa-breakdown`, `sa-scheduler`,
+  `sa-replanner`, `sa-callsheets` and `sa-mcp-weather`. `cloudsql.client` is held by exactly
+  four: the web app and the three MCP servers that read the schedule. `sa-sentinel` is not
+  one of them and cannot reach the database. Every deployed service runs as its own identity.
+  See [`docs/EVIDENCE.md`](docs/EVIDENCE.md) §8 for the policy dump.
 
 ## Technology
 
@@ -256,7 +265,7 @@ Design principles the implementation is being held to:
 | Domain & union rules | C# / .NET 10, pure domain layer | ✅ working |
 | Call sheets | QuestPDF | ✅ working |
 | Web UI | Blazor Server (.NET 10) | ✅ driven by the solver |
-| Services | Four MCP servers (`ModelContextProtocol.AspNetCore`) | ✅ speak MCP · 🚧 not deployed |
+| Services | Four MCP servers (`ModelContextProtocol.AspNetCore`) | ✅ speak MCP · ✅ deployed, private |
 | Data | EF Core 9 → **Cloud SQL (PostgreSQL 16)**, migrations applied at startup | ✅ working |
 | Grafana dashboard | Versioned JSON + provisioning script (`infra/grafana/`) | ✅ working |
 | Grafana alert rules | Versioned JSON over `shoot_*` metrics, provisioned by script | ✅ working |
@@ -266,7 +275,7 @@ Design principles the implementation is being held to:
 | Agent hosting | Vertex AI Agent Engine | 🚧 deploy script written, not run |
 | Agent-to-agent | A2A wire protocol | ❌ not implemented, and deliberately not planned — see the gap table above |
 | **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
-| MCP servers of our own | `ModelContextProtocol.AspNetCore` 2.1.0, 33 contract tests | ✅ built · ✅ consumed by the agents · 🚧 not hosted |
+| MCP servers of our own | `ModelContextProtocol.AspNetCore` 2.1.0, 33 contract tests | ✅ built · ✅ consumed by the agents · ✅ private on Cloud Run |
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud, `shoot_*` production metrics | ✅ working |
 | Governance | Commit requires a platform-proved Producer, not a name in the payload | ✅ working |
 | Mutation testing | Stryker.NET over `UnionRulesService` — 100%, 0 survivors | ✅ working |
@@ -448,9 +457,31 @@ Tools discovered:    commit_schedule, consolidate_schedule, create_schedule,
               → refused by the server, not by a prompt
 ```
 
-Unset the variable and the same demo runs against the web app's REST API instead — the
-fallback that exists only until the MCP servers are deployed
+Unset the variable and the same demo runs against the web app's REST API instead
 ([ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md)).
+
+**Against the deployed servers.** All four are on Cloud Run and none of them is public, so a
+caller needs an identity token — which is also what makes the governance rule mean something
+(see below):
+
+```bash
+bash infra/deploy-mcp.sh          # build, push, deploy all four, verify each is private
+
+export STRIPBOARD_MCP_SCHEDULE_ENDPOINT=$(gcloud run services describe stripboard-mcp-schedule \
+  --project stripboard-hack --region europe-west1 --format='value(status.url)')/mcp
+export STRIPBOARD_MCP_BEARER_TOKEN=$(gcloud auth print-identity-token)
+python demo/run_orchestrator.py
+```
+
+Deployment changes what the refusal can say, and the difference is the whole of EV-33:
+
+```
+locally     'Producer' claims the Producer role but nothing verified it.
+on Cloud Run 'you@example.com' cannot commit a schedule. Only the Producer role may commit.
+```
+
+Locally nothing authenticates anyone, so *nobody* can commit whatever they claim. On Cloud
+Run the identity is one Google validated, and the service refuses **a caller it can name**.
 
 ### Mutation testing the union rules
 

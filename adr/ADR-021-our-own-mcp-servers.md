@@ -106,5 +106,7 @@ absent**, which is why none of the three failed loudly.
   [ADR-023](ADR-023-agents-consume-our-own-mcp-servers.md) — over our own transport, not
   `MCPToolset`, which imports a dependency [ADR-010 §2](ADR-010-grafana-mcp-sidecar-transport.md)
   refused.
-- The four servers are not yet deployed. They run and speak the protocol; putting them on
-  Cloud Run is deployment work, not protocol work.
+- ~~The four servers are not yet deployed.~~ They are, as of `infra/deploy-mcp.sh`: one
+  private Cloud Run service each, one service account each, and `sa-mcp-weather` holding no
+  project role at all because it has no database to reach
+  ([ADR-023](ADR-023-agents-consume-our-own-mcp-servers.md)).

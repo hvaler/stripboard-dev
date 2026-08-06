@@ -457,6 +457,88 @@ authenticated caller — an identity supplied in the request body is a claim, no
 The tool-call log is what distinguishes those two cases, which is why the demo prints it. An
 agent that had simply repeated its instruction would show no `commit_schedule` line at all.
 
+### All four are on Cloud Run, and private
+
+```bash
+bash infra/deploy-mcp.sh
+```
+
+```
+stripboard-mcp-schedule-00001-dl8    anonymous -> HTTP 403, as intended
+                                     authenticated initialize -> "name":"Stripboard.Mcp.Schedule"
+stripboard-mcp-people-00001-7p9      anonymous -> HTTP 403, as intended
+                                     authenticated initialize -> "name":"Stripboard.Mcp.People"
+stripboard-mcp-locations-00001-cmz   anonymous -> HTTP 403, as intended
+                                     authenticated initialize -> "name":"Stripboard.Mcp.Locations"
+stripboard-mcp-weather-00001-c8c     anonymous -> HTTP 403, as intended
+                                     authenticated initialize -> "name":"Stripboard.Mcp.Weather"
+```
+
+Each returns **its own** `serverInfo`, which is the check that matters when one parameterised
+Dockerfile builds four images: a wrong build argument produces four services that all start
+the schedule server and answer `tools/list` with somebody else's tools. A working protocol
+giving confidently wrong answers is harder to notice than a broken one.
+
+Least privilege, as the project's policy actually reads:
+
+```bash
+for n in schedule people locations weather; do
+  gcloud projects get-iam-policy stripboard-hack --flatten="bindings[].members" \
+    --format="value(bindings.role)" --filter="bindings.members:sa-mcp-${n}@"
+done
+```
+
+```
+sa-mcp-schedule    roles/cloudsql.client
+sa-mcp-people      roles/cloudsql.client
+sa-mcp-locations   roles/cloudsql.client
+sa-mcp-weather     (no project role at all)
+```
+
+The weather server generates a deterministic synthetic forecast and touches no data, so it
+holds nothing. *Cannot reach the schedule* is a stronger claim than *does not*, and it is the
+one a policy dump can settle.
+
+### Deployment is what gives the governance rule something to refuse
+
+`CallerIdentityResolver` only trusts a principal when `K_SERVICE` says it is on Cloud Run.
+The same tool call, from the same client, against the two environments:
+
+```
+local        'Producer' claims the Producer role but nothing verified it. A commit requires
+             an authenticated caller — an identity supplied in the request body is a claim,
+             not a credential.
+
+Cloud Run    'you@example.com' cannot commit a schedule. Only the Producer role may commit
+             — agents propose, humans decide.
+```
+
+Locally the answer is *nobody may commit*, which is safe and proves little. Deployed, Google
+validates the bearer token and the service refuses **a caller it can name**. Only in the
+second case is there an identity to have a rule about.
+
+The same shift applies to running the solver at all:
+
+```
+local        create_schedule({"identity":"sa-orchestrator", …}) -> a draft version
+Cloud Run    create_schedule({"identity":"sa-orchestrator", …})
+             -> 'you@example.com' is not permitted to run the solver.
+```
+
+Locally the payload's identity is taken at face value because nothing can contradict it.
+Deployed, the payload is ignored and the credential decides — so an authenticated account
+holding no scheduling role cannot run the solver whatever it calls itself.
+
+Read against the live Cloud SQL schedule through the deployed server:
+
+```
+get_schedule -> {"versionNumber": 7, "days": 4, "companyMoves": 4,
+                 "costUsd": 29600.0, "isCommitted": true}
+```
+
+The same version the web app serves, because both are pointed at the same database rather
+than each holding a copy.
+
 ### The governance rule, over MCP
 
 ```bash
@@ -518,8 +600,8 @@ constructors, and pointing the tool at them would measure nothing.
 
 ## 8. Least privilege, as Google sees it
 
-`infra/iam/setup-agent-iam.sh` creates one service account per agent. What each one is
-actually allowed to do, straight from the project's IAM policy:
+`infra/iam/setup-agent-iam.sh` creates one service account per agent **and per MCP server**.
+What each one is actually allowed to do, straight from the project's IAM policy:
 
 ```bash
 gcloud projects get-iam-policy stripboard-hack \
@@ -535,10 +617,15 @@ gcloud projects get-iam-policy stripboard-hack \
 | `sa-callsheets` | *(none)* | Exists and can do nothing |
 | `sa-sentinel` | `aiplatform.user`, `logging.logWriter` | Can call Gemini and write logs. **No `cloudsql.client`** — it cannot reach the database |
 | `sa-orchestrator` | `aiplatform.user`, `storage.objectViewer` | Can call Gemini and read the Agent Engine staging bucket. Nothing else |
-| `sa-stripboard-web` | `cloudsql.client` | The **only** identity that can reach the database |
+| `sa-stripboard-web` | `cloudsql.client` | Reaches the database |
+| `sa-mcp-schedule`, `sa-mcp-people`, `sa-mcp-locations` | `cloudsql.client` | The three MCP servers that read and write the schedule |
+| `sa-mcp-weather` | *(none)* | Generates a synthetic forecast and touches no data, so it holds nothing |
 
-The four empty rows are the point. An agent with no bindings is not restrained by a prompt or
-by an application check — Google refuses it.
+The **five** empty rows are the point. An agent with no bindings is not restrained by a
+prompt or by an application check — Google refuses it. `sa-mcp-weather` is the newest and the
+clearest: it is a deployed, running service that cannot reach the schedule.
+
+`cloudsql.client` is held by exactly four principals, and `sa-sentinel` is not one of them.
 
 And this is live rather than aspirational, because the deployed services run **as** those
 identities:
@@ -559,8 +646,9 @@ those agents run in GCP (EV-26). What is shown above is the deployed surface.
 
 ## 9. What this file does not claim
 
-- The four MCP servers are **not deployed**. They run and speak the protocol; only the web
-  app and the Conflict Sentinel are on Cloud Run.
+- The **replanner** does not reach the engine over MCP. It calls `POST /api/replan` on the
+  web app, because `mcp-schedule` exposes no replan-from-disruption tool. The scheduler and
+  governance specialists do go over MCP; the replanner is REST.
 - The orchestrator has not been deployed to Vertex AI Agent Engine.
   `agents/deploy_agent_engine.py` is written and passes its own preflight; it has not been
   run, because Agent Engine is a billed resource (EV-26).

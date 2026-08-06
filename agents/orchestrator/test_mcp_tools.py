@@ -224,16 +224,28 @@ class LiveScheduleServerTests(unittest.TestCase):
         for tool in self.toolset.tools():
             self.assertIsNotNone(tool._get_declaration())
 
-    def test_an_agent_identity_cannot_commit_over_mcp(self):
+    def test_claiming_to_be_the_producer_does_not_make_you_one(self):
+        # Reads the committed schedule rather than creating a draft, because creating one is
+        # itself authorised and the answer differs by environment. Locally the platform
+        # proves nothing, so the payload identity is taken at face value and `create_schedule`
+        # succeeds; on Cloud Run the caller is whoever Google says they are, and an account
+        # holding no scheduling role is told it "is not permitted to run the solver".
+        #
+        # What must hold in BOTH is this: sending identity="Producer" never commits anything.
         tools = {t.name: t for t in self.toolset.tools()}
-        draft = asyncio.run(tools["create_schedule"].run_async(
-            args={"identity": "sa-orchestrator", "startDate": "2026-08-10"}, tool_context=None))
-        self.assertIn("versionId", draft, f"could not create a draft: {draft}")
+
+        board = asyncio.run(tools["get_schedule"].run_async(args={}, tool_context=None))
+        self.assertIn("versionId", board, f"no committed schedule to work from: {board}")
 
         refused = asyncio.run(tools["commit_schedule"].run_async(
-            args={"versionId": draft["versionId"], "identity": "Producer"}, tool_context=None))
+            args={"versionId": board["versionId"], "identity": "Producer"}, tool_context=None))
+
         self.assertIn("error", refused)
-        self.assertIn("claim", refused["error"])
+        self.assertNotIn("committed", refused)
+        # The wording differs between environments — "nothing verified it" locally,
+        # "'you@example.com' cannot commit" on Cloud Run — but both refuse on the same
+        # grounds, and asserting the grounds rather than the sentence is the point.
+        self.assertIn("Producer role", refused["error"])
 
 
 if __name__ == "__main__":

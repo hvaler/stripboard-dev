@@ -1,6 +1,6 @@
 # ADR-016 — Persistence on Cloud SQL
 
-**Status:** Accepted · 2026-08-05 · Implements EV-22 · Supersedes the in-memory note in [ADR-006](ADR-006-persistence.md)
+**Status:** Accepted · 2026-08-05 · Implements EV-22 · Supersedes the in-memory note in the never-written ADR-006
 
 ## Context
 

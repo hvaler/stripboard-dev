@@ -180,12 +180,12 @@ Judges check. So this is on the front page of the README, not buried.
 Gemini on Vertex AI · 73 Grafana MCP tools live · four MCP servers of our own on the official
 SDK · annotations written *through* MCP and read back · alert rules firing · CP-SAT with
 DOOD, day/night units and hard location caps · union rules at 100% mutation score ·
-Cloud SQL persistence · 93 xUnit + 74 Python tests green
+Cloud SQL persistence · 94 xUnit + 83 Python tests green
 
 **Not done, and said so:**
-the MCP servers and the orchestrator run but are not hosted · Agent Engine's deploy script is
-written and deliberately unrun, because it is billed · no A2A wire protocol · per-agent IAM
-is a setup script, not yet Google enforcing it
+the orchestrator runs but is not hosted — Agent Engine's deploy script is written and
+deliberately unrun, because it is billed · no A2A wire protocol · the replanner reaches the
+engine over REST rather than MCP
 
 > Bugs shipped and were fixed along the way, nearly all the same shape: **a success that was
 > not one.** A gauge publishing 0 when it knew nothing, so the union-violation alert stayed

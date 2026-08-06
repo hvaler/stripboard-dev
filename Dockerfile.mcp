@@ -1,0 +1,46 @@
+# One image definition for all four Stripboard.Mcp.* servers (EV-23, deployment half).
+#
+# The root Dockerfile is hardcoded to Stripboard.Web. Rather than copy it four times and
+# watch the copies drift, the project name is a build argument:
+#
+#   docker build -f Dockerfile.mcp --build-arg PROJECT=Stripboard.Mcp.Schedule .
+#
+# The restore step names every project explicitly so a change to one server's source does
+# not invalidate the restore layer for the others.
+ARG PROJECT=Stripboard.Mcp.Schedule
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG PROJECT
+WORKDIR /src
+
+COPY ["src/Stripboard.Domain/Stripboard.Domain.csproj", "src/Stripboard.Domain/"]
+COPY ["src/Stripboard.Application/Stripboard.Application.csproj", "src/Stripboard.Application/"]
+COPY ["src/Stripboard.Infrastructure/Stripboard.Infrastructure.csproj", "src/Stripboard.Infrastructure/"]
+COPY ["src/Stripboard.Solver/Stripboard.Solver.csproj", "src/Stripboard.Solver/"]
+COPY ["src/Stripboard.Mcp.Schedule/Stripboard.Mcp.Schedule.csproj", "src/Stripboard.Mcp.Schedule/"]
+COPY ["src/Stripboard.Mcp.People/Stripboard.Mcp.People.csproj", "src/Stripboard.Mcp.People/"]
+COPY ["src/Stripboard.Mcp.Locations/Stripboard.Mcp.Locations.csproj", "src/Stripboard.Mcp.Locations/"]
+COPY ["src/Stripboard.Mcp.Weather/Stripboard.Mcp.Weather.csproj", "src/Stripboard.Mcp.Weather/"]
+COPY ["Directory.Build.props", "./"]
+COPY ["Directory.Packages.props", "./"]
+
+RUN dotnet restore "src/${PROJECT}/${PROJECT}.csproj"
+
+COPY . .
+RUN dotnet publish "src/${PROJECT}/${PROJECT}.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+ARG PROJECT
+WORKDIR /app
+EXPOSE 8080
+ENV PORT=8080
+ENV ASPNETCORE_URLS=http://+:8080
+
+# ENTRYPOINT cannot read a build argument, so the assembly name is baked in here and the
+# entrypoint is constant. Getting this wrong produces an image that starts the *other*
+# server and answers tools/list with somebody else's tools — a working protocol giving
+# confidently wrong answers, which is the failure mode this project keeps refusing.
+ENV MCP_ASSEMBLY=${PROJECT}.dll
+
+COPY --from=build /app/publish .
+ENTRYPOINT ["sh", "-c", "exec dotnet \"$MCP_ASSEMBLY\""]

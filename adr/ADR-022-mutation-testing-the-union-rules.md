@@ -5,7 +5,7 @@
 ## Context
 
 The README said *"union rules verified with mutation testing"*. No such configuration
-existed. [EV-17](../PLAN_HACKATHON_STRIPBOARD.md) removed the sentence rather than leaving it
+existed. EV-17 removed the sentence rather than leaving it
 standing, which was right at the time.
 
 The claim was worth making, though, and for a specific reason. `UnionRulesService` decides
