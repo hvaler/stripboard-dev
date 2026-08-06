@@ -115,12 +115,16 @@ designed and not shipped**, and they are marked.
 |---|---|---|
 | The four MCP servers run and speak the protocol, but are **not deployed** — only the web app and the Conflict Sentinel are on Cloud Run | `src/Stripboard.Mcp.*` | EV-23, deployment half |
 | The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived | `agents/orchestrator` | EV-26 |
-| Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol | `agents/orchestrator` | EV-25, second half |
+| Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol. **This one is a decision, not a backlog item** — A2A solves separately-owned agents discovering each other across a network; ours are four `LlmAgent` objects in one ADK process. Implementing the protocol so the README could name it is the exact inflation this project spent EV-17 removing | `agents/orchestrator` | closed, not planned |
 | The Python agents run **locally**, under a developer's own credentials rather than as their service accounts. The accounts exist and are correctly scoped, and the two deployed services do run as theirs — but Workload Identity only becomes meaningful once the agents run in GCP | `agents/` | EV-26 |
 | The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
 
-Every evolutivo, with what is actually done, is in
-[`EVOLUTIVOS.md`](EVOLUTIVOS.md#estado-real--ev-17--ev-34).
+Three of those five rows close with cloud credits and no further design work — deploying the
+MCP servers, and EV-26 twice over. One closes with time. One is already closed the other way,
+by a decision. **Nothing in that table is waiting on a problem we have not solved.**
+
+The runtime evidence behind every claim in the working list above — with the commands to
+reproduce each one — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
 
 **Live demo: <https://stripboard-web-wc7oib7k6q-ew.a.run.app>** — deployed on Cloud Run and
 verified end to end in a browser with zero console errors: inject a disruption, compare the
@@ -130,6 +134,12 @@ Run. There is no demo video yet.
 
 It scales to zero while the hackathon credits are pending, so the **first** request may take a
 few seconds. Everything after that is warm. See *Stopping the paid services* below.
+
+**Live Grafana dashboard, no account needed:
+<https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3>** —
+"Shoot Mission Control", reading the same `shoot_*` metrics the Conflict Sentinel queries over
+MCP. It is the shortest way to check that the partner integration is real rather than
+described.
 
 ## The problem
 
@@ -143,36 +153,56 @@ entire crew.
 
 ## Architecture
 
-> Components marked `[✓]` exist today; `[ ]` are designed but not built. Two things carry a
-> deliberate half-mark — the MCP servers run but are not hosted, and the orchestrator runs
-> but is not on Agent Engine. See the status section above.
+**Grafana is not a destination on the right-hand edge of this diagram; it is step 1 of the
+loop.** Metrics about the *shoot* leave the application over OTLP, a rule in Grafana Cloud
+fires on them, and the Conflict Sentinel reads that firing rule back over MCP and starts a
+replan. Nobody is watching a screen when it happens.
+
+> Every box carries **what it is** and **where it runs**. `[✓]` is true today; `[ ]` is
+> written and not shipped, tagged with the evolutivo that would close it. Those are the only
+> two open marks in the system — see the status section above.
 
 ```
-                     ┌─────────────────────────────┐
-                     │   Orchestrator (ADK)     [✓]│  root agent, no tools
-                     │   Vertex AI Agent Engine [ ]│  script ready, not deployed
-                     └─────────────┬───────────────┘
-        ┌──────────┬───────────────┼───────────────┬────────────┐
-   Breakdown   Scheduler      Replanner       Call sheets   Watchers
-   (Gemini →   (reads the     (options +      (role-scoped  (availability,
-    typed       committed      cost deltas)    PDFs)         locations,
-    scenes)     board)   │                                    weather)
-      [✓]          [✓]             [✓]             [✓]          [✓] as MCP
-                                                                   tools, no
-                                                                   agent yet
-                    ▼                                            │
-             CP-SAT solver (Google OR-Tools)              Conflict Sentinel
-             deterministic, tested                  [✓]   (reads firing alerts
-                    │                                      over MCP; publishes
-                    ▼                                      annotations)
-        ┌───────────────────────────────────────────┐            [✓]
-        │  Service layer: mcp-schedule · mcp-people │
-        │  · mcp-locations · mcp-weather            │  MCP [✓] / deployed [ ]
-        └───────────────────────────────────────────┘
+   ┌──────────────────────────────────────────────────────────────────────┐
+   │ GRAFANA CLOUD                                            hosted [✓]  │
+   │ "Shoot Mission Control" · 4 alert rules over shoot_* metrics         │
+   │ grafana/mcp-grafana, run as a sidecar we control — 73 tools          │
+   └──▲─────────────────────────────────────────────────────────────┬─────┘
+      │ 6  OTLP: metrics about the SHOOT,                           │ 1  a rule
+      │    not about the app                                        │    fires
+      │                                                             ▼
+   ┌──┴─────────────────────────┐            ┌──────────────────────┬─────┐
+   │ Blazor UI              [✓] │            │ Conflict Sentinel      [✓] │
+   │ Cloud Run + Cloud SQL      │            │ private Cloud Run          │
+   │ versions, audit trail      │            │ + "Ask your shoot"         │
+   └──▲─────────────────────────┘            └────────────┬───────────────┘
+      │ 5  a human Producer approves;                     │ 2  replan or
+      │    every other identity: 403                      │    consolidate
+      │                                                   ▼
+   ┌──┴───────────────────────────────────────────────────┬───────────────┐
+   │ 3  Orchestrator — ADK root agent with no tools of its own            │
+   │    scheduler · replanner · governance    runs locally         [✓]    │
+   │                                          Vertex AI Agent Engine [ ]  │  EV-26
+   └──────────────────────────────┬───────────────────────────────────────┘
+                                  │ 4  no agent does arithmetic — every figure
+                                  ▼    it states comes from a solver run
+   ┌──────────────────────────────┬───────────────────────────────────────┐
+   │ CP-SAT solver (Google OR-Tools) · union rules by construction  [✓]   │
+   └──────────────────────────────┬───────────────────────────────────────┘
+                                  │ people · locations · weather
+   ┌──────────────────────────────┬───────────────────────────────────────┐
+   │ mcp-schedule · mcp-people · mcp-locations · mcp-weather              │
+   │ speak the real protocol [✓]  ·  deployed [ ]                         │  EV-23
+   └──────────────────────────────────────────────────────────────────────┘
 
-        Governance: an agent may call /api/schedule/commit.
-        The service answers 403 for every identity but a human Producer.   [✓]
+   Feeding the loop, outside it:
+   Breakdown — Gemini 2.5 Flash → typed scenes  [✓]
+   Call sheets — QuestPDF, role-scoped          [✓]
 ```
+
+The governance step is drawn as an arrow rather than a note because it is one: an agent may
+call `/api/schedule/commit` and the service answers **403** for every identity but a human
+Producer.
 
 Design principles the implementation is being held to:
 
@@ -206,7 +236,7 @@ Design principles the implementation is being held to:
 | Replanner agent | Google ADK `LlmAgent` over the solver API | ✅ working |
 | Orchestration | Google ADK root agent + sub-agent transfer | ✅ working |
 | Agent hosting | Vertex AI Agent Engine | 🚧 deploy script written, not run |
-| Agent-to-agent | A2A wire protocol | ❌ not implemented, and [deliberately not planned](EVOLUTIVOS.md#nota-sobre-a2a-ev-25) |
+| Agent-to-agent | A2A wire protocol | ❌ not implemented, and deliberately not planned — see the gap table above |
 | **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
 | MCP servers of our own | `ModelContextProtocol.AspNetCore` 2.1.0, 33 contract tests | ✅ built · 🚧 not hosted |
 | Observability (partner) | OpenTelemetry OTLP → Grafana Cloud, `shoot_*` production metrics | ✅ working |
@@ -217,26 +247,84 @@ Design principles the implementation is being held to:
 ### Grafana partner track
 
 The track requires the Grafana stack to be used at runtime through the official
-`grafana/mcp-grafana` MCP server. Stripboard does this for real:
+`grafana/mcp-grafana` MCP server. Why this track and what counts as qualifying use are
+recorded in [ADR-005](adr/ADR-005-grafana-track.md) and
+[ADR-008](adr/ADR-008-grafana-mcp-qualifying-use.md). Stripboard does this for real:
 
 - **`agents/sentinel/grafana_mcp_client.py`** implements the MCP **Streamable HTTP**
   transport directly over JSON-RPC 2.0 — `initialize` with session negotiation,
   `notifications/initialized`, paginated `tools/list`, and `tools/call` — accepting both
   JSON and SSE responses. No client library; the only dependency is `requests`.
-- **73 tools** are discovered at runtime against Grafana Cloud, including
-  `create_annotation`, `get_annotations`, `alerting_manage_rules`, `query_prometheus`,
-  `query_loki_logs` and `search_dashboards`.
+- **73 tools are discovered** at runtime against Grafana Cloud. Five of them are actually
+  called: `create_annotation` and `get_annotations` (disruptions), `alerting_manage_rules`
+  (firing rules), `query_prometheus` and `list_prometheus_metric_names` ("Ask your shoot").
+  The rest are offered to Gemini, not exercised by us.
 - **Disruptions are published as Grafana annotations through the MCP server**, not through
   the REST API, and are read back attributed to the sentinel's service account.
-- **Alerts are read back over MCP**: four rules over the shoot's own metrics
-  (`infra/grafana/alert-rules.json`) are queried with `alerting_manage_rules`, and a firing
-  one starts a replan with no human involved until the approval step.
+- **Alerts are read back over MCP**: the four rules below are queried with
+  `alerting_manage_rules`, and a firing one starts a replan with no human involved until the
+  approval step.
 - **Gemini reasons over the MCP toolset**: "Ask your shoot" discovers the tools at runtime,
   and the first turn is forced to call one, so an answer cannot be a number the model made up.
 - The server runs as a **sidecar we control** (`infra/grafana/run-mcp-sidecar.sh`). The
   hosted Grafana Cloud MCP endpoint authorises via interactive OAuth 2.1, which an
   unattended agent cannot complete — see [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
-- The **"Shoot Mission Control"** dashboard is versioned JSON provisioned by script.
+
+#### What is on the wire
+
+Eleven instruments, exported over OTLP from `src/Stripboard.Infrastructure/Telemetry/ShootMetrics.cs`.
+Nine describe the shoot; two describe the solver. **A gauge with no committed schedule to
+describe publishes nothing at all** — not `0` — because a rule watching for union violations
+reads zero as a clean shoot ([ADR-014](adr/ADR-014-observing-the-shoot.md)).
+
+| Metric | What it means to a 1st AD |
+|---|---|
+| `shoot_days_total` | Shooting days in the committed schedule |
+| `shoot_company_moves` | Moves *within* a day; overnight relocations are not charged, because the solver does not charge for them either |
+| `shoot_cost_estimate_usd` | Crew and called cast per day, plus move and penalty costs |
+| `shoot_union_violations` | Rules broken by the committed schedule — legal exposure, not preference |
+| `shoot_locations_per_day_max` | The **worst** day's location count. A maximum, not an average: one good day does not make up for a day spent in the van |
+| `shoot_cast_utilization{actor}` | Fraction of shooting days each actor is called for — a contract paid against days not worked |
+| `shoot_risk_index` | 0–100 heuristic of schedule fragility. Deliberately **not** alerted on (see below) |
+| `shoot_scenes_total`, `shoot_eighths_total` | Size of what is scheduled |
+| `solver_solve_duration`, `solver_solves_total` | The CP-SAT run itself |
+
+#### The four alert rules
+
+Versioned in `infra/grafana/alert-rules.json` and provisioned by script. Thresholds are
+calibrated against schedules this solver actually produces, not guessed.
+
+| Rule | Expression | For | Severity | `stripboardAction` |
+|---|---|---|---|---|
+| Unit hopping between locations in a day | `shoot_locations_per_day_max > 2` | 5m | high | `consolidate` |
+| Union violation in the committed schedule | `shoot_union_violations > 0` | 1m | critical | `replan` |
+| Cast paid to wait | `min(shoot_cast_utilization) < 0.34` | 10m | medium | `replan` |
+| Schedule cost above budget | `shoot_cost_estimate_usd > 45000` | 5m | high | `replan` |
+
+Every rule carries two labels, and the distinction between them is the design point:
+`stripboardTrigger` says **what happened**, `stripboardAction` says **what to do about it**.
+They are not the same question. A day that visits four locations blocks no scene and cancels
+no permit, so there is nothing for the replanner to absorb — the answer is to price a
+constraint, not to route around a disruption. A rule with no `stripboardTrigger` is one
+nobody can act on, and the provisioner refuses to create it. See
+[ADR-019](adr/ADR-019-alerting-on-the-shoot.md).
+
+`shoot_risk_index` has no rule, and that is a finding rather than an omission. The first draft
+set it at 60 and no real schedule came close — the 14-scene demo scores 44 *while* running a
+day that visits four locations. Lowering the threshold until it fired would have taught us
+nothing, because "risk is 46" is not an instruction. A dashboard tolerates a composite; an
+alert needs an action.
+
+#### Seeing it without an account
+
+The **"Shoot Mission Control"** dashboard is versioned JSON provisioned by script, and it is
+published read-only:
+
+**<https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3>**
+
+Nine panels over the metrics above. It reads from the same Grafana Cloud stack the Conflict
+Sentinel queries over MCP — no login, no separate data. If a panel says *No data*, the web
+service has scaled to zero and nothing is exporting; see *Stopping the paid services*.
 
 The distinguishing choice is what is being observed. Almost anything in this track can point
 Grafana at its own request latency; here the *shoot* is the observed system — cost burning
@@ -254,11 +342,21 @@ infra/         Cloud Run deploy scripts, Grafana dashboard + alert rules, per-ag
 adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-022)
 demo/          Sample screenplays (Fountain, .fdx, PDF), demo harnesses, pitch deck
 docs/          EVIDENCE.md — logs and figures behind the claims above
-EVOLUTIVOS.md  Every evolutivo and what is actually done
 stryker-config.json  Mutation testing, scoped to the union rules
+LICENSE·NOTICE Apache-2.0 and the attribution notice it asks for
 ```
 
 ## Quickstart
+
+**Prerequisites.** The first block below needs only the first row; each later section says
+what it adds.
+
+| For | You need |
+|---|---|
+| Tests and the web UI | .NET 10 SDK |
+| The agents | Python 3.12, and a GCP project with `aiplatform.googleapis.com` enabled |
+| Grafana MCP | Docker, and a Grafana **service account** token (`glsa_` prefix) |
+| Deploying | `gcloud`, authenticated against your own project |
 
 > Verified locally on Windows with the .NET 10 SDK and Python 3.12. The cloud path is
 > scripted and used daily — `infra/deploy-web.sh`, `infra/deploy-sentinel.sh`,
@@ -455,9 +553,11 @@ demonstrating anything.
 
 ## The 3-minute demo
 
-Not recorded yet. A shot-by-shot script lives in
-[`demo/submission-checklist.md`](demo/submission-checklist.md); it can only be narrated
-once the corresponding features are real.
+Not recorded yet. One shot-by-shot script lives in
+[`demo/submission-checklist.md`](demo/submission-checklist.md) §3, with the Grafana moments
+each shot has to land: the dashboard, a rule in the firing state, the `tools/call` that reads
+it back, and the annotation written when the Producer approves. Every row names what must be
+true before it can be narrated.
 
 The runtime evidence behind every claim above — Gemini calls, MCP tool results, the alert
 firing, the figures the solver produced — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md), with

@@ -9,6 +9,7 @@
 > **Project Name**: Stripboard
 > **Repository**: [https://github.com/hvaler/stripboard-dev](https://github.com/hvaler/stripboard-dev) (Public, Apache-2.0)
 > **Deployment**: [https://stripboard-web-wc7oib7k6q-ew.a.run.app](https://stripboard-web-wc7oib7k6q-ew.a.run.app) — ✅ stable, full walkthrough verified in a browser with zero console errors (ADR-011)
+> **Live Grafana dashboard**: [Shoot Mission Control](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3) — public, no account needed
 > **Status verified**: 2026-08-05 · **Deadline**: 2026-09-07 14:00 PT
 > **Evidence**: [`docs/EVIDENCE.md`](../docs/EVIDENCE.md) — runtime logs and figures behind every ✅ below
 
@@ -86,7 +87,11 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 2. **Annotations through MCP** — ✅ disruptions published with the `create_annotation`
    tool call against Grafana Cloud and verified by reading them back.
 3. **"Shoot Mission Control" dashboard** — ✅ versioned JSON plus a provisioning script
-   that now fails loudly instead of reporting success on error.
+   that now fails loudly instead of reporting success on error. **Published read-only so a
+   judge needs no account:**
+   <https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3>
+   (datasource pinned rather than templated — a public dashboard has no user to resolve
+   `${datasource}` for, and a templated one renders *No data* while looking healthy).
 4. **OpenTelemetry OTLP exporter** — ✅ traces and `shoot_*` production metrics stream to
    Grafana Cloud; every Mission Control panel queries them (ADR-014).
 5. **Metrics-driven reasoning over MCP** — ✅ "Ask your shoot": Gemini discovers the MCP
@@ -158,29 +163,35 @@ Both produced text that was *wrong* rather than *absent*, which is why neither f
 
 ## 3. Video recording script (3 minutes)
 
-> Each row lists what must be **true and demonstrable** before it can be narrated. A row
-> whose precondition is unmet gets cut or rewritten — the video may only show real behaviour.
+> **This is the script. There is only one.** An earlier draft opened on the architecture
+> diagram and had the Sentinel *posting* an alert to Grafana — the direction the product no
+> longer works in. It was deleted rather than struck through, because a narrator reading a
+> crossed-out table narrates the wrong system. Grafana fires; the Sentinel reads.
+>
+> Lead with the differentiator. Every other entry in this track will point Grafana at its own
+> latency; this one points it at the shoot.
 
-| Timestamp | Screen focus | Narration | Precondition |
+| Timestamp | Screen focus | Narration | Must be true |
 |---|---|---|---|
-| **0:00 – 0:30** | Architecture diagram & Blazor home | *"Film scheduling is a multi-million dollar puzzle governed by strict union rules. Here, the LLM formulates, the solver decides, and a human approves."* | ~~EV-21~~ ✅ |
-| **0:30 – 1:00** | Breakdown & stripboard view | *"Our Breakdown Agent uses Gemini to parse screenplay pages into typed scene objects. Google OR-Tools CP-SAT computes the optimal schedule, enforcing 12-hour turnarounds and minimizing company moves."* | ~~EV-18~~ ✅ · EV-21, EV-27 |
-| **1:00 – 1:45** | Disruption & sentinel alert | *"The lead actor calls in sick. Our Conflict Sentinel — an active client of the Grafana MCP Server — detects the blocked scenes and posts an alert annotation to Grafana."* | ~~EV-19~~ ✅ · EV-20 for the metrics panel |
-| **1:45 – 2:30** | Proposals & approval | *"The Replanner formulates two options with real cost deltas. The Producer compares them side by side and commits."* | ~~EV-21~~ ✅ (deltas are real; EV-24 makes the replanner an ADK agent) |
-| **2:30 – 3:00** | Call sheets & Grafana dashboard | *"QuestPDF generates role-scoped call sheets, while Shoot Mission Control displays OTLP traces, solver metrics and the disruption timeline."* | ~~EV-20, EV-29~~ ✅ |
+| **0:00 – 0:25** | Mission Control dashboard | *"This is not our application's latency. It is a film shoot: days left, budget burning, and which actors we are paying to sit in a trailer."* | ✅ EV-29 — the public dashboard is live |
+| **0:25 – 0:50** | `screenplay-nightfall.fountain` → stripboard | *"Gemini reads the screenplay into typed scenes. CP-SAT builds the schedule — union turnaround holds by construction, not by checking afterwards."* | ✅ EV-18, EV-21, EV-27 |
+| **0:50 – 1:30** | Grafana alert firing → `run_alert_loop.py` | *"Grafana notices that a shooting day visits four locations and fires. No one is watching — the Conflict Sentinel reads that alert back through the Grafana MCP server and starts the replan itself."* | ✅ EV-19, EV-29 — `alerting_manage_rules` over MCP |
+| **1:30 – 2:15** | Orchestrator output, then Proposals | *"The orchestrator routes it. The replanner has no arithmetic: every figure comes from a CP-SAT run. Two options, real cost deltas — and when the two converge it says so rather than inventing a choice."* | ✅ EV-24, EV-25 |
+| **2:15 – 2:45** | The 403 | *"Now the agent tries to commit its own recommendation. The service refuses it. That check is in the scheduling service, not in a prompt — agents propose, humans decide."* | ✅ EV-33 — refused on identity, not on a name |
+| **2:45 – 3:00** | Producer commits → audit trail → annotation lands in Grafana | *"The Producer approves. New version, new audit entry — and the decision is written back to Grafana as an annotation, so the timeline shows why the schedule changed."* | ✅ EV-19 — `create_annotation` over MCP |
 
-**Recut, now that EV-29 and EV-25 are real.** Lead with the differentiator instead of the
-architecture. Every other entry in this track will point Grafana at its own latency; this one
-points it at the shoot.
+**Grafana features that must be visible on screen**, because the track is judged on runtime
+use and a narrator's claim is not evidence:
 
-| Timestamp | Screen focus | Narration |
+| Feature | Shot | Why it is not optional |
 |---|---|---|
-| **0:00 – 0:25** | Mission Control dashboard | *"This is not our application's latency. It is a film shoot: days left, budget burning, and which actors we are paying to sit in a trailer."* |
-| **0:25 – 0:50** | `screenplay-nightfall.fountain` → stripboard | *"Gemini reads the screenplay into typed scenes. CP-SAT builds the schedule — union turnaround holds by construction, not by checking afterwards."* |
-| **0:50 – 1:30** | Grafana alert firing → `run_alert_loop.py` | *"Grafana notices that a shooting day visits four locations and fires. No one is watching — the Conflict Sentinel reads that alert back through the Grafana MCP server and starts the replan itself."* |
-| **1:30 – 2:15** | Orchestrator output, then Proposals | *"The orchestrator routes it. The replanner has no arithmetic: every figure comes from a CP-SAT run. Two options, real cost deltas — and when the two converge it says so rather than inventing a choice."* |
-| **2:15 – 2:45** | The 403 | *"Now the agent tries to commit its own recommendation. The service refuses it. That check is in the scheduling service, not in a prompt — agents propose, humans decide."* |
-| **2:45 – 3:00** | Producer commits → audit trail → call sheet PDF | *"The Producer approves. New version, new audit entry, call sheets out."* |
+| Mission Control dashboard | 0:00 | The `shoot_*` panels are the "we observe the shoot, not the app" thesis |
+| An alert rule in the firing state | 0:50 | Proves Grafana **starts** the loop |
+| The MCP call in the terminal | 0:50 | `tools/call alerting_manage_rules` — the qualifying use, on screen |
+| An annotation appearing on the timeline | 2:45 | Proves the integration is **bidirectional**, not read-only. This was cut from an earlier draft; it is back on purpose |
+
+Optional if time allows, and worth it: "Ask your shoot" answering one question, with the
+`query_prometheus` call shown beneath the answer.
 
 ---
 

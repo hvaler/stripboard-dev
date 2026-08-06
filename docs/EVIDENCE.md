@@ -168,6 +168,20 @@ shoot_cast_utilization        {actor="Maeve Okonkwo"}   1.0
 called on half the shooting days is being paid against days they do not work, and it is the
 waste a Day Out of Days schedule exists to prevent.
 
+### The same metrics, without our credentials
+
+Everything above is reproduced from a terminal holding a token. So that none of it has to be
+taken on trust, the "Shoot Mission Control" dashboard is published read-only:
+
+**<https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3>**
+
+Nine panels against the same Grafana Cloud stack, no login. The datasource is pinned to
+`grafanacloud-prom` rather than a template variable — a public dashboard has no user to
+resolve `${datasource}` for, so a templated one renders *No data* while looking healthy,
+which is the same failure mode as a gauge publishing zero.
+
+If the panels are empty, the web service has scaled to zero and nothing is exporting; see §5.
+
 ### Gemini answers from those metrics, over MCP
 
 "Ask your shoot" on the deployed Conflict Sentinel — a private Cloud Run service, so this
