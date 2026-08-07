@@ -364,4 +364,20 @@ public class CpSatScheduleSolverTests
         result.IsFeasible.Should().BeTrue();
         result.ScheduledDays.Should().BeEmpty();
     }
+
+    [Fact]
+    public void TheSearchBudgetIsConfigurable_AndZeroIsRefused()
+    {
+        // EV-38: ten seconds is a product decision — a producer waiting on a web request —
+        // not a limit of the solver. At feature length, sixty seconds is worth seven shooting
+        // days, so the cap is exposed rather than compiled in. Raising it cannot make a
+        // schedule illegal: turnaround, Day Out of Days and permit windows are constraints of
+        // the model, so more time buys a cheaper plan, never an unlawful one.
+        CpSatScheduleSolver.DefaultTimeLimitSeconds.Should().Be(10.0);
+
+        var act = () => new CpSatScheduleSolver(0);
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+            "a solver with no time to search returns nothing at all");
+    }
 }

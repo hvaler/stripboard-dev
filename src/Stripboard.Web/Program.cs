@@ -245,6 +245,13 @@ app.MapPost("/api/breakdown/import", async (
             board.Metrics.TotalDays,
             board.Metrics.CompanyMoves,
             board.Metrics.EstimatedCostUsd,
+            // Whether CP-SAT *proved* this is the best schedule or merely the best it found
+            // before its time limit. On a feature-length screenplay that distinction is the
+            // whole scalability answer, and a caller that cannot see it would report a
+            // 120-scene schedule with the same confidence as a 14-scene one (EV-38).
+            board.Metrics.IsOptimal,
+            locations = board.Days.SelectMany(d => d.Locations)
+                .Distinct(StringComparer.OrdinalIgnoreCase).Count(),
         });
     }
     catch (InvalidOperationException ex)

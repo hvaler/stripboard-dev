@@ -16,7 +16,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
 ![MCP](https://img.shields.io/badge/MCP-client%20%2B%204%20servers-6E56CF)
-![Tests](https://img.shields.io/badge/tests-101%20xUnit%20%2B%2083%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-102%20xUnit%20%2B%2083%20python-brightgreen)
 [![Grafana Live Dashboard](https://img.shields.io/badge/Grafana-Live%20Public%20Dashboard-F46800)](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
@@ -122,7 +122,7 @@ designed and not shipped**, and they are marked.
   12-hour turnaround including midnight crossing, meal penalties, night→day transitions.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with six pages, and a versioned Grafana dashboard and alert rules.
-- 101 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 102 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -372,6 +372,55 @@ Grafana at its own request latency; here the *shoot* is the observed system — 
 down, actors paid against days they do not work, a schedule risk index — and Grafana is what
 notices when it goes wrong.
 
+## Scale
+
+The demo screenplay is 14 scenes. A feature is 90 to 130, so the fair question is whether
+CP-SAT still answers at that size — or whether it quietly returns the first thing it finds and
+calls it a schedule. Measured, at four sizes cut from one generated feature (`demo/screenplay-longform.fountain`,
+112 scenes, 25 locations, 14 speaking parts) so that size is the only variable:
+
+| Scenes | Locations | Cast | 8ths | Days | Company moves | Cost | Optimality proved? | Elapsed |
+|---:|---:|---:|---:|---:|---:|---:|:---:|---:|
+| 14 | 12 | 7 | 101 | 4 | 9 | $50,100 | **yes** | 3.4s |
+| 28 | 14 | 9 | 204 | 7 | 12 | $81,300 | no | 10.2s |
+| 56 | 19 | 10 | 409 | 12 | 16 | $119,800 | no | 11.4s |
+| 112 | 25 | 14 | 797 | 29 | 38 | $276,100 | no | 11.2s |
+
+**It answers at feature length.** A 112-scene picture is scheduled in about eleven seconds,
+end to end — import, solve and persist.
+
+**Past roughly 30 scenes it stops proving optimality**, and that is stated rather than hidden.
+Within the default cap the solver returns the best schedule it *found*, not the best that
+exists. What it never returns is an illegal one: turnaround, Day Out of Days and permit windows
+are **constraints of the model**, not goals of the search, so they hold whether or not the
+search ran to completion. More time buys a cheaper plan, never a legal one.
+
+**What more time is worth**, same benchmark with the cap raised to 60 seconds:
+
+| Scenes | Days @10s | Days @60s | Cost @10s | Cost @60s |
+|---:|---:|---:|---:|---:|
+| 28 | 7 | 7 | $81,300 | $75,300 |
+| 56 | 12 | 12 | $119,800 | $119,300 |
+| 112 | **29** | **22** | **$276,100** | **$210,300** |
+
+At feature length, fifty more seconds of search is worth seven shooting days and about
+$66,000 — a quarter of the budget. The ten-second default is a **product** decision, not a
+limit of the solver: a producer is waiting on a web request. It is configurable, so a
+production planning the whole picture overnight is a different setting rather than a different
+system:
+
+```bash
+STRIPBOARD_SOLVER_SECONDS=60 dotnet run --project src/Stripboard.Web
+```
+
+Reproduce the table:
+
+```bash
+dotnet run --project src/Stripboard.Web          # in another terminal
+python demo/make_longform_screenplay.py
+python demo/run_scale_benchmark.py               # refuses to run against a deployed instance
+```
+
 ## Repository layout
 
 ```
@@ -411,7 +460,7 @@ what it adds.
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (101 tests)
+# Build and run the .NET test suite (102 tests)
 dotnet test Stripboard.slnx
 
 # Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a

@@ -26,6 +26,42 @@ public class CpSatScheduleSolver : IScheduleSolver
 {
     private readonly UnionRulesService _unionRulesService = new();
 
+    /// <summary>
+    /// How long CP-SAT may search before returning the best schedule it has found.
+    ///
+    /// Ten seconds is a **product** decision, not a limit of the solver: a producer is waiting
+    /// on a web request, and a schedule that arrives in ten seconds and is very good beats one
+    /// that arrives in five minutes and is provably best. Past roughly thirty scenes the search
+    /// stops proving optimality within it — measured, and published in the README's Scale
+    /// section (EV-38).
+    ///
+    /// Raising it does not weaken anything. Turnaround, Day Out of Days and permit windows are
+    /// **constraints of the model**, so every schedule the solver returns obeys them whether or
+    /// not the search ran to completion. What more time buys is a better objective, not a legal
+    /// one — which is why the cap is safe to expose.
+    /// </summary>
+    public static readonly double DefaultTimeLimitSeconds = 10.0;
+
+    private readonly double _timeLimitSeconds;
+
+    public CpSatScheduleSolver(double? timeLimitSeconds = null)
+    {
+        var limit = timeLimitSeconds
+            ?? (double.TryParse(Environment.GetEnvironmentVariable("STRIPBOARD_SOLVER_SECONDS"),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var fromEnv)
+                ? fromEnv
+                : DefaultTimeLimitSeconds);
+
+        if (limit <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeLimitSeconds),
+                "A solver with no time to search returns nothing at all.");
+        }
+
+        _timeLimitSeconds = limit;
+    }
+
     // The physical shape of a day lives in ShootDayModel so the board that reads a schedule
     // back describes exactly the day this model built.
     private const int MealBreakMinutes = ShootDayModel.MealBreakMinutes;
@@ -296,7 +332,11 @@ public class CpSatScheduleSolver : IScheduleSolver
 
         // --- solve --------------------------------------------------------------------
 
-        var solver = new CpSolver { StringParameters = "max_time_in_seconds: 10.0" };
+        var solver = new CpSolver
+        {
+            StringParameters = string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"max_time_in_seconds: {_timeLimitSeconds}"),
+        };
         var status = solver.Solve(model);
 
         bool isOptimal = status == CpSolverStatus.Optimal;

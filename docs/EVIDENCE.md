@@ -644,7 +644,65 @@ Two honest limits: the Python agents that run **locally** do so under a develope
 credentials, not these accounts, and Workload Identity bindings only become meaningful once
 those agents run in GCP (EV-26). What is shown above is the deployed surface.
 
-## 9. What this file does not claim
+## 9. Scale — a feature-length screenplay
+
+```bash
+dotnet run --project src/Stripboard.Web
+python demo/make_longform_screenplay.py
+python demo/run_scale_benchmark.py
+```
+
+```
+screenplay-longform.fountain: 112 scenes, 25 locations, 14 speaking parts, 39 night scenes
+
+ scenes  locations  cast  8ths  days  moves       cost  proved   elapsed
+------------------------------------------------------------------------
+     14         12     7   101     4      9     50,100 optimal     3.40s
+     28         14     9   204     7     12     81,300 feasible   10.19s
+     56         19    10   409    12     16    119,800 feasible   11.44s
+    112         25    14   797    29     38    276,100 feasible   11.19s
+```
+
+And the same run with `STRIPBOARD_SOLVER_SECONDS=60`:
+
+```
+     14         12     7   101     4      9     49,100 optimal     8.48s
+     28         14     9   204     7     12     75,300 feasible   60.25s
+     56         19    10   409    12     15    119,300 feasible   59.96s
+    112         25    14   797    22     23    210,300 feasible   60.73s
+```
+
+Three things in that pair are the point.
+
+**The solver answers at feature length.** 112 scenes across 25 locations, scheduled end to end
+— import, solve, persist — in about eleven seconds.
+
+**It stops proving optimality at around 30 scenes**, and the benchmark reads `isOptimal` rather
+than only the clock so it cannot report a capped search as a solved one. Every schedule is
+still legal: turnaround, Day Out of Days and permit windows are constraints of the model, not
+goals of the search, so they hold whether or not the search finished. The cap costs a cheaper
+plan, never a lawful one.
+
+**Fifty more seconds is worth seven shooting days.** At 112 scenes the schedule goes from 29
+days and $276,100 to 22 days and $210,300 — about a quarter of the budget. That is the honest
+shape of the trade, and it is why the ten-second default is exposed as configuration
+(`STRIPBOARD_SOLVER_SECONDS`) rather than compiled in: ten seconds suits a producer waiting on
+a web request, and sixty suits a production planning the picture overnight.
+
+The screenplay is generated rather than checked in as prose, because the *distribution* is what
+the solver reacts to and a generator lets it be stated: two leads carry the picture, four
+supporting parts recur, eight day players appear once or twice, six standing sets take about
+half the scenes. A uniform screenplay would make Day Out of Days trivial and let any scheduler
+look competent. The benchmark reads the generator's own breakdown rather than Gemini's, so what
+is being measured is the solver and not how well an extractor did that day.
+
+`run_scale_benchmark.py` refuses to run against anything but localhost: every import replaces
+the screenplay and commits a new schedule, so pointing it at the deployed demo would destroy a
+board a producer had approved.
+
+---
+
+## 10. What this file does not claim
 
 - The **replanner** does not reach the engine over MCP. It calls `POST /api/replan` on the
   web app, because `mcp-schedule` exposes no replan-from-disruption tool. The scheduler and

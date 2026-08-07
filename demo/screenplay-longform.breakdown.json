@@ -1,0 +1,1568 @@
+{
+ "source": "generator",
+ "scenes": [
+  {
+   "number": 1,
+   "location": "PRECINCT HOUSE",
+   "set_name": "EVIDENCE CAGE",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 1 at PRECINCT HOUSE - EVIDENCE CAGE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 2,
+   "location": "ALLOTMENT GARDENS",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 10,
+   "synopsis": "Scene 2 at ALLOTMENT GARDENS.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN",
+    "DR AUGUSTINE BELL",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 3,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 3 at HARBOUR MASTER'S OFFICE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 4,
+   "location": "CANAL TOWPATH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 4 at CANAL TOWPATH.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "BARMAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 5,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 5 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 6,
+   "location": "VELASCO APARTMENT",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 6 at VELASCO APARTMENT.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 7,
+   "location": "NIGHT BUS",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 7 at NIGHT BUS.",
+   "cast": [
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 8,
+   "location": "MAGISTRATES COURT",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 8 at MAGISTRATES COURT.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 9,
+   "location": "SCRAPYARD",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 9 at SCRAPYARD.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "NIGHT NURSE"
+   ],
+   "elements": []
+  },
+  {
+   "number": 10,
+   "location": "RIVERSIDE FOOTPATH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 10 at RIVERSIDE FOOTPATH.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 11,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 11 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "DR AUGUSTINE BELL",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 12,
+   "location": "TOWER BLOCK STAIRWELL",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 12,
+   "synopsis": "Scene 12 at TOWER BLOCK STAIRWELL.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN",
+    "DR AUGUSTINE BELL",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 13,
+   "location": "MULTI-STOREY CAR PARK",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 8,
+   "synopsis": "Scene 13 at MULTI-STOREY CAR PARK.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "HARBOUR MASTER FINN",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 14,
+   "location": "VELASCO APARTMENT",
+   "set_name": "BEDROOM",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 8,
+   "synopsis": "Scene 14 at VELASCO APARTMENT - BEDROOM.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 15,
+   "location": "PRECINCT HOUSE",
+   "set_name": "EVIDENCE CAGE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 15 at PRECINCT HOUSE - EVIDENCE CAGE.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 16,
+   "location": "CONTAINER TERMINAL",
+   "set_name": "YARD OFFICE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 16 at CONTAINER TERMINAL - YARD OFFICE.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 17,
+   "location": "PRECINCT HOUSE",
+   "set_name": "EVIDENCE CAGE",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 11,
+   "synopsis": "Scene 17 at PRECINCT HOUSE - EVIDENCE CAGE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 18,
+   "location": "DISUSED GRAIN SILO",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 13,
+   "synopsis": "Scene 18 at DISUSED GRAIN SILO.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DR AUGUSTINE BELL",
+    "NELL KEATING",
+    "CUSTOMS OFFICER"
+   ],
+   "elements": []
+  },
+  {
+   "number": 19,
+   "location": "CONTAINER TERMINAL",
+   "set_name": "CRANE GANTRY",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 7,
+   "synopsis": "Scene 19 at CONTAINER TERMINAL - CRANE GANTRY.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 20,
+   "location": "VELASCO APARTMENT",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 20 at VELASCO APARTMENT.",
+   "cast": [
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 21,
+   "location": "PRECINCT HOUSE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 21 at PRECINCT HOUSE.",
+   "cast": [
+    "DR AUGUSTINE BELL"
+   ],
+   "elements": []
+  },
+  {
+   "number": 22,
+   "location": "VELASCO APARTMENT",
+   "set_name": "BEDROOM",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 22 at VELASCO APARTMENT - BEDROOM.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 23,
+   "location": "VELASCO APARTMENT",
+   "set_name": "HALLWAY",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 23 at VELASCO APARTMENT - HALLWAY.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DS PRIYA CHANDRA"
+   ],
+   "elements": []
+  },
+  {
+   "number": 24,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "CELLAR",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 24 at THE ANCHORAGE PUB - CELLAR.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 25,
+   "location": "PRECINCT HOUSE",
+   "set_name": "EVIDENCE CAGE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 25 at PRECINCT HOUSE - EVIDENCE CAGE.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 26,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": "BACK ROOM",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 26 at HARBOUR MASTER'S OFFICE - BACK ROOM.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 27,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 10,
+   "synopsis": "Scene 27 at THE ANCHORAGE PUB.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "HARBOUR MASTER FINN",
+    "DR AUGUSTINE BELL",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 28,
+   "location": "VELASCO APARTMENT",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 11,
+   "synopsis": "Scene 28 at VELASCO APARTMENT.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "DS PRIYA CHANDRA",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 29,
+   "location": "MOTORWAY SERVICES",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 29 at MOTORWAY SERVICES.",
+   "cast": [
+    "CUSTOMS OFFICER"
+   ],
+   "elements": []
+  },
+  {
+   "number": 30,
+   "location": "PRECINCT HOUSE",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 30 at PRECINCT HOUSE.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 31,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "SNUG",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 10,
+   "synopsis": "Scene 31 at THE ANCHORAGE PUB - SNUG.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "DR AUGUSTINE BELL",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 32,
+   "location": "SCRAPYARD",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 8,
+   "synopsis": "Scene 32 at SCRAPYARD.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 33,
+   "location": "CONTAINER TERMINAL",
+   "set_name": "CRANE GANTRY",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 33 at CONTAINER TERMINAL - CRANE GANTRY.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 34,
+   "location": "SEAFRONT PROMENADE",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 8,
+   "synopsis": "Scene 34 at SEAFRONT PROMENADE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DS PRIYA CHANDRA",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 35,
+   "location": "VELASCO APARTMENT",
+   "set_name": "KITCHEN",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 35 at VELASCO APARTMENT - KITCHEN.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DS PRIYA CHANDRA"
+   ],
+   "elements": []
+  },
+  {
+   "number": 36,
+   "location": "VELASCO APARTMENT",
+   "set_name": "HALLWAY",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 36 at VELASCO APARTMENT - HALLWAY.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 37,
+   "location": "NIGHT BUS",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 37 at NIGHT BUS.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 38,
+   "location": "SEAFRONT PROMENADE",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 11,
+   "synopsis": "Scene 38 at SEAFRONT PROMENADE.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN",
+    "CORONER'S ASSISTANT"
+   ],
+   "elements": []
+  },
+  {
+   "number": 39,
+   "location": "CITY MORGUE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 8,
+   "synopsis": "Scene 39 at CITY MORGUE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 40,
+   "location": "ALLOTMENT GARDENS",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 40 at ALLOTMENT GARDENS.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 41,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 41 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 42,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "SNUG",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 8,
+   "synopsis": "Scene 42 at THE ANCHORAGE PUB - SNUG.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 43,
+   "location": "SCRAPYARD",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 43 at SCRAPYARD.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 44,
+   "location": "PRECINCT HOUSE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 44 at PRECINCT HOUSE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DR AUGUSTINE BELL"
+   ],
+   "elements": []
+  },
+  {
+   "number": 45,
+   "location": "RADIO STATION BOOTH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 45 at RADIO STATION BOOTH.",
+   "cast": [
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 46,
+   "location": "CITY MORGUE",
+   "set_name": "AUTOPSY SUITE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 46 at CITY MORGUE - AUTOPSY SUITE.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 47,
+   "location": "VELASCO APARTMENT",
+   "set_name": "HALLWAY",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 47 at VELASCO APARTMENT - HALLWAY.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 48,
+   "location": "PRECINCT HOUSE",
+   "set_name": "SQUAD ROOM",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 11,
+   "synopsis": "Scene 48 at PRECINCT HOUSE - SQUAD ROOM.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "CORONER'S ASSISTANT"
+   ],
+   "elements": []
+  },
+  {
+   "number": 49,
+   "location": "ST BRENDAN'S CHURCH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 49 at ST BRENDAN'S CHURCH.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 50,
+   "location": "CONTAINER TERMINAL",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 7,
+   "synopsis": "Scene 50 at CONTAINER TERMINAL.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 51,
+   "location": "CONTAINER TERMINAL",
+   "set_name": "YARD OFFICE",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 51 at CONTAINER TERMINAL - YARD OFFICE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 52,
+   "location": "PRECINCT HOUSE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 52 at PRECINCT HOUSE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 53,
+   "location": "VELASCO APARTMENT",
+   "set_name": "BEDROOM",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 53 at VELASCO APARTMENT - BEDROOM.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 54,
+   "location": "PRECINCT HOUSE",
+   "set_name": "EVIDENCE CAGE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 54 at PRECINCT HOUSE - EVIDENCE CAGE.",
+   "cast": [
+    "HARBOUR MASTER FINN",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 55,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": "FRONT DESK",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 55 at HARBOUR MASTER'S OFFICE - FRONT DESK.",
+   "cast": [
+    "DR AUGUSTINE BELL",
+    "CORONER'S ASSISTANT"
+   ],
+   "elements": []
+  },
+  {
+   "number": 56,
+   "location": "RADIO STATION BOOTH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 56 at RADIO STATION BOOTH.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 57,
+   "location": "FERRY TERMINAL",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 11,
+   "synopsis": "Scene 57 at FERRY TERMINAL.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 58,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 58 at HARBOUR MASTER'S OFFICE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 59,
+   "location": "RIVERSIDE FOOTPATH",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 8,
+   "synopsis": "Scene 59 at RIVERSIDE FOOTPATH.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 60,
+   "location": "ALLOTMENT GARDENS",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 11,
+   "synopsis": "Scene 60 at ALLOTMENT GARDENS.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DS PRIYA CHANDRA",
+    "CRANE OPERATOR"
+   ],
+   "elements": []
+  },
+  {
+   "number": 61,
+   "location": "HOSPITAL CORRIDOR",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 61 at HOSPITAL CORRIDOR.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "DS PRIYA CHANDRA"
+   ],
+   "elements": []
+  },
+  {
+   "number": 62,
+   "location": "PRECINCT HOUSE",
+   "set_name": "SQUAD ROOM",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 9,
+   "synopsis": "Scene 62 at PRECINCT HOUSE - SQUAD ROOM.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 63,
+   "location": "CONTAINER TERMINAL",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 63 at CONTAINER TERMINAL.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DR AUGUSTINE BELL"
+   ],
+   "elements": []
+  },
+  {
+   "number": 64,
+   "location": "MOTORWAY SERVICES",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 64 at MOTORWAY SERVICES.",
+   "cast": [
+    "DS PRIYA CHANDRA"
+   ],
+   "elements": []
+  },
+  {
+   "number": 65,
+   "location": "CITY MORGUE",
+   "set_name": "COLD STORE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 65 at CITY MORGUE - COLD STORE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 66,
+   "location": "CONTAINER TERMINAL",
+   "set_name": "YARD OFFICE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 66 at CONTAINER TERMINAL - YARD OFFICE.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 67,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 67 at HARBOUR MASTER'S OFFICE.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 68,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 68 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 69,
+   "location": "CITY MORGUE",
+   "set_name": "COLD STORE",
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 9,
+   "synopsis": "Scene 69 at CITY MORGUE - COLD STORE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 70,
+   "location": "RIVERSIDE FOOTPATH",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 70 at RIVERSIDE FOOTPATH.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 71,
+   "location": "ST BRENDAN'S CHURCH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 71 at ST BRENDAN'S CHURCH.",
+   "cast": [
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 72,
+   "location": "PRECINCT HOUSE",
+   "set_name": "SQUAD ROOM",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 8,
+   "synopsis": "Scene 72 at PRECINCT HOUSE - SQUAD ROOM.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 73,
+   "location": "PRECINCT HOUSE",
+   "set_name": "EVIDENCE CAGE",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 6,
+   "synopsis": "Scene 73 at PRECINCT HOUSE - EVIDENCE CAGE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 74,
+   "location": "NIGHT BUS",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 8,
+   "synopsis": "Scene 74 at NIGHT BUS.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "DS PRIYA CHANDRA",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 75,
+   "location": "CONTAINER TERMINAL",
+   "set_name": "YARD OFFICE",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 9,
+   "synopsis": "Scene 75 at CONTAINER TERMINAL - YARD OFFICE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 76,
+   "location": "VELASCO APARTMENT",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 76 at VELASCO APARTMENT.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DUTY SOLICITOR"
+   ],
+   "elements": []
+  },
+  {
+   "number": 77,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 77 at HARBOUR MASTER'S OFFICE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 78,
+   "location": "MOTORWAY SERVICES",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 78 at MOTORWAY SERVICES.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DR AUGUSTINE BELL"
+   ],
+   "elements": []
+  },
+  {
+   "number": 79,
+   "location": "PRECINCT HOUSE",
+   "set_name": "SQUAD ROOM",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 79 at PRECINCT HOUSE - SQUAD ROOM.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 80,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 9,
+   "synopsis": "Scene 80 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DUTY SOLICITOR"
+   ],
+   "elements": []
+  },
+  {
+   "number": 81,
+   "location": "CUSTOMS SHED",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 11,
+   "synopsis": "Scene 81 at CUSTOMS SHED.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DR AUGUSTINE BELL",
+    "CORONER'S ASSISTANT"
+   ],
+   "elements": []
+  },
+  {
+   "number": 82,
+   "location": "CONTAINER TERMINAL",
+   "set_name": "CRANE GANTRY",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 82 at CONTAINER TERMINAL - CRANE GANTRY.",
+   "cast": [
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 83,
+   "location": "ALLOTMENT GARDENS",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 8,
+   "synopsis": "Scene 83 at ALLOTMENT GARDENS.",
+   "cast": [
+    "DS PRIYA CHANDRA",
+    "NELL KEATING",
+    "RADIO PRODUCER"
+   ],
+   "elements": []
+  },
+  {
+   "number": 84,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": "FRONT DESK",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 7,
+   "synopsis": "Scene 84 at HARBOUR MASTER'S OFFICE - FRONT DESK.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 85,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": "FRONT DESK",
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 11,
+   "synopsis": "Scene 85 at HARBOUR MASTER'S OFFICE - FRONT DESK.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 86,
+   "location": "COASTGUARD STATION",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 13,
+   "synopsis": "Scene 86 at COASTGUARD STATION.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "NELL KEATING",
+    "TEENAGE WITNESS"
+   ],
+   "elements": []
+  },
+  {
+   "number": 87,
+   "location": "BOARDING HOUSE LANDING",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 7,
+   "synopsis": "Scene 87 at BOARDING HOUSE LANDING.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 88,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 88 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 89,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 8,
+   "synopsis": "Scene 89 at THE ANCHORAGE PUB.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "DR AUGUSTINE BELL"
+   ],
+   "elements": []
+  },
+  {
+   "number": 90,
+   "location": "COASTGUARD STATION",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 8,
+   "synopsis": "Scene 90 at COASTGUARD STATION.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 91,
+   "location": "MOTORWAY SERVICES",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 91 at MOTORWAY SERVICES.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 92,
+   "location": "CUSTOMS SHED",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 11,
+   "synopsis": "Scene 92 at CUSTOMS SHED.",
+   "cast": [
+    "HARBOUR MASTER FINN",
+    "NELL KEATING",
+    "DUTY SOLICITOR"
+   ],
+   "elements": []
+  },
+  {
+   "number": 93,
+   "location": "ST BRENDAN'S CHURCH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 10,
+   "synopsis": "Scene 93 at ST BRENDAN'S CHURCH.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN",
+    "DS PRIYA CHANDRA",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 94,
+   "location": "RIVERSIDE FOOTPATH",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 94 at RIVERSIDE FOOTPATH.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "TEENAGE WITNESS"
+   ],
+   "elements": []
+  },
+  {
+   "number": 95,
+   "location": "MULTI-STOREY CAR PARK",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 95 at MULTI-STOREY CAR PARK.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 96,
+   "location": "CITY MORGUE",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 96 at CITY MORGUE.",
+   "cast": [
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 97,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 8,
+   "synopsis": "Scene 97 at HARBOUR MASTER'S OFFICE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DR AUGUSTINE BELL",
+    "CUSTOMS OFFICER"
+   ],
+   "elements": []
+  },
+  {
+   "number": 98,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "SNUG",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 98 at THE ANCHORAGE PUB - SNUG.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 99,
+   "location": "DISUSED GRAIN SILO",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 9,
+   "synopsis": "Scene 99 at DISUSED GRAIN SILO.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 100,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 100 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 101,
+   "location": "HARBOUR MASTER'S OFFICE",
+   "set_name": "FRONT DESK",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 101 at HARBOUR MASTER'S OFFICE - FRONT DESK.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 102,
+   "location": "CITY MORGUE",
+   "set_name": "AUTOPSY SUITE",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 9,
+   "synopsis": "Scene 102 at CITY MORGUE - AUTOPSY SUITE.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 103,
+   "location": "MULTI-STOREY CAR PARK",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "DAY",
+   "eighths": 10,
+   "synopsis": "Scene 103 at MULTI-STOREY CAR PARK.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "DS PRIYA CHANDRA",
+    "NELL KEATING",
+    "NIGHT NURSE"
+   ],
+   "elements": []
+  },
+  {
+   "number": 104,
+   "location": "COASTGUARD STATION",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "DAY",
+   "eighths": 4,
+   "synopsis": "Scene 104 at COASTGUARD STATION.",
+   "cast": [
+    "HARBOUR MASTER FINN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 105,
+   "location": "HOSPITAL CORRIDOR",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 105 at HOSPITAL CORRIDOR.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 106,
+   "location": "VELASCO APARTMENT",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 106 at VELASCO APARTMENT.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 107,
+   "location": "DERELICT LIDO",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 7,
+   "synopsis": "Scene 107 at DERELICT LIDO.",
+   "cast": [
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  },
+  {
+   "number": 108,
+   "location": "ST BRENDAN'S CHURCH",
+   "set_name": null,
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 108 at ST BRENDAN'S CHURCH.",
+   "cast": [
+    "MARCUS OYELARAN",
+    "NELL KEATING"
+   ],
+   "elements": []
+  },
+  {
+   "number": 109,
+   "location": "PRECINCT HOUSE",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 7,
+   "synopsis": "Scene 109 at PRECINCT HOUSE.",
+   "cast": [
+    "DI ROSA VELASCO"
+   ],
+   "elements": []
+  },
+  {
+   "number": 110,
+   "location": "THE ANCHORAGE PUB",
+   "set_name": "BAR",
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 4,
+   "synopsis": "Scene 110 at THE ANCHORAGE PUB - BAR.",
+   "cast": [
+    "DR AUGUSTINE BELL"
+   ],
+   "elements": []
+  },
+  {
+   "number": 111,
+   "location": "VELASCO APARTMENT",
+   "set_name": "BEDROOM",
+   "int_ext": "EXT",
+   "day_night": "NIGHT",
+   "eighths": 6,
+   "synopsis": "Scene 111 at VELASCO APARTMENT - BEDROOM.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "DS PRIYA CHANDRA"
+   ],
+   "elements": []
+  },
+  {
+   "number": 112,
+   "location": "HOSPITAL CORRIDOR",
+   "set_name": null,
+   "int_ext": "INT",
+   "day_night": "NIGHT",
+   "eighths": 9,
+   "synopsis": "Scene 112 at HOSPITAL CORRIDOR.",
+   "cast": [
+    "DI ROSA VELASCO",
+    "MARCUS OYELARAN"
+   ],
+   "elements": []
+  }
+ ]
+}
