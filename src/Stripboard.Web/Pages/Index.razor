@@ -3,6 +3,7 @@
 @using Stripboard.Domain.Enums
 @using Stripboard.Infrastructure.Services
 @inject ScheduleService Schedules
+@inject Stripboard.Web.Services.SentinelClient Sentinel
 
 <PageTitle>Stripboard — Autonomous Line Producer</PageTitle>
 
@@ -47,6 +48,55 @@ else if (board is null || board.Days.Count == 0)
 else
 {
     var worstDay = board.Days.Count == 0 ? 0 : board.Days.Max(d => d.Locations.Count);
+
+    @* EV-36 — the loop was already running and nobody could see it. Two rules fire on this
+       shoot right now; the public dashboard shows panels, not alert states, and a rule's
+       state needs a Grafana session. So it is said here, on the page an anonymous visitor
+       lands on, read back from Grafana over MCP rather than re-evaluated locally. *@
+    @if (alerts.Count > 0)
+    {
+        <div class="alert alert-warning border-start border-4 border-warning">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <strong>
+                    Grafana has @alerts.Count rule@(alerts.Count == 1 ? "" : "s") firing on this shoot.
+                </strong>
+                <a class="small" target="_blank" rel="noopener"
+                   href="https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3">
+                    Open Shoot Mission Control →
+                </a>
+            </div>
+            <ul class="mb-0 mt-2 small">
+                @foreach (var alert in alerts)
+                {
+                    <li>
+                        <strong>@alert.Title</strong>
+                        @if (!string.IsNullOrWhiteSpace(alert.Action))
+                        {
+                            <span class="badge bg-dark ms-1">@alert.Action</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(alert.Summary))
+                        {
+                            <div class="text-muted">@alert.Summary</div>
+                        }
+                    </li>
+                }
+            </ul>
+            <div class="small text-muted mt-2">
+                Nobody pressed anything to find this out. The shoot exports its own metrics, a rule
+                in Grafana evaluates them, and the Conflict Sentinel reads the firing ones back over
+                the MCP server.
+            </div>
+        </div>
+    }
+    else if (alertsUnavailable is not null)
+    {
+        @* An unreachable sentinel is not a quiet shoot, and saying so would be the exact
+           failure the alert rules exist to prevent. *@
+        <div class="alert alert-secondary small">
+            Could not read the alert state from Grafana, so this page cannot say whether anything
+            is firing: @alertsUnavailable
+        </div>
+    }
 
     <div class="figures">
         <div class="figure">
@@ -243,6 +293,9 @@ else
     private void PreviousDays() => dayPage = Math.Max(0, dayPage - 1);
     private void NextDays() => dayPage = Math.Min(DayPageCount - 1, dayPage + 1);
 
+    private IReadOnlyList<Stripboard.Web.Services.FiringAlert> alerts = [];
+    private string? alertsUnavailable;
+
     private bool isLoading = true;
     private string? error;
 
@@ -265,6 +318,25 @@ else
         finally
         {
             isLoading = false;
+        }
+
+        // Deliberately after the board and outside its try: the schedule is what this page is
+        // for, and a sentinel that is down must not stop it rendering. The alert strip either
+        // appears or says it could not tell — it never silently reports a quiet shoot.
+        await LoadAlertsAsync();
+    }
+
+    private async Task LoadAlertsAsync()
+    {
+        try
+        {
+            alerts = await Sentinel.FiringAlertsAsync();
+            alertsUnavailable = null;
+        }
+        catch (Exception ex)
+        {
+            alerts = [];
+            alertsUnavailable = ex.Message;
         }
     }
 

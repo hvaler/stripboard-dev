@@ -92,6 +92,41 @@ public sealed class SentinelClient
                ?? throw new SentinelUnavailableException("The sentinel returned an empty response.");
     }
 
+    /// <summary>
+    /// Which of the shoot's rules Grafana currently has firing, read back over MCP (EV-36).
+    ///
+    /// Returns an empty list when nothing is firing, and **throws** when the sentinel or
+    /// Grafana cannot be reached. Those are different answers and the caller has to be able
+    /// to tell them apart: reporting "nothing is firing" because the link is down is the
+    /// silence-that-looks-like-health this project keeps refusing.
+    /// </summary>
+    public async Task<IReadOnlyList<FiringAlert>> FiringAlertsAsync(CancellationToken ct = default)
+    {
+        var baseUrl = BaseUrl
+            ?? throw new SentinelUnavailableException(
+                "The Conflict Sentinel is not configured for this deployment.");
+
+        var http = _factory.CreateClient();
+        http.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+        http.Timeout = TimeSpan.FromSeconds(30);
+
+        var token = await GetIdentityTokenAsync(baseUrl, ct);
+        if (token is not null)
+        {
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+
+        var response = await http.GetAsync("api/alerts", ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new SentinelUnavailableException(await SafeReadErrorAsync(response, ct)
+                ?? $"The sentinel answered {(int)response.StatusCode} {response.ReasonPhrase}.");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<AlertsResponse>(cancellationToken: ct);
+        return payload?.Firing ?? [];
+    }
+
     private static async Task<string?> SafeReadErrorAsync(HttpResponseMessage response, CancellationToken ct)
     {
         try
@@ -154,3 +189,22 @@ public sealed class SentinelClient
         }
     }
 }
+
+/// <summary>
+/// A Grafana alert rule the shoot has firing right now.
+///
+/// The wire names are the sentinel's, spelled out here rather than left to a naming policy:
+/// `trigger_type` does not match `Trigger` under any of them, and a silently-null trigger
+/// would read as "this rule says nothing to act on" when in fact it said plenty.
+/// </summary>
+public sealed record FiringAlert(
+    [property: JsonPropertyName("title")] string? Title,
+    [property: JsonPropertyName("severity")] string? Severity,
+    [property: JsonPropertyName("summary")] string? Summary,
+    [property: JsonPropertyName("runbook")] string? Runbook,
+    [property: JsonPropertyName("trigger_type")] string? Trigger,
+    [property: JsonPropertyName("action")] string? Action);
+
+public sealed record AlertsResponse(
+    [property: JsonPropertyName("firing")] IReadOnlyList<FiringAlert>? Firing,
+    [property: JsonPropertyName("count")] int Count);

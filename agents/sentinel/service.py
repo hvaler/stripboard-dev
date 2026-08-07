@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "breakdown"))
 
 from gemini_client import GeminiClient, GeminiConfigError  # noqa: E402
 from grafana_mcp_client import GrafanaMcpClient, GrafanaMcpError  # noqa: E402
+from sentinel_agent import ConflictSentinelAgent  # noqa: E402
 from shoot_analyst import ShootAnalyst  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(name)s: %(message)s")
@@ -87,6 +88,10 @@ class Handler(BaseHTTPRequestHandler):
         return self.rfile.read(int(self.headers.get("Content-Length") or 0))
 
     def do_GET(self):
+        if self.path == "/api/alerts":
+            self._alerts()
+            return
+
         if self.path != "/api/health":
             self._send(404, {"error": "not found"})
             return
@@ -102,6 +107,31 @@ class Handler(BaseHTTPRequestHandler):
             })
         except GrafanaMcpError as exc:
             self._send(503, {"status": "degraded", "reason": str(exc)})
+
+    def _alerts(self):
+        """
+        Which of the shoot's rules Grafana currently has firing (EV-36).
+
+        The loop was already running and nobody could see it. Two rules fire on the demo
+        right now, and a visitor had no way to know: the public dashboard shows panels, not
+        alert states, and a rule's state needs a Grafana session. So the answer is served
+        here, read back over MCP — which is also the direction that makes Grafana part of
+        the system rather than somewhere the system writes to.
+
+        Note what this does NOT do: it does not evaluate the thresholds itself. Deciding
+        locally whether cast utilisation is too low would be a second opinion that can
+        disagree with the one on the wall, and the whole point is that **Grafana decides**.
+        """
+        try:
+            with GrafanaMcpClient(timeout=20) as grafana:
+                agent = ConflictSentinelAgent(grafana_client=grafana)
+                alerts = agent.firing_alerts()
+            self._send(200, {"firing": alerts, "count": len(alerts)})
+        except GrafanaMcpError as exc:
+            # Unreachable Grafana is not "nothing is firing". Saying zero here would turn a
+            # broken link into a clean shoot, which is the failure this project keeps
+            # refusing: silence that looks like health.
+            self._send(503, {"error": str(exc), "firing": None})
 
     def do_POST(self):
         if self.path != "/api/ask":
