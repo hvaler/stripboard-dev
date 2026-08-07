@@ -249,14 +249,34 @@ deployed (private, one service account each), so that line has moved out of this
 
 Submit on **2026-09-06**, one day early — Devpost load at the deadline is a real risk.
 
+**Eligibility and evidence**
+
 - [x] Requirements matrix (§1) has no ❌ in a blocking row
 - [x] Evidence of a real Gemini call recorded in `docs/EVIDENCE.md`
 - [x] Evidence of a real Grafana MCP `tools/list` + ≥3 `tools/call` recorded
-- [ ] Hosted URL survives a full cold demo run from an external network
-- [ ] Quickstart reproduced on a clean machine
-- [ ] Video ≤ 3:00, public, English subtitles
-- [ ] Devpost form complete: description, repo, video, track
+- [x] Public repo, and the Apache-2.0 licence is **detected by GitHub** — confirmed via
+      `GET /repos/hvaler/stripboard-dev/license` → `spdx_id: Apache-2.0`. Note that
+      `gh repo view --json licenseInfo` reports `null` for this repo and is misleading
+- [x] Repository **About** section filled in: description, website (the Cloud Run URL) and 12 topics
 - [x] README contains no claim that the code does not support
+
+**What a judge will actually click**
+
+- [ ] Hosted URL survives a full cold demo run from an external network
+- [ ] Hosted URL is **warm for the whole judging window** — `--min-instances=1` and Cloud SQL
+      on `ALWAYS`, and budgeted for. A judge who hits a 503 does not come back
+- [ ] `/api/health` reports a committed schedule before the demo
+- [ ] Public Grafana dashboard shows **data, not "No data"** — it goes empty whenever the web
+      service is scaled to zero, because nothing is exporting
+- [ ] At least one alert rule is in a state a visitor can see firing, rather than a uniformly
+      green dashboard that never shows the loop this project is about
+- [ ] Partner track selected: **Grafana**
+
+**Submission artefacts**
+
+- [ ] Video ≤ 3:00, public, English subtitles
+- [ ] Quickstart reproduced on a clean machine
+- [ ] Devpost form complete: description, repo, video, track
 
 ### Before recording, restart what was scaled down
 
