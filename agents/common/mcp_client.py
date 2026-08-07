@@ -24,6 +24,7 @@ own servers, so connection state is tracked separately from the session id.
 import json
 import logging
 import os
+import time
 import uuid  # noqa: F401  kept for callers that build their own request ids
 from typing import Any, Dict, List, Optional
 
@@ -61,6 +62,10 @@ class McpHttpClient:
         self.endpoint = endpoint or self.default_endpoint()
         # Only needed when the MCP endpoint itself is protected (e.g. a Cloud Run service
         # behind IAM). A sidecar that holds its own upstream credential needs nothing here.
+        # A static token is fine for a laptop and useless for a long-running service: an
+        # identity token lasts an hour, and an agent that minted one at startup would stop
+        # being able to call anything after lunch. Where a metadata server exists, the token
+        # is minted per request instead — see _bearer_token.
         self.token = token or self.default_token()
         self.timeout = timeout
 
@@ -69,6 +74,8 @@ class McpHttpClient:
         self._connected = False
         self._server_info: Dict[str, Any] = {}
         self._next_id = 0
+        self._minted_token: Optional[str] = None
+        self._minted_expiry = 0.0
 
     # --- what a subclass supplies ---------------------------------------------------
 
@@ -191,9 +198,54 @@ class McpHttpClient:
         }
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
-        if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
+        bearer = self._bearer_token()
+        if bearer:
+            headers["Authorization"] = f"Bearer {bearer}"
         return headers
+
+    def _bearer_token(self) -> Optional[str]:
+        """
+        The credential for this call: an explicit token if one was given, otherwise one minted
+        from the GCP metadata server for this endpoint's audience.
+
+        Cloud Run and Agent Engine both expose a metadata server that issues identity tokens
+        for a named audience, which is how a service reaches a private service **as itself**
+        rather than with a secret somebody pasted into an environment variable. Off Google
+        Cloud there is no metadata server, this returns None, and the client sends no
+        Authorization header — which is correct for a local server that authenticates nobody.
+
+        Tokens are cached until shortly before they expire. Minting one per request would be
+        an extra HTTP round trip on every tools/call, and reusing one for ever would fail an
+        hour in, at the point where nobody is still watching the logs.
+        """
+        if self.token:
+            return self.token
+
+        now = time.time()
+        if self._minted_token and now < self._minted_expiry:
+            return self._minted_token
+
+        audience = self.endpoint.split("/mcp")[0] if "/mcp" in self.endpoint else self.endpoint
+        try:
+            response = self._session.get(
+                "http://metadata.google.internal/computeMetadata/v1/instance/"
+                f"service-accounts/default/identity?audience={audience}",
+                headers={"Metadata-Flavor": "Google"},
+                timeout=5)
+        except requests.RequestException:
+            # Not on Google Cloud. Not an error: a developer's machine has no metadata server
+            # and the local MCP servers do not ask for a token.
+            return None
+
+        if response.status_code != 200 or not response.text.strip():
+            logger.debug("Metadata server returned %s for an identity token", response.status_code)
+            return None
+
+        self._minted_token = response.text.strip()
+        # Identity tokens last an hour; renew with five minutes to spare so a call in flight
+        # never carries one that expires mid-request.
+        self._minted_expiry = now + 55 * 60
+        return self._minted_token
 
     def _request(
         self,
