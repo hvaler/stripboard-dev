@@ -163,6 +163,11 @@ Both produced text that was *wrong* rather than *absent*, which is why neither f
 
 ## 3. Video recording script (3 minutes)
 
+> **Word-for-word narration, subtitles and the voiceover script live in `demo/video/`.**
+> `narration.md` is timed at 150 words per minute and lands at 2:47, leaving air; `subtitles.srt`
+> matches it cue for cue; `make_voiceover.py` renders it with Google Cloud Text-to-Speech, one
+> file per shot so a slow screen costs a trim rather than a retake.
+
 > **This is the script. There is only one.** An earlier draft opened on the architecture
 > diagram and had the Sentinel *posting* an alert to Grafana — the direction the product no
 > longer works in. It was deleted rather than struck through, because a narrator reading a
@@ -175,7 +180,7 @@ Both produced text that was *wrong* rather than *absent*, which is why neither f
 |---|---|---|---|
 | **0:00 – 0:25** | Mission Control dashboard | *"This is not our application's latency. It is a film shoot: days left, budget burning, and which actors we are paying to sit in a trailer."* | ✅ EV-29 — the public dashboard is live |
 | **0:25 – 0:50** | `screenplay-nightfall.fountain` → stripboard | *"Gemini reads the screenplay into typed scenes. CP-SAT builds the schedule — union turnaround holds by construction, not by checking afterwards."* | ✅ EV-18, EV-21, EV-27 |
-| **0:50 – 1:30** | Grafana alert firing → `run_alert_loop.py` | *"Grafana notices that a shooting day visits four locations and fires. No one is watching — the Conflict Sentinel reads that alert back through the Grafana MCP server and starts the replan itself."* | ✅ EV-19, EV-29 — `alerting_manage_rules` over MCP |
+| **0:50 – 1:30** | Grafana alert firing → `run_alert_loop.py` | *"Grafana notices that three cast members are called on a quarter of the shooting days — a contract paid against days nobody works — and fires. No one is watching: the Conflict Sentinel reads that alert back through the Grafana MCP server."* | ✅ EV-19, EV-29 — `alerting_manage_rules` over MCP |
 | **1:30 – 2:15** | Orchestrator output, then Proposals | *"The orchestrator routes it. The replanner has no arithmetic: every figure comes from a CP-SAT run. Two options, real cost deltas — and when the two converge it says so rather than inventing a choice."* | ✅ EV-24, EV-25 |
 | **2:15 – 2:45** | The 403 | *"Now the agent tries to commit its own recommendation. The service refuses it. That check is in the scheduling service, not in a prompt — agents propose, humans decide."* | ✅ EV-33 — refused on identity, not on a name |
 | **2:45 – 3:00** | Producer commits → audit trail → annotation lands in Grafana | *"The Producer approves. New version, new audit entry — and the decision is written back to Grafana as an annotation, so the timeline shows why the schedule changed."* | ✅ EV-19 — `create_annotation` over MCP |

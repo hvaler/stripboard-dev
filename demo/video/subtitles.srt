@@ -1,0 +1,94 @@
+1
+00:00:00,000 --> 00:00:06,000
+This is not our application's latency. It is a film shoot.
+
+2
+00:00:06,000 --> 00:00:15,000
+Days remaining. Budget burning down. Union violations. And the one that
+costs real money: which actors we are paying to sit in a trailer.
+
+3
+00:00:15,000 --> 00:00:25,000
+Every other project pointing Grafana at something this week is pointing it
+at itself. We pointed it at the production.
+
+4
+00:00:25,000 --> 00:00:37,000
+A screenplay goes in. Gemini, on Vertex AI, reads it into typed scenes:
+location, set, interior or exterior, day or night, cast, page count.
+
+5
+00:00:37,000 --> 00:00:50,000
+Then a constraint solver builds the schedule. Google OR-Tools, CP-SAT.
+Twelve hour turnaround holds by construction, not by checking afterwards.
+
+6
+00:00:50,000 --> 00:00:54,000
+Now watch what starts this.
+
+7
+00:00:54,000 --> 00:01:05,000
+The shoot exports its own metrics to Grafana Cloud. A rule evaluates them,
+and it is firing: three cast members are called on a quarter of the days.
+
+8
+00:01:05,000 --> 00:01:11,000
+That is a contract being paid against days nobody works.
+
+9
+00:01:11,000 --> 00:01:22,000
+Nobody is watching a screen. The Conflict Sentinel asks Grafana which rules
+are firing, through the official Grafana MCP server, and reads that alert back.
+
+10
+00:01:22,000 --> 00:01:30,000
+This is the direction that matters. Grafana does not receive the result.
+Grafana starts the work.
+
+11
+00:01:30,000 --> 00:01:40,000
+The orchestrator routes it. A root agent with no tools of its own, so nothing
+it reports can be a figure it invented.
+
+12
+00:01:40,000 --> 00:01:52,000
+The replanner does no arithmetic at all. Every number it states comes from a
+separate CP-SAT run. Two options, with real cost deltas.
+
+13
+00:01:52,000 --> 00:02:05,000
+And when the two options come out identical, it says so, instead of dressing
+one up as a recommendation.
+
+14
+00:02:05,000 --> 00:02:15,000
+Extending the window only permits extra days. The solver still minimises them.
+The honest answer was: you do not need the extra day.
+
+15
+00:02:15,000 --> 00:02:21,000
+Now the agent tries to commit its own recommendation.
+
+16
+00:02:21,000 --> 00:02:24,000
+Refused.
+
+17
+00:02:24,000 --> 00:02:36,000
+Not because we withheld the tool. The governance agent has the commit tool,
+is told to use it, and the scheduling service turns it down.
+
+18
+00:02:36,000 --> 00:02:45,000
+The check lives behind an HTTP boundary where no prompt can argue with it.
+An identity in a request body is a claim. A claim cannot commit.
+
+19
+00:02:45,000 --> 00:02:53,000
+The Producer approves. New version. New audit entry, naming who proposed it
+and who approved it.
+
+20
+00:02:53,000 --> 00:03:00,000
+And the decision is written back to Grafana as an annotation, so the timeline
+shows why the schedule changed.

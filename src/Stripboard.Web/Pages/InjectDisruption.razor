@@ -4,6 +4,7 @@
 @using Stripboard.Domain.Entities
 @using Stripboard.Domain.Enums
 @using Stripboard.Infrastructure.Persistence
+@using Stripboard.Application.Services
 @using Stripboard.Infrastructure.Services
 @inject StripboardDbContext DbContext
 @inject ReplanService Replanner
@@ -138,6 +139,51 @@ else
     </div>
 }
 
+
+@* ── Rehearsal control (EV-36) ─────────────────────────────────────────────────────
+   Not a cheat and not hidden. The alert loop is the thing worth showing, and a
+   recording needs it to happen on cue rather than when the shoot happens to drift.
+   Both buttons do exactly what the label says: re-solve and commit a schedule that is
+   genuinely better or genuinely worse. Nothing is faked and no metric is written by
+   hand — Grafana still decides whether that schedule breaks a rule. *@
+<div class="card border-secondary mt-4">
+    <div class="card-header bg-secondary text-white">Rehearsal — arm the alert loop</div>
+    <div class="card-body">
+        <p class="text-secondary mb-3">
+            For demonstrating the loop on camera. <strong>Arm</strong> commits a schedule with
+            no cap on locations per day, so a day visits four and Grafana's
+            <em>unit hopping</em> rule starts firing after its five-minute window.
+            <strong>Settle</strong> commits the consolidated schedule again and the rule clears.
+            Both are real CP-SAT runs approved as the Producer; the difference is which
+            constraint they were solved under.
+        </p>
+
+        @if (rehearsalMessage is not null)
+        {
+            <div class="alert alert-success py-2">@rehearsalMessage</div>
+        }
+        @if (rehearsalError is not null)
+        {
+            <div class="alert alert-danger py-2">@rehearsalError</div>
+        }
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-warning fw-bold" disabled="@isRehearsing"
+                    @onclick='() => RehearseAsync(null, "Armed")'>
+                Arm — commit an unconstrained schedule
+            </button>
+            <button class="btn btn-outline-secondary" disabled="@isRehearsing"
+                    @onclick='() => RehearseAsync(2, "Settled")'>
+                Settle — cap the day at 2 locations
+            </button>
+        </div>
+        @if (isRehearsing)
+        {
+            <div class="mt-3"><Busy Label="Re-solving and committing" /></div>
+        }
+    </div>
+</div>
+
 @code {
     private static readonly System.Globalization.CultureInfo Culture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
 
@@ -229,6 +275,54 @@ else
         finally
         {
             isWorking = false;
+        }
+    }
+
+    private bool isRehearsing;
+    private string? rehearsalMessage;
+    private string? rehearsalError;
+
+    /// <summary>
+    /// Re-solves under the given cap and commits the result as the Producer.
+    ///
+    /// A human pressed the button, so the commit goes in as a human session — the governance
+    /// rule is about agents not deciding, and this is not an agent. What it is not allowed to
+    /// do is write a metric: the schedule is real, and whether it breaks a rule is still
+    /// Grafana's answer to give.
+    /// </summary>
+    private async Task RehearseAsync(int? maxLocationsPerDay, string verb)
+    {
+        isRehearsing = true;
+        rehearsalMessage = null;
+        rehearsalError = null;
+        StateHasChanged();
+
+        try
+        {
+            var draft = await Schedules.GenerateAsync(
+                AgentAuthorizationService.RoleProducer,
+                startDate: new DateOnly(2026, 8, 10),
+                maxLocationsPerDay: maxLocationsPerDay);
+
+            var board = await Schedules.CommitAsync(draft.VersionId,
+                CallerIdentity.FromHumanSession(AgentAuthorizationService.RoleProducer));
+
+            var worstDay = board.Days.Count == 0 ? 0 : board.Days.Max(d => d.Locations.Count);
+            rehearsalMessage =
+                $"{verb}. v{board.VersionNumber} committed: {board.Metrics.TotalDays} days, "
+                + $"worst day visits {worstDay} location{(worstDay == 1 ? "" : "s")}, "
+                + $"{board.Metrics.EstimatedCostUsd:C0}. "
+                + (worstDay > 2
+                    ? "Grafana evaluates every minute and the rule fires after five, so give it that long."
+                    : "The unit-hopping rule has nothing to fire on now.");
+        }
+        catch (Exception ex)
+        {
+            rehearsalError = ex.Message;
+        }
+        finally
+        {
+            isRehearsing = false;
         }
     }
 }

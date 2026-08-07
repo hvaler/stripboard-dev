@@ -42,6 +42,12 @@ STRIPBOARD_URL = os.getenv("STRIPBOARD_URL", "")
 REQUIREMENTS = [
     "google-cloud-aiplatform[agent_engines,adk]",
     "requests>=2.31.0",
+    # Agent Engine pickles the agent to ship it and validates the schemas on the far side, so
+    # both have to be present in the deployed environment even though nothing here imports
+    # them by name. The SDK reports them as "missing requirements" rather than failing, which
+    # is easy to read past in a wall of deploy output.
+    "cloudpickle",
+    "pydantic",
 ]
 
 
@@ -107,13 +113,21 @@ def main():
         "description": "Routes production requests to the scheduler, replanner or governance agent.",
         "staging_bucket": STAGING_BUCKET,
         "requirements": REQUIREMENTS,
-        # The orchestrator imports propose_replan from the replanner package, so both ship.
-        "extra_packages": ["agents/orchestrator", "agents/replanner"],
+        # The orchestrator imports propose_replan from the replanner package, and mcp_tools
+        # from orchestrator reaches into agents/common for the MCP transport (EV-23). All
+        # three ship or the container starts, fails on an import and cannot serve traffic —
+        # which is what happened the first time, and is the same omission the sentinel's
+        # Dockerfile had. A package a module imports is not optional cargo.
+        "extra_packages": ["agents/orchestrator", "agents/replanner", "agents/common"],
         "service_account": SERVICE_ACCOUNT,
+        # GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION are deliberately absent. Agent Engine
+        # reserves them and rejects the whole deploy with FAILED_PRECONDITION if they appear —
+        # it injects both itself, from the project and region the instance is created in, which
+        # is more correct than anything this script could pass: an agent that believed it was
+        # in a different project than the one hosting it would fail later and further away.
         "env_vars": {
             "STRIPBOARD_URL": STRIPBOARD_URL,
             "GOOGLE_GENAI_USE_VERTEXAI": "TRUE",
-            "GOOGLE_CLOUD_PROJECT": PROJECT,
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
         },
     }
