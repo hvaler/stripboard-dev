@@ -379,7 +379,9 @@ tests/         xUnit: domain rules, solver, MCP protocol contracts, telemetry, c
 infra/         Cloud Run deploy scripts, Grafana dashboard + alert rules, per-agent IAM
 adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-023)
 demo/          Sample screenplays (Fountain, .fdx, PDF), demo harnesses, pitch deck
-docs/          EVIDENCE.md — logs and figures behind the claims above
+docs/          EVIDENCE.md — logs and figures behind the claims above,
+               API_REFERENCE.md — the HTTP and MCP surface
+01_Diseno/     Mermaid entity, state and sequence diagrams
 stryker-config.json  Mutation testing, scoped to the union rules
 LICENSE·NOTICE Apache-2.0 and the attribution notice it asks for
 ```
