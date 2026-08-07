@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Stripboard.Application.Common.Models;
 using Stripboard.Application.Services;
 using Stripboard.Domain.Entities;
+using Stripboard.Domain.Services;
 using Stripboard.Domain.Enums;
 using Stripboard.Infrastructure.Persistence;
 using Stripboard.Infrastructure.Services;
@@ -302,5 +303,79 @@ public class ScheduleServiceTests
         bootstrap.IsCommitted.Should().BeTrue();
         bootstrap.ApprovedBy.Should().BeNull("nobody approved the bootstrap schedule");
         bootstrap.ApprovedAt.Should().BeNull();
+    }
+
+    // ── EV-42: the agreement is configuration, not physics ────────────────────────────
+
+    [Fact]
+    public async Task ChangingTheUnionAgreementChangesTheScheduleTheSolverProduces()
+    {
+        // The acceptance criterion, and the reason the profile is worth having: eleven hours
+        // of rest permits a thirteen-hour day where twelve hours permits only twelve, so the
+        // same screenplay needs fewer days. If this ever passes with equal day counts, the
+        // agreement has stopped reaching the solver and is decorating the warnings instead.
+        var databaseName = Guid.NewGuid().ToString();
+
+        async Task<ScheduleBoard> ScheduleUnder(UnionAgreement agreement)
+        {
+            await using var db = new StripboardDbContext(
+                new DbContextOptionsBuilder<StripboardDbContext>()
+                    .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+            await SeedManyFullPageScenesAsync(db);
+
+            var service = new ScheduleService(
+                db, new CpSatScheduleSolver(), new AgentAuthorizationService(),
+                metrics: null, agreement: agreement);
+
+            return await service.GenerateAsync(AgentAuthorizationService.RoleProducer, Start);
+        }
+
+        var american = await ScheduleUnder(UnionAgreement.IatseSagAftra);
+        var european = await ScheduleUnder(UnionAgreement.EuropeanDailyRest);
+
+        UnionAgreement.IatseSagAftra.MaxHoursPerDay.Should().Be(12);
+        UnionAgreement.EuropeanDailyRest.MaxHoursPerDay.Should().Be(13);
+
+        european.Metrics.TotalDays.Should().BeLessThan(american.Metrics.TotalDays,
+            "an eleven-hour rest permits a longer day, and a longer day needs fewer of them");
+    }
+
+    [Fact]
+    public void TheLongestLawfulDayIsDerivedFromTheRestOwed()
+    {
+        // Not an independent setting. A day longer than this would leave less than the
+        // required turnaround before the next call, so the schedule would be illegal by
+        // arithmetic — deriving it is what stops the solver and the rule disagreeing.
+        UnionAgreement.IatseSagAftra.MaxHoursPerDay.Should().Be(24 - 12);
+        UnionAgreement.EuropeanDailyRest.MaxHoursPerDay.Should().Be(24 - 11);
+    }
+
+    [Fact]
+    public void AnUnknownAgreementIsRefusedRatherThanQuietlyDefaulted()
+    {
+        // Falling back to the American figures for a European shoot would schedule it to the
+        // wrong rest period and warn about nothing at all.
+        var act = () => UnionAgreement.FromName("bectu-2019");
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+        UnionAgreement.FromName(null).Should().Be(UnionAgreement.IatseSagAftra);
+        UnionAgreement.FromName("european").Should().Be(UnionAgreement.EuropeanDailyRest);
+    }
+
+    /// <summary>Enough full-page scenes that the length of a day decides the day count.</summary>
+    private static async Task SeedManyFullPageScenesAsync(StripboardDbContext db)
+    {
+        var lead = Guid.NewGuid();
+        db.People.AddRange(
+            new Person(lead, "Lead", PersonRole.Cast, 1500m),
+            new Person(Guid.NewGuid(), "1st AD", PersonRole.FirstAssistantDirector, 900m));
+
+        // 24 eighths is a full three pages: at twelve hours only so many fit in a day.
+        for (var i = 1; i <= 8; i++)
+        {
+            db.Scenes.Add(new Scene(Guid.NewGuid(), i, "221B BAKER STREET",
+                IntExt.Int, DayNight.Day, 24, [lead], null, $"Scene {i}"));
+        }
+        await db.SaveChangesAsync();
     }
 }

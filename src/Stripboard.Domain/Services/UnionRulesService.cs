@@ -4,11 +4,29 @@ using Stripboard.Domain.Enums;
 namespace Stripboard.Domain.Services;
 
 /// <summary>
-/// Domain service implementing SAG-AFTRA / IATSE union rules (§5 / ADR-003).
+/// Domain service enforcing the collective agreement a production works to (§5 / ADR-003).
 /// Pure domain logic with no external dependencies.
+///
+/// The thresholds come from a <see cref="UnionAgreement"/> rather than from constants (EV-42).
+/// They default to IATSE / SAG-AFTRA, which is what this project has always modelled, but they
+/// are not laws of nature: a European shoot rests eleven hours, not twelve, and a tool that
+/// hardcodes one union's numbers is a tool for one union's territory.
 /// </summary>
 public class UnionRulesService
 {
+    private readonly UnionAgreement _agreement;
+
+    public UnionRulesService(UnionAgreement? agreement = null) =>
+        _agreement = agreement ?? UnionAgreement.IatseSagAftra;
+
+    /// <summary>The agreement these rules are being read from.</summary>
+    public UnionAgreement Agreement => _agreement;
+
+    /// <summary>
+    /// Kept as the IATSE figure so existing callers and tests that reference it keep meaning
+    /// what they meant. Anything that must respect the configured agreement reads
+    /// <see cref="Agreement"/> instead.
+    /// </summary>
     public static readonly TimeSpan MinimumTurnaroundHours = TimeSpan.FromHours(12);
     public static readonly TimeSpan MaximumContinuousWorkBeforeMeal = TimeSpan.FromHours(6);
 
@@ -29,14 +47,14 @@ public class UnionRulesService
 
         var restDuration = currCall - prevWrap;
 
-        if (restDuration < MinimumTurnaroundHours)
+        if (restDuration < _agreement.MinimumTurnaround)
         {
             var hoursFormatted = restDuration.TotalHours.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
             return new Anomaly(
                 id: Guid.NewGuid(),
                 severity: AnomalySeverity.Critical,
                 type: AnomalyType.TurnaroundViolation,
-                message: $"Turnaround violation between Day {previousDay.DayNumber} and Day {currentDay.DayNumber}: rest duration was {hoursFormatted}h (minimum required is 12.00h).",
+                message: $"Turnaround violation between Day {previousDay.DayNumber} and Day {currentDay.DayNumber}: rest duration was {hoursFormatted}h (minimum required is {_agreement.MinimumTurnaround.TotalHours:F2}h under {_agreement.Name}).",
                 sceneIds: currentDay.StripIds
             );
         }
@@ -54,7 +72,7 @@ public class UnionRulesService
     {
         ArgumentNullException.ThrowIfNull(shootDay);
 
-        if (continuousWorkDuration > MaximumContinuousWorkBeforeMeal)
+        if (continuousWorkDuration > _agreement.MaximumContinuousWorkBeforeMeal)
         {
             var hoursFormatted = continuousWorkDuration.TotalHours.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
             return new Anomaly(
@@ -97,7 +115,7 @@ public class UnionRulesService
 
             var restDuration = currentDay.GetCallDateTime() - previousDay.GetWrapDateTime();
             // Even if >= 12h, a night-to-day transition with < 14h rest causes circadian fatigue
-            if (restDuration < TimeSpan.FromHours(14))
+            if (restDuration < _agreement.MinimumNightToDayTurnaround)
             {
                 var hoursFormatted = restDuration.TotalHours.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
                 return new Anomaly(

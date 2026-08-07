@@ -22,19 +22,26 @@ public class ScheduleService
     private readonly IScheduleSolver _solver;
     private readonly AgentAuthorizationService _authorization;
     private readonly ShootMetrics? _metrics;
-    private readonly UnionRulesService _unionRules = new();
+    private readonly UnionAgreement _agreement;
+    private readonly UnionRulesService _unionRules;
 
     public ScheduleService(
         StripboardDbContext db,
         IScheduleSolver solver,
         AgentAuthorizationService authorization,
-        ShootMetrics? metrics = null)
+        ShootMetrics? metrics = null,
+        UnionAgreement? agreement = null)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
         _solver = solver ?? throw new ArgumentNullException(nameof(solver));
         _authorization = authorization ?? throw new ArgumentNullException(nameof(authorization));
         // Optional so tests can construct the service without a metrics pipeline.
         _metrics = metrics;
+
+        // The agreement reaches both the validator and the solver from one place. Two copies
+        // is how a board ends up warning about a rule the schedule was never built to.
+        _agreement = agreement ?? UnionAgreement.IatseSagAftra;
+        _unionRules = new UnionRulesService(_agreement);
     }
 
     public sealed class NotAuthorizedException(string message) : InvalidOperationException(message);
@@ -74,7 +81,12 @@ public class ScheduleService
             ScheduleStartDate: start,
             MaxDaysAvailable: maxDaysAvailable ?? Math.Max(scenes.Count, 10),
             BlockedSceneDates: blocked?.ToList(),
-            MaxLocationsPerDay: maxLocationsPerDay
+            MaxLocationsPerDay: maxLocationsPerDay,
+            // The agreement decides how long a day may run: 24 hours minus the rest owed
+            // before the next call. Twelve hours of turnaround caps the day at twelve;
+            // eleven permits thirteen, and a longer day needs fewer of them (EV-42).
+            MaxHoursPerDay: _agreement.MaxHoursPerDay,
+            MinimumTurnaroundHours: _agreement.MinimumTurnaround.TotalHours
         );
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();

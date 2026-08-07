@@ -21,7 +21,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
 ![MCP](https://img.shields.io/badge/MCP-client%20%2B%204%20servers-6E56CF)
-![Tests](https://img.shields.io/badge/tests-102%20xUnit%20%2B%2083%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-105%20xUnit%20%2B%2083%20python-brightgreen)
 [![Grafana Live Dashboard](https://img.shields.io/badge/Grafana-Live%20Public%20Dashboard-F46800)](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
@@ -127,11 +127,16 @@ designed and not shipped**, and they are marked.
 - **State survives a restart** (EV-22): schedules, disruptions and the audit trail live in
   Cloud SQL, reached over a Unix socket with the connection string held in Secret
   Manager. See [ADR-016](adr/ADR-016-cloud-sql-persistence.md).
-- Union rules as pure, tested domain code (`src/Stripboard.Domain/Services/UnionRulesService.cs`):
-  12-hour turnaround including midnight crossing, meal penalties, night→day transitions.
+- **The union agreement is named, and it is configuration** (EV-42): turnaround, meal breaks and
+  the night→day transition are IATSE / SAG-AFTRA figures, stated as such, and selectable —
+  `Stripboard:UnionAgreement=european` switches to the Working Time Directive's eleven-hour
+  daily rest. **The longest lawful day is derived from the rest owed**, not configured
+  separately, so eleven hours of rest permits a thirteen-hour day and the same screenplay needs
+  fewer of them: changing the profile changes the schedule, not just the warnings. See
+  [ADR-024](adr/ADR-024-the-union-agreement-is-configuration.md).
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with six pages, and a versioned Grafana dashboard and alert rules.
-- 102 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 105 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -392,6 +397,32 @@ Grafana at its own request latency; here the *shoot* is the observed system — 
 down, actors paid against days they do not work, a schedule risk index — and Grafana is what
 notices when it goes wrong.
 
+## Why not Movie Magic?
+
+Because it is very good at the half of the problem this does not touch, and does not attempt
+the half this does.
+
+**Movie Magic Scheduling**, **StudioBinder**, **Yamdu** and **Scenechronize** are the tools
+productions actually use, and they are better than this at nearly everything a 1st AD does in a
+day: breakdown tagging, strip manipulation, Day Out of Days reports, call sheet distribution,
+and the integrations a real production office needs. Nothing here is trying to replace them.
+
+What they have in common is that **the arrangement is the human's**. They give a 1st AD an
+excellent surface for building and rearranging a schedule; the judgement about which scenes go
+on which day, and the overnight rebuild when an actor calls in sick, is theirs. And none of them
+watches the shoot: a schedule is a document that goes stale between the moment it is printed and
+the moment something changes.
+
+Stripboard is the other half. The schedule is **computed** by a constraint solver under hard
+union rules rather than arranged by hand, so the alternatives to a disruption arrive priced —
+*two extra shooting days and $5,600 to remove two company moves* — instead of needing to be
+worked out. And the shoot is **observed**: its own metrics go to Grafana, an alert rule on them
+fires, and the replan starts without anyone noticing first. A human still approves every commit,
+and cannot be talked out of that by an agent.
+
+The honest summary: an incumbent is a better place to *keep* a schedule. This is an argument
+about how the schedule gets *decided*, and about who finds out first when it stops being true.
+
 ## Scale
 
 The demo screenplay is 14 scenes. A feature is 90 to 130, so the fair question is whether
@@ -450,7 +481,7 @@ agents/        Python agent layer: breakdown, sentinel, replanner, orchestrator,
                common/ (the MCP transport all of them share)
 tests/         xUnit: domain rules, solver, MCP protocol contracts, telemetry, call sheets
 infra/         Cloud Run deploy scripts, Grafana dashboard + alert rules, per-agent IAM
-adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-023)
+adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-024)
 demo/          Sample screenplays (Fountain, .fdx, PDF), demo harnesses, pitch deck
 docs/          EVIDENCE.md — logs and figures behind the claims above,
                API_REFERENCE.md — the HTTP and MCP surface, img/ — screenshots
@@ -480,7 +511,7 @@ what it adds.
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (102 tests)
+# Build and run the .NET test suite (105 tests)
 dotnet test Stripboard.slnx
 
 # Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a

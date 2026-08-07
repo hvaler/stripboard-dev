@@ -10,6 +10,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Stripboard.Infrastructure.Services;
+using Stripboard.Domain.Services;
 using Stripboard.Infrastructure.Telemetry;
 using Stripboard.Domain.Enums;
 using Stripboard.Solver;
@@ -45,6 +46,10 @@ builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardWebDb")
 // The solver is what makes the UI real (EV-21).
 builder.Services.AddScoped<IScheduleSolver, CpSatScheduleSolver>();
 builder.Services.AddScoped<AgentAuthorizationService>();
+// The collective agreement the schedule is held to (EV-42). Defaults to IATSE / SAG-AFTRA,
+// which is what this project modelled from the start; an unknown name throws at startup rather
+// than quietly scheduling a European shoot to American rest periods.
+builder.Services.AddSingleton(UnionAgreement.FromName(builder.Configuration["Stripboard:UnionAgreement"]));
 builder.Services.AddScoped<ScheduleService>();
 builder.Services.AddScoped<ReplanService>();
 builder.Services.AddScoped<BreakdownImportService>();

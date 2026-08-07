@@ -4,6 +4,7 @@ using Stripboard.Application.Services;
 using Stripboard.Infrastructure.Persistence;
 using Stripboard.Infrastructure.Persistence.Seeding;
 using Stripboard.Infrastructure.Services;
+using Stripboard.Domain.Services;
 using Stripboard.Mcp.Schedule.Tools;
 using Stripboard.Solver;
 
@@ -19,6 +20,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddStripboardDatabase(builder.Configuration, "StripboardScheduleMcpDb");
 builder.Services.AddScoped<IScheduleSolver, CpSatScheduleSolver>();
 builder.Services.AddScoped<AgentAuthorizationService>();
+// The collective agreement the schedule is held to (EV-42). Defaults to IATSE / SAG-AFTRA,
+// which is what this project modelled from the start; an unknown name throws at startup rather
+// than quietly scheduling a European shoot to American rest periods.
+builder.Services.AddSingleton(UnionAgreement.FromName(builder.Configuration["Stripboard:UnionAgreement"]));
 builder.Services.AddScoped<ScheduleService>();
 builder.Services.AddScoped<ReplanService>();
 
