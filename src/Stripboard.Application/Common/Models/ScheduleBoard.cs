@@ -88,7 +88,16 @@ public record ReplanOption(
     /// The two schedules may still order scenes differently, but there is no trade-off left
     /// to weigh, and presenting them as a choice implies one that does not exist.
     /// </summary>
-    string? SameFiguresAs = null
+    string? SameFiguresAs = null,
+    /// <summary>
+    /// True when this option *is* the schedule currently in force.
+    ///
+    /// Without it the page offered an already-approved option as though it were pending, with
+    /// deltas promising a saving the producer had already banked. Approving changed nothing
+    /// visible, so it read as a broken button — and the natural response is to press it again.
+    /// An option that is already the plan is not a decision; saying so is.
+    /// </summary>
+    bool IsCommitted = false
 );
 
 /// <summary>A disruption as submitted by an operator or a watcher agent.</summary>

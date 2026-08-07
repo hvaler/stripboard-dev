@@ -101,6 +101,18 @@ else
                     <div class="card-body">
                         <p class="card-text text-secondary">@option.Justification</p>
 
+                        @if (option.IsCommitted)
+                        {
+                            @* Approving what is already in force is not a decision, and offering
+                               it as one made an approval that worked look like a button that
+                               did not. *@
+                            <div class="alert alert-success py-2 small mb-3">
+                                <strong>This is the committed schedule.</strong>
+                                It is what the production is working to right now, so there is
+                                nothing here to approve.
+                            </div>
+                        }
+
                         @if (option.SameFiguresAs is { } twin)
                         {
                             <div class="alert alert-secondary py-2 small mb-3">
@@ -138,11 +150,18 @@ else
                         }
                     </div>
                     <div class="card-footer bg-white border-top-0 pb-3">
-                        <button class="btn btn-primary w-100 fw-bold"
-                                @onclick="() => CommitAsync(option)"
-                                disabled="@(isCommitting || !option.IsFeasible)">
-                            Approve @option.Title
-                        </button>
+                        @if (option.IsCommitted)
+                        {
+                            <div class="text-center text-success fw-bold py-2">In force</div>
+                        }
+                        else
+                        {
+                            <button class="btn btn-primary w-100 fw-bold"
+                                    @onclick="() => CommitAsync(option)"
+                                    disabled="@(isCommitting || !option.IsFeasible)">
+                                Approve @option.Title
+                            </button>
+                        }
                     </div>
                 </div>
             </div>
@@ -271,6 +290,13 @@ else
             commitMessage = $"Schedule v{board.VersionNumber} committed by {identity}. "
                           + $"{board.Metrics.TotalDays} days, {board.Metrics.CompanyMoves} moves, "
                           + $"{board.Metrics.EstimatedCostUsd.ToString("C0", Culture)}.";
+
+            // Re-mark in place rather than reloading: a reload would swap the consolidation
+            // options back for the disruption's, and the producer would lose the screen they
+            // just decided on. What has to change is which card is in force.
+            options = options
+                .Select(o => o with { IsCommitted = o.VersionId == board.VersionId })
+                .ToList();
         }
         catch (ScheduleService.NotAuthorizedException ex)
         {

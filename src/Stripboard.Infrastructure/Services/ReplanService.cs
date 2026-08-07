@@ -161,7 +161,10 @@ public class ReplanService
             + "which is roughly that many hours of shooting light spent travelling.",
             baseline.Metrics,
             new CostDelta(0, 0, 0, 0m),
-            IsFeasible: true);
+            IsFeasible: true,
+            // "Leave it" *is* the committed schedule, so approving it is not a decision —
+            // it is the absence of one. The page says so instead of offering a button.
+            IsCommitted: baseline.IsCommitted);
 
         var consolidated = await TryStrategyAsync(
             title: $"Consolidate — at most {maxLocationsPerDay} location(s) a day",
@@ -274,6 +277,12 @@ public class ReplanService
             .OrderBy(e => e.Timestamp)
             .ToListAsync(ct);
 
+        // The deltas answer "what changes if I approve this **now**", so they are measured
+        // against the schedule currently in force — not against whatever was committed when
+        // the option was first proposed. Those two drift apart the moment anything is
+        // approved, and then the page offers a saving the producer has already taken.
+        var live = await _schedules.GetActiveBoardAsync(ct);
+
         var options = new List<ReplanOption>();
         foreach (var evt in events)
         {
@@ -293,7 +302,9 @@ public class ReplanService
             }
 
             var board = await _schedules.GetBoardAsync(versionId, ct: ct);
-            var baseline = await _schedules.GetBoardAsync(record.BaselineVersionId, ct: ct);
+            // Fall back to the baseline recorded at proposal time when nothing is committed
+            // yet — a first schedule has no "from" to measure against but the one it replaced.
+            var baseline = live ?? await _schedules.GetBoardAsync(record.BaselineVersionId, ct: ct);
             if (board is null || baseline is null)
             {
                 continue;
@@ -301,7 +312,8 @@ public class ReplanService
 
             options.Add(new ReplanOption(
                 versionId, record.Title, record.Strategy, record.Justification,
-                board.Metrics, Delta(baseline.Metrics, board.Metrics), IsFeasible: true));
+                board.Metrics, Delta(baseline.Metrics, board.Metrics), IsFeasible: true,
+                IsCommitted: live is not null && live.VersionId == versionId));
         }
 
         return (disruption, MarkDuplicates(options));

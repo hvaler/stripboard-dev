@@ -235,4 +235,69 @@ public class ReplanServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    // ── EV-45: the page must not offer what is already in force ───────────────────────
+    //
+    // The Proposals screen showed an approved option as though it were still pending, with
+    // deltas against the schedule that had been in force when it was proposed. Approving it
+    // changed nothing visible, which reads as a broken button — so it gets pressed again.
+
+    [Fact]
+    public async Task AnOptionThatIsAlreadyCommittedIsMarkedAsInForce()
+    {
+        using var db = NewDb();
+        var (schedules, replanner, _) = await ArrangeAsync(db);
+
+        var (_, proposed) = await replanner.ProposeAsync(new DisruptionRequest(
+            TriggerType.CastUnavailability, Start, 1, Holmes, null, "Holmes is ill."));
+        proposed.Should().OnlyContain(o => !o.IsCommitted, "nothing has been approved yet");
+
+        var chosen = proposed.First(o => o.IsFeasible);
+        await schedules.CommitAsync(chosen.VersionId,
+            CallerIdentity.FromHumanSession(AgentAuthorizationService.RoleProducer));
+
+        var (_, reloaded) = await replanner.GetLatestProposalsAsync();
+
+        reloaded.Single(o => o.VersionId == chosen.VersionId).IsCommitted
+            .Should().BeTrue("this option is the schedule the production is working to");
+        reloaded.Where(o => o.VersionId != chosen.VersionId)
+            .Should().OnlyContain(o => !o.IsCommitted);
+    }
+
+    [Fact]
+    public async Task DeltasAreMeasuredAgainstWhatIsCommittedNow_NotAgainstAStaleBaseline()
+    {
+        // The bug in one assertion: approve an option, reload, and the option that *is* the
+        // committed schedule must read as no change at all. It used to keep advertising the
+        // saving it had already delivered, inviting the producer to bank it twice.
+        using var db = NewDb();
+        var (schedules, replanner, _) = await ArrangeAsync(db);
+
+        var (_, proposed) = await replanner.ProposeAsync(new DisruptionRequest(
+            TriggerType.CastUnavailability, Start, 1, Holmes, null, "Holmes is ill."));
+
+        var chosen = proposed.First(o => o.IsFeasible);
+        await schedules.CommitAsync(chosen.VersionId,
+            CallerIdentity.FromHumanSession(AgentAuthorizationService.RoleProducer));
+
+        var (_, reloaded) = await replanner.GetLatestProposalsAsync();
+        var nowInForce = reloaded.Single(o => o.VersionId == chosen.VersionId);
+
+        nowInForce.Delta.ExtraShootDays.Should().Be(0);
+        nowInForce.Delta.ExtraCompanyMoves.Should().Be(0);
+        nowInForce.Delta.ExtraUnionViolations.Should().Be(0);
+        nowInForce.Delta.CostDeltaUsd.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task TheLeaveItOptionOfAConsolidationIsTheCommittedSchedule()
+    {
+        using var db = NewDb();
+        var (_, replanner, _) = await ConsolidatableAsync(db);
+
+        var (current, consolidated) = await replanner.ProposeConsolidationAsync(maxLocationsPerDay: 2);
+
+        current.IsCommitted.Should().BeTrue("'leave it' is the plan already in force");
+        consolidated.IsCommitted.Should().BeFalse("that one is the actual decision");
+    }
 }
