@@ -131,3 +131,21 @@ absent answer, a wrong one.
 - `agents/common/` is now on the Conflict Sentinel's image. `Dockerfile.sentinel` and its
   `.dockerignore` were updated in the same change; without that the image builds cleanly and
   dies on its first import.
+
+## Addendum, 2026-08-07 — what "discovered at runtime" means once it is deployed
+
+On Agent Engine the agent is serialised with `cloudpickle` and rebuilt in a container, so a
+connected client cannot travel with it. Discovery therefore happens **at deploy time, against
+the live server**, and what ships is the schemas plus an endpoint. The connection opens on the
+first `tools/call` inside the container, authenticating with an identity token the container
+mints for itself as `sa-orchestrator`.
+
+The distinction is worth stating rather than glossing: locally the tools are discovered at
+startup, deployed they are discovered at packaging. In both cases they are read from the server
+rather than written in Python, and in both cases the call is a real `tools/call` — but "adding
+a tool to ScheduleTools.cs gives the agent a new capability with no Python change" needs a
+redeploy to be true of the hosted one.
+
+The upside of that constraint is the part worth keeping: **no credential is packaged**. The
+deployed agent authenticates as itself or not at all, which is what made the refusal in
+`docs/EVIDENCE.md` §10 name a principal instead of a string.

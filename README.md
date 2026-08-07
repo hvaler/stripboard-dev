@@ -100,7 +100,10 @@ designed and not shipped**, and they are marked.
   See [ADR-021](adr/ADR-021-our-own-mcp-servers.md).
 - **And the agents consume them** (EV-23): the orchestrator's `scheduler` and `governance`
   specialists have **no tools written in Python**. They are read from `mcp-schedule` with
-  `tools/list` at startup, their MCP schemas become Gemini function declarations, and calling
+  `tools/list` — at startup when the orchestrator runs locally, and **at deploy time against
+  the live server** when it is packaged for Agent Engine, because a socket cannot be pickled
+  and a credential belonging to whoever ran the deploy has no business travelling with it.
+  Either way the tool is invoked at runtime with a `tools/call`, their MCP schemas become Gemini function declarations, and calling
   one is a `tools/call` — so adding a tool in `ScheduleTools.cs` gives the agents a new
   capability with no Python change. The commit refusal now travels that path too: the
   governance agent calls `commit_schedule` over MCP and the **server** refuses it. Not ADK's

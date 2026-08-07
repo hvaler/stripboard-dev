@@ -702,7 +702,43 @@ board a producer had approved.
 
 ---
 
-## 10. What this file does not claim
+## 10. The orchestrator on Agent Engine, refused by name
+
+Invoked remotely against the deployed instance
+(`reasoningEngines/5478127569393942528`), asked to commit as an agent:
+
+```
+tools called: transfer_to_agent -> commit_schedule
+
+server response:
+  Stripboard MCP tool 'commit_schedule' failed:
+  'sa-orchestrator@stripboard-hack.iam.gserviceaccount.com' cannot commit a schedule.
+  Only the Producer role may commit — agents propose, humans decide.
+
+agent's answer:
+  "It seems that the sa-orchestrator identity is not authorized to commit schedules.
+   Only a human Producer can commit a schedule. As an agent, I am refused, which is
+   the system working as designed."
+```
+
+**Read the identity in the refusal.** The prompt said `My identity is sa-orchestrator`. The
+service answered with `sa-orchestrator@stripboard-hack.iam.gserviceaccount.com` — the full
+principal from the OIDC token Google validated on the way in. The string in the message never
+reached the decision. That is ADR-020 with every layer real at once: a managed agent, calling a
+private service over MCP, authenticating as itself, and being told no by name.
+
+Three things had to be true for that line to print, and none of them is a prompt:
+
+- The agent runs on Agent Engine as `sa-orchestrator`, so the token it minted says so.
+- `mcp-schedule` is private, so an unauthenticated caller never gets that far — it gets 403
+  from Cloud Run first.
+- `CallerIdentityResolver` reads the principal from the credential rather than the payload,
+  which is only observable once there *is* a credential (EV-26 is what made ADR-020 testable
+  end to end).
+
+---
+
+## 11. What this file does not claim
 
 - The **replanner** does not reach the engine over MCP. It calls `POST /api/replan` on the
   web app, because `mcp-schedule` exposes no replan-from-disruption tool. The scheduler and

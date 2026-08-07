@@ -75,6 +75,48 @@ def _preflight():
             f"STRIPBOARD_URL is {STRIPBOARD_URL}, which is localhost inside the managed "
             "container. Point it at the Cloud Run URL.")
 
+    # Everything below was learned by deploying five times. Each of these produced a failure
+    # that surfaced far from its cause: three of them as "Ready to deploy" followed by a
+    # container that could not serve traffic, which says nothing about why. A preflight that
+    # only reads environment variables gives a confidence it has not earned.
+
+    # The staging bucket. Absent, the create fails after the upload has already started.
+    try:
+        from google.cloud import storage
+
+        if not storage.Client(project=PROJECT).lookup_bucket(STAGING_BUCKET.removeprefix("gs://")):
+            problems.append(
+                f"{STAGING_BUCKET} does not exist: "
+                f"gcloud storage buckets create {STAGING_BUCKET} --location={LOCATION}")
+    except ImportError:
+        pass
+    except Exception as exc:  # noqa: BLE001 - a lookup failure is worth reporting, not raising
+        problems.append(f"Could not check {STAGING_BUCKET}: {exc}")
+
+    # APIs. Agent Engine needs Cloud Resource Manager, and its absence arrives as an opaque
+    # PERMISSION_DENIED from a service nobody mentioned.
+    try:
+        import subprocess
+
+        enabled = subprocess.run(
+            ["gcloud", "services", "list", "--enabled", "--project", PROJECT,
+             "--format=value(config.name)"],
+            capture_output=True, text=True, timeout=60, shell=False).stdout
+        for api in ("aiplatform.googleapis.com", "cloudresourcemanager.googleapis.com",
+                    "storage.googleapis.com"):
+            if api not in enabled:
+                problems.append(f"{api} is not enabled: gcloud services enable {api} --project {PROJECT}")
+    except Exception:  # noqa: BLE001 - no gcloud is not a reason to refuse to deploy
+        pass
+
+    # The packages that actually have to travel. cloudpickle rebuilds the agent by importing
+    # its module by name, so every module the agent's own modules import must ship AND be on
+    # the path. Missing one produced a container that started and died on ModuleNotFoundError.
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    for package in ("agents/orchestrator", "agents/replanner", "agents/common"):
+        if not os.path.isdir(os.path.join(root, package)):
+            problems.append(f"{package} is missing, and it ships in extra_packages.")
+
     return problems
 
 
