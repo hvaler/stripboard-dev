@@ -115,6 +115,13 @@ designed and not shipped**, and they are marked.
   commit, while on Cloud Run the identity is one Google validated, and the refusal names the
   caller. `infra/deploy-mcp.sh`, and see
   [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
+- **The orchestrator runs on Vertex AI Agent Engine, as its own service account** (EV-26):
+  deployed with `agents/deploy_agent_engine.py`, and verified by invoking it remotely — the
+  trace shows `get_schedule` going out and the committed board coming back. It reaches the
+  **private** `mcp-schedule` service over MCP, minting its own identity token as
+  `sa-orchestrator` from the metadata server: no credential travels in the deployment package,
+  and Cloud Run would answer 403 to any other identity. That is Workload Identity being the
+  thing that stops an agent, rather than a setup script that describes one.
 - **An identity is not a string the caller sends** (EV-33): committing requires a principal
   the *platform* proved — Cloud Run's validated identity token, or an authenticated human
   session. A name in a request body is a claim, and a claim cannot commit. Before this, an
@@ -145,14 +152,12 @@ designed and not shipped**, and they are marked.
 | Gap | Where | Tracked by |
 |---|---|---|
 | The **replanner** still reaches the engine over REST (`POST /api/replan`), not MCP — `mcp-schedule` has no replan-from-disruption tool. The scheduler and governance specialists do go over MCP | `agents/replanner` | EV-23, remainder |
-| The orchestrator runs **locally only** — it is not hosted anywhere. `agents/deploy_agent_engine.py` is written and passes its own preflight, but has deliberately not been run: Vertex AI Agent Engine is a billed resource and the hackathon credits have not arrived | `agents/orchestrator` | EV-26 |
 | Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol. **This one is a decision, not a backlog item** — A2A solves separately-owned agents discovering each other across a network; ours are four `LlmAgent` objects in one ADK process. Implementing the protocol so the README could name it is the exact inflation this project spent EV-17 removing | `agents/orchestrator` | closed, not planned |
-| The Python agents run **locally**, under a developer's own credentials rather than as their service accounts. The accounts exist and are correctly scoped, and the two deployed services do run as theirs — but Workload Identity only becomes meaningful once the agents run in GCP | `agents/` | EV-26 |
 | The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
 
-Two of those rows close with cloud credits and no further design work — EV-26, twice over.
-One closes with time. One is already closed the other way, by a decision. **Nothing in that
-table is waiting on a problem we have not solved.**
+One of those rows closes with time. One is already closed the other way, by a decision, and
+the remaining one is a tool `mcp-schedule` does not expose yet. **Nothing in that table is
+waiting on a problem we have not solved.**
 
 The runtime evidence behind every claim in the working list above — with the commands to
 reproduce each one — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
@@ -190,8 +195,8 @@ fires on them, and the Conflict Sentinel reads that firing rule back over MCP an
 replan. Nobody is watching a screen when it happens.
 
 > Every box carries **what it is** and **where it runs**. `[✓]` is true today; `[ ]` is
-> written and not shipped, tagged with the evolutivo that would close it. There is exactly
-> one open mark left — Agent Engine — see the status section above.
+> written and not shipped. **There are none left**: every box below is running. What the
+> status section above still lists as gaps is work outside this diagram.
 
 ```
    ┌──────────────────────────────────────────────────────────────────────┐
@@ -212,8 +217,8 @@ replan. Nobody is watching a screen when it happens.
       │                                                   ▼
    ┌──┴───────────────────────────────────────────────────┬───────────────┐
    │ 3  Orchestrator — ADK root agent with no tools of its own            │
-   │    scheduler · replanner · governance    runs locally         [✓]    │
-   │                                          Vertex AI Agent Engine [ ]  │  EV-26
+   │    scheduler · replanner · governance    as sa-orchestrator   [✓]    │
+   │                                          Vertex AI Agent Engine [✓]  │
    └──────────────────────────────┬───────────────────────────────────────┘
                                   │ 4  tools/call over MCP. No agent does arithmetic:
                                   ▼    every figure comes from a solver run
@@ -292,7 +297,7 @@ Design principles the implementation is being held to:
 | Screenplay breakdown | Gemini 2.5 Flash on Vertex AI (`google-genai`, structured output) | ✅ working |
 | Replanner agent | Google ADK `LlmAgent` over the solver API | ✅ working |
 | Orchestration | Google ADK root agent + sub-agent transfer | ✅ working |
-| Agent hosting | Vertex AI Agent Engine | 🚧 deploy script written, not run |
+| Agent hosting | Vertex AI Agent Engine | ✅ deployed, running as `sa-orchestrator` |
 | Agent-to-agent | A2A wire protocol | ❌ not implemented, and deliberately not planned — see the gap table above |
 | **Partner integration** | Grafana MCP client — Streamable HTTP, JSON-RPC 2.0, 73 tools | ✅ working |
 | MCP servers of our own | `ModelContextProtocol.AspNetCore` 2.1.0, 33 contract tests | ✅ built · ✅ consumed by the agents · ✅ private on Cloud Run |
