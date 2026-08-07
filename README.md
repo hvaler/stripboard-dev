@@ -2,6 +2,11 @@
 
 > **The LLM formulates, the solver decides, a human approves.**
 
+![The loop: Grafana notices, CP-SAT prices the options, a human Producer approves, and the decision is recorded](docs/img/00-the-loop.gif)
+
+*Four real screens of the deployed demo, captioned — a composed sequence, not a screen
+recording.*
+
 Stripboard is a multi-agent system that acts as an autonomous line producer for film
 production: it breaks down a screenplay into typed scenes and elements, builds an optimal
 shooting schedule, continuously watches for disruptions (cast availability, permits,
@@ -71,9 +76,13 @@ designed and not shipped**, and they are marked.
 - **The UI is driven by the engine** (EV-21): the stripboard, the replan options and their
   cost deltas are all read from persisted schedule versions produced by real solver runs.
   Importing a different screenplay changes what the board shows.
+
+  ![The shooting stripboard, with the industry strip colour code and the day's call, wrap and turnaround](docs/img/01-stripboard.png)
 - **Disruption → replan → human approval**, end to end: a disruption becomes scene-date
   constraints, each replan strategy is a separate CP-SAT run, and only the Producer role
   can commit the result.
+
+  ![Two replan options with cost deltas, and a note saying the second matches the first on every figure](docs/img/02-proposals.png)
 - **The replanner is a Google ADK agent that explains options it did not compute**
   (`agents/replanner`, EV-24): its single tool calls the solver, so every figure it states is
   traceable to a CP-SAT run. See [ADR-017](adr/ADR-017-adk-replanner.md).
@@ -252,6 +261,8 @@ Design principles the implementation is being held to:
   that exists to keep service accounts out. A reader believes the screen over the README.
 - **Append-only versioning.** Every replan is a new `ScheduleVersion` with its parent,
   author (human or agent) and triggering disruption — the audit trail is free.
+
+  ![The governance audit trail: proposals by sa-replanner, the commit by Producer](docs/img/04-audit-trail.png)
 - **Least-privilege agents, in two rings.** Inside: the commit rule is enforced in
   `ScheduleService.CommitAsync` against an identity the *platform* proved rather than one the
   caller typed (EV-33). Outside: one service account per agent and per MCP server — twelve in
@@ -356,6 +367,12 @@ day that visits four locations. Lowering the threshold until it fired would have
 nothing, because "risk is 46" is not an instruction. A dashboard tolerates a composite; an
 alert needs an action.
 
+**Gemini answers from the live stack, and shows its working.** "Ask your shoot" discovers the
+MCP server's tools at runtime and prints the queries beneath every answer, so a figure on the
+page can be traced to the `query_prometheus` call that produced it:
+
+![Ask your shoot: an answer naming the idle actors, with the list_datasources and query_prometheus calls beneath it](docs/img/03-ask-your-shoot.png)
+
 #### Seeing it without an account
 
 The **"Shoot Mission Control"** dashboard is versioned JSON provisioned by script, and it is
@@ -363,7 +380,10 @@ published read-only:
 
 **<https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3>**
 
-Nine panels over the metrics above. It reads from the same Grafana Cloud stack the Conflict
+![Shoot Mission Control: shooting days, estimated cost, company moves, risk index, union violations, cost burn-down and cast utilisation](docs/img/05-mission-control.png)
+
+Nine panels over the metrics above. Give them a few seconds — a cold public dashboard renders
+its panel frames before its data, and an impatient screenshot shows an empty board. It reads from the same Grafana Cloud stack the Conflict
 Sentinel queries over MCP — no login, no separate data. If a panel says *No data*, the web
 service has scaled to zero and nothing is exporting; see *Stopping the paid services*.
 
@@ -433,7 +453,7 @@ infra/         Cloud Run deploy scripts, Grafana dashboard + alert rules, per-ag
 adr/           Architecture Decision Records (ADR-005, ADR-008 … ADR-023)
 demo/          Sample screenplays (Fountain, .fdx, PDF), demo harnesses, pitch deck
 docs/          EVIDENCE.md — logs and figures behind the claims above,
-               API_REFERENCE.md — the HTTP and MCP surface
+               API_REFERENCE.md — the HTTP and MCP surface, img/ — screenshots
 01_Diseno/     Mermaid entity, state and sequence diagrams
 stryker-config.json  Mutation testing, scoped to the union rules
 LICENSE·NOTICE Apache-2.0 and the attribution notice it asks for
