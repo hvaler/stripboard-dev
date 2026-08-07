@@ -41,6 +41,15 @@ public record ScheduleMetrics(
     int UnionViolations
 );
 
+/// <summary>
+/// A schedule as anyone reading it should see it.
+///
+/// <see cref="CreatedBy"/> and <see cref="ApprovedBy"/> are two different people and are kept
+/// apart on purpose. The board is *proposed* by whoever ran the solver — usually an agent — and
+/// *approved* by a human Producer, which is the only identity the service lets commit. They used
+/// to be one field, and the screen consequently read "Committed · created by sa-replanner": a
+/// service account presented as the approver of a rule that exists to keep service accounts out.
+/// </summary>
 public record ScheduleBoard(
     Guid VersionId,
     int VersionNumber,
@@ -50,7 +59,12 @@ public record ScheduleBoard(
     IReadOnlyList<BoardDay> Days,
     IReadOnlyList<Anomaly> Anomalies,
     ScheduleMetrics Metrics,
-    string SolverMessage
+    string SolverMessage,
+    // Null on a draft, and also on versions committed before the two were separated. Absent is
+    // the honest answer there: filling it in from CreatedBy would recreate the very claim this
+    // change exists to remove.
+    string? ApprovedBy = null,
+    DateTime? ApprovedAt = null
 );
 
 /// <summary>What a disruption costs relative to the schedule it disrupts.</summary>

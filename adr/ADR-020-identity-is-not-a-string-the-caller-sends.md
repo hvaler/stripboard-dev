@@ -84,6 +84,15 @@ rather than a policy. `AgentAuthorizationService` compares the local part.
 
 ## Consequences
 
+- **The screen has to agree with the rule.** Proving the identity was not enough while the board
+  still rendered `Committed · created by sa-replanner`: one field carried both the proposer and
+  the approver, so a service account appeared as the approver of a commit it was refused.
+  `ScheduleVersion` now has `ApprovedBy`/`ApprovedAt`, set only by `Commit(approvedBy)` from the
+  identity the platform proved, and the board prints *proposed by* and *approved by* separately.
+  The bootstrap schedule a fresh instance solves at startup is committed and approved by nobody,
+  so it prints **"not recorded"** rather than borrowing the proposer's name — filling that gap
+  from `CreatedBy` is the exact collapse this removes.
+
 - The governance demonstration is now a guarantee rather than a convention. An agent that
   sends `identity: "Producer"` over MCP is refused, and there is a test that does exactly that.
 - The Blazor page constructs `FromHumanSession` from its role selector. That is the honest

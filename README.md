@@ -16,7 +16,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
 ![MCP](https://img.shields.io/badge/MCP-client%20%2B%204%20servers-6E56CF)
-![Tests](https://img.shields.io/badge/tests-94%20xUnit%20%2B%2083%20python-brightgreen)
+![Tests](https://img.shields.io/badge/tests-98%20xUnit%20%2B%2083%20python-brightgreen)
 [![Grafana Live Dashboard](https://img.shields.io/badge/Grafana-Live%20Public%20Dashboard-F46800)](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
@@ -122,7 +122,7 @@ designed and not shipped**, and they are marked.
   12-hour turnaround including midnight crossing, meal penalties, night→day transitions.
 - Role-scoped call sheets as PDF via QuestPDF.
 - Blazor UI with six pages, and a versioned Grafana dashboard and alert rules.
-- 94 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
+- 98 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
   Gemini and Grafana integration tests make real calls and fail — not skip — when the
   service is configured but broken.
 
@@ -244,8 +244,12 @@ Design principles the implementation is being held to:
 - **The LLM must never "reason" schedules.** Gemini's role is to extract, formulate and
   explain; a deterministic CP-SAT solver computes; union rules live in the domain layer as
   tested code, not in prompts. The solver and the domain rules already work this way.
-- **Nothing commits without a human.** The replanner proposes ranked options with cost
-  deltas; only the Producer role can commit a schedule version.
+- **Nothing commits without a human, and the board says who.** The replanner proposes ranked
+  options with cost deltas; only the Producer role can commit a schedule version. *Proposed by*
+  and *approved by* are two separate fields and two different people — the proposer is usually
+  an agent, the approver can only ever be a human. They used to be one field, so the board read
+  `Committed · created by sa-replanner`: a service account presented as the approver of the rule
+  that exists to keep service accounts out. A reader believes the screen over the README.
 - **Append-only versioning.** Every replan is a new `ScheduleVersion` with its parent,
   author (human or agent) and triggering disruption — the audit trail is free.
 - **Least-privilege agents, in two rings.** Inside: the commit rule is enforced in
@@ -407,7 +411,7 @@ what it adds.
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
 
-# Build and run the .NET test suite (94 tests)
+# Build and run the .NET test suite (98 tests)
 dotnet test Stripboard.slnx
 
 # Run the web UI at http://localhost:5164 — it seeds a screenplay and solves a

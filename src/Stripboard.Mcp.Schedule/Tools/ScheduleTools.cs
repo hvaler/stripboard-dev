@@ -199,7 +199,10 @@ public sealed class ScheduleTools
         versionId = board.VersionId,
         board.VersionNumber,
         board.IsCommitted,
-        board.CreatedBy,
+        proposedBy = board.CreatedBy,
+        board.CreatedBy,   // kept for callers that already read it
+        board.ApprovedBy,
+        board.ApprovedAt,
         days = board.Metrics.TotalDays,
         companyMoves = board.Metrics.CompanyMoves,
         unionViolations = board.Metrics.UnionViolations,

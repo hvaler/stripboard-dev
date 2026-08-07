@@ -115,6 +115,14 @@ public class ScheduleService
             ? await _db.ScheduleVersions.MaxAsync(v => v.VersionNumber, ct) + 1
             : 1;
 
+        // `commit: true` here is the bootstrap path — the schedule a fresh instance solves at
+        // startup so the board has something real to show. It is committed and **nobody
+        // approved it**, so ApprovedBy stays null on purpose and the UI says "not recorded".
+        //
+        // Do not be tempted to fill it in from `createdBy`. That is precisely the collapse
+        // EV-37 removed: it would print an approver who never approved anything, and the
+        // screen would once again contradict the rule the service enforces. A real approval
+        // arrives through CommitAsync, against an identity the platform proved.
         var version = new ScheduleVersion(
             Guid.NewGuid(),
             versionNumber: nextNumber,
@@ -200,7 +208,10 @@ public class ScheduleService
             _db.Entry(other).Property(nameof(ScheduleVersion.IsCommitted)).CurrentValue = false;
         }
 
-        version.Commit();
+        // The approver is the identity the platform proved, not the one the payload asked for.
+        // CanExecuteCommit has already refused anything else, so by here `identity` is a human
+        // Producer — and that is what goes on the record and on the screen.
+        version.Commit(identity);
 
         _db.AuditEvents.Add(new AuditEvent(
             Guid.NewGuid(),
@@ -365,6 +376,7 @@ public class ScheduleService
 
         return new ScheduleBoard(
             version.Id, version.VersionNumber, version.IsCommitted, version.CreatedBy, version.CreatedAt,
-            boardDays, anomalies, metrics, solverMessage);
+            boardDays, anomalies, metrics, solverMessage,
+            version.ApprovedBy, version.ApprovedAt);
     }
 }

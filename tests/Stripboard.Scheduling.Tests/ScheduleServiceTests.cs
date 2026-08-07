@@ -208,4 +208,99 @@ public class ScheduleServiceTests
         (await act.Should().ThrowAsync<InvalidOperationException>())
             .WithMessage("*breakdown*", "the operator needs to be told to import a screenplay first");
     }
+
+    // ── EV-37: the proposer and the approver are two different people ──────────────────
+    //
+    // The board used to read "Committed · created by sa-replanner", because one field carried
+    // both. That is a service account presented as the approver of the one rule that exists to
+    // keep service accounts out, and a reader believes the screen over the README.
+
+    [Fact]
+    public async Task ACommittedVersionRecordsWhoApprovedIt_NotOnlyWhoProposedIt()
+    {
+        await using var db = NewDb();
+        await SeedAsync(db);
+        var service = NewService(db);
+
+        // Proposed by an agent, which is the normal case.
+        var draft = await service.GenerateAsync(AgentAuthorizationService.SaReplanner, Start);
+        draft.CreatedBy.Should().Be(AgentAuthorizationService.SaReplanner);
+        draft.ApprovedBy.Should().BeNull("a draft has not been approved by anybody");
+
+        var committed = await service.CommitAsync(draft.VersionId, Producer);
+
+        committed.CreatedBy.Should().Be(AgentAuthorizationService.SaReplanner, "the agent still proposed it");
+        committed.ApprovedBy.Should().Be(AgentAuthorizationService.RoleProducer);
+        committed.ApprovedBy.Should().NotBe(committed.CreatedBy);
+        committed.ApprovedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task NoServiceAccountCanEverAppearAsTheApprover()
+    {
+        // The acceptance criterion, asserted rather than described. Every agent identity the
+        // system knows about is tried, and none of them reaches the approver field — because
+        // the commit is refused before it can, not because the field is written carefully.
+        await using var db = NewDb();
+        await SeedAsync(db);
+        var service = NewService(db);
+
+        // One draft, proposed by an agent that is allowed to run the solver — sa-sentinel is
+        // not one of them, which is a separate rule and a good sign: the watcher cannot even
+        // produce a schedule, let alone approve one.
+        var draft = await service.GenerateAsync(AgentAuthorizationService.SaReplanner, Start);
+
+        string[] serviceAccounts =
+        [
+            AgentAuthorizationService.SaReplanner,
+            AgentAuthorizationService.SaScheduler,
+            AgentAuthorizationService.SaOrchestrator,
+            AgentAuthorizationService.SaSentinel,
+        ];
+
+        foreach (var account in serviceAccounts)
+        {
+            // Authenticated by the platform, and still not a Producer.
+            var attempt = () => service.CommitAsync(draft.VersionId, CallerIdentity.FromToken(account));
+            await attempt.Should().ThrowAsync<ScheduleService.NotAuthorizedException>();
+        }
+
+        var committedVersions = await db.ScheduleVersions.Where(v => v.IsCommitted).ToListAsync();
+        committedVersions.Should().BeEmpty("not one of those attempts should have committed anything");
+
+        db.ScheduleVersions.Select(v => v.ApprovedBy)
+            .Should().OnlyContain(a => a == null, "an unapproved version names no approver");
+    }
+
+    [Fact]
+    public void TheDomainRefusesToCommitWithoutNamingAnApprover()
+    {
+        // Belt to the service's braces. If a future caller reaches the entity directly, an
+        // empty approver is rejected there too — that is how "created by" came to stand in
+        // for it the first time.
+        var version = new ScheduleVersion(Guid.NewGuid(), versionNumber: 1);
+
+        var act = () => version.Commit("  ");
+
+        act.Should().Throw<ArgumentException>();
+        version.IsCommitted.Should().BeFalse();
+        version.ApprovedBy.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TheBootstrapScheduleIsCommittedByNobody_AndSaysSo()
+    {
+        // A fresh instance solves and commits one schedule at startup so the board is not
+        // empty. Nobody approved it, and the honest record of that is an absent approver —
+        // not the proposer's name borrowed to fill the gap.
+        await using var db = NewDb();
+        await SeedAsync(db);
+        var service = NewService(db);
+
+        var bootstrap = await service.GenerateAsync(AgentAuthorizationService.RoleProducer, Start, commit: true);
+
+        bootstrap.IsCommitted.Should().BeTrue();
+        bootstrap.ApprovedBy.Should().BeNull("nobody approved the bootstrap schedule");
+        bootstrap.ApprovedAt.Should().BeNull();
+    }
 }

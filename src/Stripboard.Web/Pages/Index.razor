@@ -94,7 +94,25 @@ else
             {
                 <span class="badge bg-warning text-dark ms-1">Draft</span>
             }
-            · created by @board.CreatedBy · @board.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC
+            · proposed by @board.CreatedBy · @board.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC
+            @if (board.IsCommitted)
+            {
+                @* Two names, because they are two people. The proposer is usually an agent; the
+                   approver can only ever be a human Producer. *@
+                <text>· approved by </text>
+                @if (string.IsNullOrWhiteSpace(board.ApprovedBy))
+                {
+                    <span class="text-muted" title="This version was committed before the approver was recorded separately from the proposer.">not recorded</span>
+                }
+                else
+                {
+                    <strong>@board.ApprovedBy</strong>
+                    @if (board.ApprovedAt is { } approvedAt)
+                    {
+                        <text> · @approvedAt.ToString("yyyy-MM-dd HH:mm") UTC</text>
+                    }
+                }
+            }
             · @board.Metrics.TotalEighths eighths
         </span>
     </div>
