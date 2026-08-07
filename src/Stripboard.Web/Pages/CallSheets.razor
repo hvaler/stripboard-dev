@@ -20,7 +20,11 @@
     person only sees the days and scenes they are actually called for.
 </p>
 
-@if (board is null)
+@if (isLoading)
+{
+    <Busy Label="Loading the committed schedule and the crew list" Rows="5" />
+}
+else if (board is null)
 {
     <div class="alert alert-warning">No committed schedule yet, so there is nothing to distribute.</div>
 }
@@ -141,13 +145,24 @@ else
         }
     }
 
+    private bool isLoading = true;
+
     protected override async Task OnInitializedAsync()
     {
-        board = await Schedules.GetActiveBoardAsync();
-        people = await DbContext.People.AsNoTracking().OrderBy(p => p.Role).ThenBy(p => p.Name).ToListAsync();
+        try
+        {
+            board = await Schedules.GetActiveBoardAsync();
+            people = await DbContext.People.AsNoTracking().OrderBy(p => p.Role).ThenBy(p => p.Name).ToListAsync();
 
-        selectedPersonId = people.FirstOrDefault()?.Id ?? Guid.Empty;
-        selectedDayNumber = board?.Days.FirstOrDefault()?.DayNumber ?? 0;
+            selectedPersonId = people.FirstOrDefault()?.Id ?? Guid.Empty;
+            selectedDayNumber = board?.Days.FirstOrDefault()?.DayNumber ?? 0;
+        }
+        finally
+        {
+            // In a finally so a failure shows the empty state rather than spinning for ever:
+            // "there is nothing here" is wrong, but "still loading" is wrong AND permanent.
+            isLoading = false;
+        }
     }
 
     private async Task DownloadPdf()

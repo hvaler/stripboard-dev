@@ -508,3 +508,75 @@ h1[tabindex="-1"]:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ── Busy states (EV-46) ───────────────────────────────────────────────────────
+   Two shapes for two waits: a skeleton that holds a list's shape so the page does
+   not jump when rows land, and a spinner for an action with nothing to reserve. */
+
+.busy--skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    padding: .25rem 0;
+}
+
+.busy-row {
+    display: block;
+}
+
+.busy-bar {
+    display: block;
+    height: 1.05rem;
+    border-radius: 3px;
+    background: linear-gradient(90deg,
+        var(--paper-shade, #e9e6df) 25%,
+        var(--paper, #f7f5f0) 37%,
+        var(--paper-shade, #e9e6df) 63%);
+    background-size: 400% 100%;
+    animation: busy-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes busy-shimmer {
+    0%   { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+.busy--spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .65rem;
+    padding: 2.25rem 1rem;
+    text-align: center;
+}
+
+.busy-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--paper-shade, #e9e6df);
+    border-top-color: var(--accent, #e8b320);
+    border-radius: 50%;
+    animation: busy-spin .8s linear infinite;
+}
+
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+
+.busy-label {
+    margin: 0;
+    font-weight: 600;
+    color: var(--ink, #111);
+}
+
+.busy-hint {
+    margin: 0;
+    font-size: .875rem;
+    color: #6b6b6b;
+    max-width: 34rem;
+}
+
+/* Motion is decoration here: the label already says what is happening, so a reader who
+   asked for less movement loses nothing by having it stand still. */
+@media (prefers-reduced-motion: reduce) {
+    .busy-bar, .busy-spinner { animation: none; }
+    .busy-spinner { border-top-color: var(--accent, #e8b320); }
+}

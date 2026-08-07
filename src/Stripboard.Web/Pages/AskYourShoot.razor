@@ -34,13 +34,10 @@
 
 @if (isAsking)
 {
-    <div class="d-flex align-items-center gap-3 p-4 bg-light border rounded">
-        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Querying…</span></div>
-        <div>
-            <strong>Querying Grafana…</strong>
-            <div class="text-muted small">Gemini is choosing which metrics to read. This takes a few seconds.</div>
-        </div>
-    </div>
+    @* The slowest thing in the product — several MCP round trips with a model between them.
+       The hint names the wait so nobody concludes it has hung and reloads at second fifteen. *@
+    <Busy Label="Asking Gemini, which is querying Grafana over MCP"
+          Hint="It chooses the metrics itself, so this usually takes fifteen to twenty-five seconds. The queries it ran appear beneath the answer." />
 }
 else if (error is not null)
 {

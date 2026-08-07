@@ -23,13 +23,8 @@
 
 @if (isLoading)
 {
-    <div class="d-flex align-items-center gap-3 p-4 bg-light border rounded">
-        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Solving…</span></div>
-        <div>
-            <strong>Loading the schedule…</strong>
-            <div class="text-muted small">Reading the committed version produced by the CP-SAT solver.</div>
-        </div>
-    </div>
+    <Busy Label="Reading the committed schedule"
+          Hint="The board is the result of a CP-SAT run, read back from the version that was approved." />
 }
 else if (error is not null)
 {
@@ -139,8 +134,26 @@ else
         <span><i class="ext-night"></i> Ext · Night</span>
     </div>
 
+    @if (NeedsPaging)
+    {
+        @* Only when it earns its place. A four-day shoot paginated is a control that does
+           nothing but take up room; a feature at 29 days without one is a page nobody can
+           read. The threshold is what a producer can hold on screen at once. *@
+        <nav class="d-flex justify-content-between align-items-center mb-3" aria-label="Shooting days">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="PreviousDays" disabled="@(dayPage == 0)">
+                ← Earlier days
+            </button>
+            <span class="small text-muted" role="status" aria-live="polite">
+                Days @(FirstDay)–@(LastDay) of @board.Days.Count
+            </span>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="NextDays" disabled="@(dayPage >= DayPageCount - 1)">
+                Later days →
+            </button>
+        </nav>
+    }
+
     <div class="board">
-        @foreach (var day in board.Days)
+        @foreach (var day in VisibleDays(board))
         {
             var isNight = day.CallTime.Hour >= 12;
             <section class="shoot-day">
@@ -212,6 +225,24 @@ else
     private static readonly System.Globalization.CultureInfo Culture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
 
     private ScheduleBoard? board;
+    // A shooting day is a tall block, so about eight is what fits on a screen before the page
+    // turns into scrolling. Below that the control is hidden entirely rather than disabled:
+    // a paginator on a four-day shoot is furniture.
+    private const int DaysPerPage = 8;
+
+    private int dayPage;
+
+    private bool NeedsPaging => board is not null && board.Days.Count > DaysPerPage;
+    private int DayPageCount => board is null ? 1 : Math.Max(1, (int)Math.Ceiling(board.Days.Count / (double)DaysPerPage));
+    private int FirstDay => dayPage * DaysPerPage + 1;
+    private int LastDay => board is null ? 0 : Math.Min(board.Days.Count, (dayPage + 1) * DaysPerPage);
+
+    private IEnumerable<BoardDay> VisibleDays(ScheduleBoard b) =>
+        NeedsPaging ? b.Days.Skip(dayPage * DaysPerPage).Take(DaysPerPage) : b.Days;
+
+    private void PreviousDays() => dayPage = Math.Max(0, dayPage - 1);
+    private void NextDays() => dayPage = Math.Min(DayPageCount - 1, dayPage + 1);
+
     private bool isLoading = true;
     private string? error;
 

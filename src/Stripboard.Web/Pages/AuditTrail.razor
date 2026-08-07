@@ -9,47 +9,124 @@
 <h1 class="mb-4">Governance audit trail</h1>
 
 <p class="text-muted">
-    Complete immutable trail tracing the decision chain: 
+    Complete immutable trail tracing the decision chain:
     <strong>Disruption (Sentinel) → Re-plan Proposal (Agent) → Approval (Human Producer)</strong>.
 </p>
 
-<div class="table-responsive shadow-sm rounded">
-    <table class="table table-hover table-striped align-middle mb-0">
-        <thead class="table-dark">
-            <tr>
-                <th>Timestamp (UTC)</th>
-                <th>Event Type</th>
-                <th>Actor / Identity</th>
-                <th>Details & Narrative</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (events.Count == 0)
-            {
+@if (isLoading)
+{
+    <Busy Label="Loading the audit trail" Rows="8" />
+}
+else
+{
+    @* Filters are above the count, because the count they produce is the answer to them. *@
+    <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+        <div>
+            <label class="label d-block mb-1" for="event-type">Event</label>
+            <select id="event-type" class="form-select form-select-sm" style="min-width: 12rem"
+                    @bind="eventType" @bind:after="ApplyFilters">
+                <option value="">All events</option>
+                @foreach (var type in knownEventTypes)
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+        </div>
+        <div class="flex-grow-1" style="max-width: 26rem">
+            <label class="label d-block mb-1" for="search">Search</label>
+            <input id="search" type="search" class="form-control form-control-sm"
+                   placeholder="Actor or wording — e.g. Producer, consolidate"
+                   @bind="search" @bind:event="oninput" @bind:after="ApplyFilters" />
+        </div>
+        @if (IsFiltered)
+        {
+            <button class="btn btn-outline-secondary btn-sm" @onclick="ClearFilters">Clear</button>
+        }
+    </div>
+
+    <p class="text-muted small" role="status" aria-live="polite">
+        @if (filtered.Count == 0)
+        {
+            <text>No events match.</text>
+        }
+        else
+        {
+            <text>
+                Showing @(FirstOnPage)–@(LastOnPage) of @filtered.Count
+                @(IsFiltered ? $"matching event{(filtered.Count == 1 ? "" : "s")}" : $"event{(filtered.Count == 1 ? "" : "s")}")
+            </text>
+        }
+    </p>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover table-striped align-middle mb-0">
+            <thead class="table-dark">
                 <tr>
-                    <td colspan="4" class="text-center text-muted py-4">No audit events recorded yet.</td>
+                    <th>Timestamp (UTC)</th>
+                    <th>Event Type</th>
+                    <th>Actor / Identity</th>
+                    <th>Details &amp; Narrative</th>
                 </tr>
-            }
-            else
-            {
-                @foreach (var ev in events)
+            </thead>
+            <tbody>
+                @if (filtered.Count == 0)
                 {
                     <tr>
-                        <td class="text-nowrap small text-secondary">@ev.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td>
-                            <span class="badge @GetBadgeClass(ev.EventType)">@ev.EventType</span>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            @(events.Count == 0
+                                ? "No audit events recorded yet."
+                                : "No event matches these filters.")
                         </td>
-                        <td><strong>@ev.Actor</strong></td>
-                        <td>@Describe(ev)</td>
                     </tr>
                 }
-            }
-        </tbody>
-    </table>
-</div>
+                else
+                {
+                    @foreach (var ev in filtered.Skip(page * PageSize).Take(PageSize))
+                    {
+                        <tr>
+                            <td class="text-nowrap small text-secondary">@ev.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td><span class="badge @GetBadgeClass(ev.EventType)">@ev.EventType</span></td>
+                            <td><strong>@ev.Actor</strong></td>
+                            <td>@Describe(ev)</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (PageCount > 1)
+    {
+        <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Audit trail pages">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="Previous" disabled="@(page == 0)">
+                ← Newer
+            </button>
+            <span class="small text-muted">Page @(page + 1) of @PageCount</span>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="Next" disabled="@(page >= PageCount - 1)">
+                Older →
+            </button>
+        </nav>
+    }
+}
 
 @code {
+    // The trail is append-only and never pruned, so it only ever grows. Rendering all of it
+    // was fine at a demo's worth of events and stops being fine on a shoot — and the page a
+    // producer needs is almost always the first one.
+    private const int PageSize = 25;
+
     private List<AuditEvent> events = new();
+    private List<AuditEvent> filtered = new();
+    private string[] knownEventTypes = [];
+    private bool isLoading = true;
+    private string eventType = string.Empty;
+    private string search = string.Empty;
+    private int page;
+
+    private bool IsFiltered => !string.IsNullOrWhiteSpace(eventType) || !string.IsNullOrWhiteSpace(search);
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(filtered.Count / (double)PageSize));
+    private int FirstOnPage => filtered.Count == 0 ? 0 : page * PageSize + 1;
+    private int LastOnPage => Math.Min(filtered.Count, (page + 1) * PageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -59,7 +136,40 @@
             .AsNoTracking()
             .OrderByDescending(e => e.Timestamp)
             .ToListAsync();
+
+        // Offered from what actually happened rather than from a hardcoded list, so a new
+        // event type appears in the filter the day it is first raised.
+        knownEventTypes = events.Select(e => e.EventType).Distinct().OrderBy(t => t).ToArray();
+
+        ApplyFilters();
+        isLoading = false;
     }
+
+    private void ApplyFilters()
+    {
+        var term = search?.Trim() ?? string.Empty;
+
+        filtered = events
+            .Where(e => string.IsNullOrEmpty(eventType) || e.EventType == eventType)
+            .Where(e => term.Length == 0
+                        || e.Actor.Contains(term, StringComparison.OrdinalIgnoreCase)
+                        || Describe(e).Contains(term, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // Filtering to four results while sitting on page three shows an empty table and
+        // looks like a bug. Any change to the filters goes back to the first page.
+        page = 0;
+    }
+
+    private void ClearFilters()
+    {
+        eventType = string.Empty;
+        search = string.Empty;
+        ApplyFilters();
+    }
+
+    private void Previous() => page = Math.Max(0, page - 1);
+    private void Next() => page = Math.Min(PageCount - 1, page + 1);
 
     /// <summary>
     /// Replan proposals are stored as JSON so the proposals page can rebuild them after a
