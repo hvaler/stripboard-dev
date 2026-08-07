@@ -59,6 +59,26 @@ class StripboardMcpClient(McpHttpClient):
         return os.getenv("STRIPBOARD_MCP_BEARER_TOKEN")
 
 
+
+# One connection per endpoint, opened the first time a tool is actually called.
+#
+# Deliberately module level rather than per tool: five tools against one server should share
+# one MCP session, and the connection has to survive between calls or every `tools/call`
+# would pay for a fresh handshake. Deliberately lazy rather than eager, because in the
+# deployed case this module is unpickled long before anything calls it, in a container that
+# has its own identity to authenticate with.
+_CLIENTS: Dict[str, "StripboardMcpClient"] = {}
+
+
+def _client_for(endpoint: str) -> "StripboardMcpClient":
+    client = _CLIENTS.get(endpoint)
+    if client is None or not client.is_connected:
+        client = StripboardMcpClient(endpoint=endpoint)
+        client.connect()
+        _CLIENTS[endpoint] = client
+    return client
+
+
 class McpBackedTool(BaseTool):
     """
     One tool on a remote MCP server, presented to ADK.
@@ -67,12 +87,16 @@ class McpBackedTool(BaseTool):
     `get_schedule` takes and must not, or the two descriptions would drift.
     """
 
-    def __init__(self, client: McpHttpClient, spec: Dict[str, Any]):
+    def __init__(self, endpoint: str, spec: Dict[str, Any]):
         super().__init__(
             name=spec["name"],
             description=(spec.get("description") or spec["name"])[:1000],
         )
-        self._client = client
+        # An endpoint and a schema, not a connection. This object gets pickled and shipped to
+        # Agent Engine, and a live socket cannot travel — nor should it: the credential that
+        # opens the connection has to be minted *there*, as the service account the agent runs
+        # as, not carried from whoever ran the deploy.
+        self._endpoint = endpoint
         self._schema = spec.get("inputSchema") or {"type": "object", "properties": {}}
 
     def _get_declaration(self) -> Optional[types.FunctionDeclaration]:
@@ -84,7 +108,7 @@ class McpBackedTool(BaseTool):
 
     async def run_async(self, *, args: Dict[str, Any], tool_context: Any) -> Any:
         try:
-            result = self._client.call_tool(self.name, args or {})
+            result = _client_for(self._endpoint).call_tool(self.name, args or {})
         except McpError as exc:
             # Hand the failure to the model as data. A refused commit is the single most
             # important thing this system does, and it arrives here: `commit_schedule`
@@ -145,7 +169,7 @@ class StripboardMcpToolset:
         its job, and the first sign would be a confident answer that skipped a step.
         """
         if allow is None:
-            return [McpBackedTool(self.client, spec) for spec in self._specs]
+            return [McpBackedTool(self.client.endpoint, spec) for spec in self._specs]
 
         wanted = list(allow)
         available = {spec["name"]: spec for spec in self._specs}
@@ -155,7 +179,7 @@ class StripboardMcpToolset:
                 f"{self.client.endpoint} does not offer {', '.join(missing)}. "
                 f"It offers: {', '.join(sorted(available))}.")
 
-        return [McpBackedTool(self.client, available[name]) for name in wanted]
+        return [McpBackedTool(self.client.endpoint, available[name]) for name in wanted]
 
 
 def connect_schedule_toolset(endpoint: Optional[str] = None) -> StripboardMcpToolset:

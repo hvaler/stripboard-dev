@@ -39,6 +39,10 @@ DISPLAY_NAME = "stripboard-line-producer"
 # default that would silently point at localhost inside a managed container.
 STRIPBOARD_URL = os.getenv("STRIPBOARD_URL", "")
 
+# The private MCP server the deployed agent will call. sa-orchestrator already holds
+# run.invoker on it (infra/deploy-mcp.sh), so it can reach it as itself.
+MCP_ENDPOINT = os.getenv("STRIPBOARD_MCP_SCHEDULE_ENDPOINT", "")
+
 REQUIREMENTS = [
     "google-cloud-aiplatform[agent_engines,adk]",
     "requests>=2.31.0",
@@ -106,7 +110,23 @@ def main():
     from orchestrator_agent import build_orchestrator
 
     client = vertexai.Client(project=PROJECT, location=LOCATION)
-    app = agent_engines.AdkApp(agent=build_orchestrator(), enable_tracing=True)
+    # The tools are discovered here, against the live MCP server, and travel as schemas plus
+    # an endpoint. The connection is NOT made here: McpBackedTool opens it on first use inside
+    # the container, minting its own identity token as sa-orchestrator. A socket cannot be
+    # pickled, and a credential belonging to whoever ran the deploy has no business being one.
+    toolset = None
+    if MCP_ENDPOINT:
+        from mcp_tools import StripboardMcpToolset
+
+        toolset = StripboardMcpToolset(endpoint=MCP_ENDPOINT).connect()
+        print(f"Discovered {len(toolset.tool_names)} MCP tools at {MCP_ENDPOINT}: "
+              f"{', '.join(sorted(toolset.tool_names))}")
+        toolset.close()
+    else:
+        print("STRIPBOARD_MCP_SCHEDULE_ENDPOINT is not set: the deployed agent will reach the "
+              "engine over REST instead of MCP.")
+
+    app = agent_engines.AdkApp(agent=build_orchestrator(toolset=toolset), enable_tracing=True)
 
     config = {
         "display_name": DISPLAY_NAME,
@@ -126,7 +146,16 @@ def main():
         # is more correct than anything this script could pass: an agent that believed it was
         # in a different project than the one hosting it would fail later and further away.
         "env_vars": {
+            # cloudpickle serialises the agent **by reference**: the container has to be able
+            # to `import orchestrator_agent` by that exact top-level name to rebuild it. Locally
+            # that works because this script puts agents/orchestrator on sys.path; in the
+            # container extra_packages only *copies* the directory, and nothing adds it to the
+            # path. Without this the deploy succeeds, the container starts, and dies with
+            # ModuleNotFoundError — a failure that surfaces as "cannot serve traffic" and says
+            # nothing about the cause.
+            "PYTHONPATH": "agents/orchestrator:agents/replanner:agents/common",
             "STRIPBOARD_URL": STRIPBOARD_URL,
+            "STRIPBOARD_MCP_SCHEDULE_ENDPOINT": MCP_ENDPOINT,
             "GOOGLE_GENAI_USE_VERTEXAI": "TRUE",
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
         },
