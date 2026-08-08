@@ -49,10 +49,13 @@ else
 {
     var worstDay = board.Days.Count == 0 ? 0 : board.Days.Max(d => d.Locations.Count);
 
-    @* EV-36 — the loop was already running and nobody could see it. Two rules fire on this
+    @* EV-36 — the loop was already running and nobody could see it. A rule is firing on this
        shoot right now; the public dashboard shows panels, not alert states, and a rule's
        state needs a Grafana session. So it is said here, on the page an anonymous visitor
-       lands on, read back from Grafana over MCP rather than re-evaluated locally. *@
+       lands on, read back from Grafana over MCP rather than re-evaluated locally.
+
+       The count is left to the query rather than written down: this comment said "two rules"
+       for a while after consolidation left one, and a number in prose has no test to fail. *@
     @if (alerts.Count > 0)
     {
         <div class="alert alert-warning border-start border-4 border-warning">

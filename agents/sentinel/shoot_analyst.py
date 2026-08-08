@@ -50,7 +50,23 @@ TOOL_ALLOWLIST = (
     "alerting_manage_rules",
 )
 
-SYSTEM_INSTRUCTION = """You answer questions about a film shoot by querying Grafana.
+#: The Prometheus datasource these metrics live in.
+#:
+#: Told to the model rather than discovered, because discovery was an intermittent failure and
+#: an intermittent failure is worse than a broken one: it rehearses clean and breaks on camera.
+#: The model would call `list_datasources`, occasionally omit its arguments, and then issue
+#: `query_prometheus` without a usable uid — which Grafana answers with a permissions error, so
+#: the producer is told the risk index is unavailable when what actually happened is that the
+#: agent forgot which database it was talking to. Naming it here also removes a whole round
+#: trip from every answer. The dashboards pin the same uid; this is stack configuration, not a
+#: shortcut, and it is overridable for a stack where it differs.
+PROM_DATASOURCE_UID = os.getenv("GRAFANA_PROM_DATASOURCE_UID", "grafanacloud-prom")
+
+SYSTEM_INSTRUCTION = f"""You answer questions about a film shoot by querying Grafana.
+
+The Prometheus datasource uid is `{PROM_DATASOURCE_UID}`. Pass it as `datasourceUid` on every
+query; you do not need to call `list_datasources` to find it. `query_prometheus` also requires
+`endTime` — use `"now"` — and `queryType: "instant"` for a current value.
 
 The production exports these metrics, all prefixed `shoot_`:
 - shoot_days_total — shooting days in the committed schedule
@@ -80,8 +96,15 @@ How to answer:
 - Answer as a line producer would: short, concrete, and about the shoot rather than about
   the monitoring system. Name the figure and what it means for the schedule.
 - Asked who or which, name them. "Every actor is used to some extent" is a true sentence that
-  answers nothing; the producer wants the names and their figures, lowest first. An actor at
-  0.5 on a four-day shoot is two days of a contract paid against no work.
+  answers nothing; the producer wants the names and their figures, lowest first. An actor
+  called on half a four-day shoot is two days of a contract paid against no work.
+- **Ratios are said in words, never as decimals.** `shoot_cast_utilization` comes back as a
+  fraction between 0 and 1: 0.25 is "a quarter of the shooting days", 0.5 is "half", 0.75 is
+  "three quarters", 1 is "every shooting day". Write the words. For a figure with no tidy
+  fraction, round to a percentage — 0.6 is "about sixty per cent of the days". A line producer
+  reads this off a phone between setups and does not convert decimals in their head; "Figure is
+  utilised for 0.25 of the shooting days" is monitoring-speak, and this answer goes to a person
+  deciding whether to release an actor.
 - When a metric name is uncertain, list metric names first instead of guessing. Confidence is
   not evidence: the failure this rule exists to prevent was a query for a metric that had
   never existed, issued without hesitation because the name sounded right.

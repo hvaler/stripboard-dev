@@ -12,8 +12,15 @@ voice is added afterwards, so a page that loads slowly costs a trim rather than 
 ```bash
 gcloud sql instances patch stripboard-db --activation-policy=ALWAYS --project stripboard-hack
 gcloud run services update stripboard-web --min-instances=1 --project stripboard-hack --region europe-west1
+gcloud run services update stripboard-sentinel --min-instances=1 --project stripboard-hack --region europe-west1
 curl https://stripboard-web-wc7oib7k6q-ew.a.run.app/api/health     # must report a committed schedule
 ```
+
+> **The sentinel matters as much as the web app here.** It scales to zero too, and **the amber
+> alert strip on the front page is served by it** — read back from Grafana over MCP on every
+> page load. A cold sentinel has to start a container, a sidecar and an MCP handshake; the
+> client waits thirty seconds and then gives up **silently**, so the page renders with no strip
+> and reads as *no alerts are firing*. That is shot 3.
 
 Open the public dashboard and **leave it open for a minute** before recording it. Its panels
 draw their frames before their data; a screenshot taken at eight seconds shows an empty board.
