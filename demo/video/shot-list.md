@@ -42,6 +42,17 @@ export GRAFANA_SERVICE_ACCOUNT_TOKEN=<from .secrets/grafana-token>
 export GRAFANA_MCP_ENDPOINT=http://localhost:8000/mcp
 ```
 
+> **Two terminals, and only one of them is ever on camera.**
+>
+> The block above exports `GRAFANA_SERVICE_ACCOUNT_TOKEN`. Set it up in a terminal you will
+> **never record**, and use a second, clean one for the three commands that do appear —
+> `agents.breakdown` at 0:25, `run_alert_loop.py` at 0:50, `run_orchestrator.py` at 1:30.
+>
+> A shared terminal keeps the token in its scrollback. One stray scroll, or a tall prompt,
+> and a live credential is on YouTube. `clear` before each take, and never `echo` the token
+> to check it — `[ -n "$GRAFANA_SERVICE_ACCOUNT_TOKEN" ] && echo set` tells you what you need
+> to know without printing it.
+
 ---
 
 ## 0:00 – 0:25 · "It is a film shoot"
