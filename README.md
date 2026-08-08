@@ -25,145 +25,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 [![Grafana Live Dashboard](https://img.shields.io/badge/Grafana-Live%20Public%20Dashboard-F46800)](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 
-## ⚠️ Implementation status
-
-This is a hackathon entry, and this section is the contract between what the rest of this
-README describes and what the code actually does today. Everything below the gap table is
-built and verified; **the diagram further down still shows one or two things that are
-designed and not shipped**, and they are marked.
-
-**Working today:**
-
-- **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`, EV-18 and
-  EV-28) from **Fountain, Final Draft `.fdx` or PDF** — a scanned script is read by Gemini
-  multimodal. Native structured output against a Pydantic schema, a validation-feedback
-  retry loop, and an explicitly-labelled fallback. The agent also separates the
-  *location* the unit travels to from the *set* within it, which is what makes the
-  company-move count real. See [ADR-009](adr/ADR-009-gemini-structured-output-breakdown.md)
-  and [ADR-013](adr/ADR-013-screenplay-formats-and-location-vs-set.md).
-- **Grafana observes the shoot, not the app** (EV-29): OpenTelemetry exports `shoot_*`
-  metrics — days, company moves, cost, union violations, a schedule risk index, the worst
-  day's location count and per-actor idle time — to Grafana Cloud, and every Mission Control
-  panel queries them.
-  **"Ask your shoot"** answers questions in plain English by discovering the Grafana MCP
-  server's tools at runtime and letting Gemini query them; the first turn is forced to
-  call a tool so an answer can never be a number the model made up. It runs as a private
-  multi-container Cloud Run service — agent plus Grafana MCP sidecar — reachable only by
-  the web app. See [ADR-014](adr/ADR-014-observing-the-shoot.md) and
-  [ADR-015](adr/ADR-015-deploying-the-sentinel.md).
-- **Grafana starts the loop, not a person** (EV-29): four alert rules over those production
-  metrics live in `infra/grafana/alert-rules.json` — union violations, a day hopping between
-  locations, cast paid to wait, cost above budget. The Conflict Sentinel reads the firing ones back over
-  MCP and hands them to the agents, so *alert → options → human approval* runs without a
-  person starting it (`demo/run_alert_loop.py`). A gauge with no schedule to describe now
-  publishes **nothing** rather than `0`, because a rule watching for union violations reads
-  zero as a clean shoot. See [ADR-019](adr/ADR-019-alerting-on-the-shoot.md).
-- **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`, EV-19), speaking the MCP
-  Streamable HTTP transport to the official `grafana/mcp-grafana` server: 73 tools
-  discovered on Grafana Cloud, disruptions published as real annotations via
-  `create_annotation`. See
-  [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
-- **Deterministic shooting-schedule solver on Google OR-Tools CP-SAT**
-  (`src/Stripboard.Solver`, EV-27): day/night units, Day Out of Days cast availability, permit
-  windows, disruption blocks, an optional hard cap on locations per day, and a day length
-  that includes its meal break and company moves. Union turnaround holds **by construction**
-  rather than being checked afterwards — see [ADR-012](adr/ADR-012-scheduling-model.md).
-- **A poor plan is priced, not just replanned around** (EV-29): when nothing is blocked but
-  the schedule is bad — a day hopping between four locations — `POST /api/schedule/consolidate`
-  re-solves under a hard cap and answers with what obeying it costs in shooting days and
-  dollars. Grafana's alerts carry a `stripboardAction` label saying which of the two a firing
-  rule wants, because *what happened* and *what to do about it* are different questions.
-- **The UI is driven by the engine** (EV-21): the stripboard, the replan options and their
-  cost deltas are all read from persisted schedule versions produced by real solver runs.
-  Importing a different screenplay changes what the board shows.
-
-  ![The shooting stripboard, with the industry strip colour code and the day's call, wrap and turnaround](docs/img/01-stripboard.png)
-- **Disruption → replan → human approval**, end to end: a disruption becomes scene-date
-  constraints, each replan strategy is a separate CP-SAT run, and only the Producer role
-  can commit the result.
-
-  ![Two replan options with cost deltas, and a note saying the second matches the first on every figure](docs/img/02-proposals.png)
-- **The replanner is a Google ADK agent that explains options it did not compute**
-  (`agents/replanner`, EV-24): its single tool calls the solver, so every figure it states is
-  traceable to a CP-SAT run. See [ADR-017](adr/ADR-017-adk-replanner.md).
-- **A multi-agent orchestrator that delegates rather than answers** (`agents/orchestrator`,
-  EV-25): a root ADK agent with **no tools at all** routes each request to `scheduler`,
-  `replanner` or `governance` through ADK sub-agent transfer. It owns nothing it could
-  answer from, so no figure it reports can be one a specialist did not produce. The
-  governance agent **has** the commit tool and is refused by the service with HTTP 403 —
-  the rule is tested by being broken, not by being withheld. See
-  [ADR-018](adr/ADR-018-orchestration-and-delegated-authority.md).
-- **Stripboard is an MCP server too, not only a client** (EV-23): the four
-  `Stripboard.Mcp.*` services speak the real protocol through the official
-  `ModelContextProtocol.AspNetCore` SDK — `initialize`, `tools/list` with generated schemas,
-  `tools/call`. 33 contract tests drive the protocol itself rather than the classes behind it.
-  See [ADR-021](adr/ADR-021-our-own-mcp-servers.md).
-- **And the agents consume them** (EV-23): the orchestrator's `scheduler` and `governance`
-  specialists have **no tools written in Python**. They are read from `mcp-schedule` with
-  `tools/list` — at startup when the orchestrator runs locally, and **at deploy time against
-  the live server** when it is packaged for Agent Engine, because a socket cannot be pickled
-  and a credential belonging to whoever ran the deploy has no business travelling with it.
-  Either way the tool is invoked at runtime with a `tools/call`, their MCP schemas become Gemini function declarations, and calling
-  one is a `tools/call` — so adding a tool in `ScheduleTools.cs` gives the agents a new
-  capability with no Python change. The commit refusal now travels that path too: the
-  governance agent calls `commit_schedule` over MCP and the **server** refuses it. Not ADK's
-  `MCPToolset`, which imports the reference SDK from a vendor the rules name — the toolset is
-  ~80 lines on the transport we already wrote for Grafana. See
-  [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
-- **The four MCP servers are on Cloud Run, and private** (EV-23): each runs as its own
-  service account, three reaching Cloud SQL and `sa-mcp-weather` holding **no project role at
-  all** — the weather server cannot read the schedule rather than merely not doing so. An
-  anonymous caller gets 403; an authenticated one completes the MCP handshake. Deployment
-  changes what the governance rule can say: locally nothing is verified so *nobody* may
-  commit, while on Cloud Run the identity is one Google validated, and the refusal names the
-  caller. `infra/deploy-mcp.sh`, and see
-  [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
-- **The orchestrator runs on Vertex AI Agent Engine, as its own service account** (EV-26):
-  deployed with `agents/deploy_agent_engine.py`, and verified by invoking it remotely — the
-  trace shows `get_schedule` going out and the committed board coming back. It reaches the
-  **private** `mcp-schedule` service over MCP, minting its own identity token as
-  `sa-orchestrator` from the metadata server: no credential travels in the deployment package,
-  and Cloud Run would answer 403 to any other identity. That is Workload Identity being the
-  thing that stops an agent, rather than a setup script that describes one.
-- **An identity is not a string the caller sends** (EV-33): committing requires a principal
-  the *platform* proved — Cloud Run's validated identity token, or an authenticated human
-  session. A name in a request body is a claim, and a claim cannot commit. Before this, an
-  agent told not to commit only had to send `identity: "Producer"`. See
-  [ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md).
-- **The union rules are verified by mutation testing** (EV-34) — 100%, 21 mutants killed,
-  0 survived over `UnionRulesService` (`dotnet stryker`). It found two real gaps: the
-  night-to-day rule was never tested for *not* applying, and the 14-hour boundary was
-  unpinned. See [ADR-022](adr/ADR-022-mutation-testing-the-union-rules.md).
-- **State survives a restart** (EV-22): schedules, disruptions and the audit trail live in
-  Cloud SQL, reached over a Unix socket with the connection string held in Secret
-  Manager. See [ADR-016](adr/ADR-016-cloud-sql-persistence.md).
-- **The union agreement is named, and it is configuration** (EV-42): turnaround, meal breaks and
-  the night→day transition are IATSE / SAG-AFTRA figures, stated as such, and selectable —
-  `Stripboard:UnionAgreement=european` switches to the Working Time Directive's eleven-hour
-  daily rest. **The longest lawful day is derived from the rest owed**, not configured
-  separately, so eleven hours of rest permits a thirteen-hour day and the same screenplay needs
-  fewer of them: changing the profile changes the schedule, not just the warnings. See
-  [ADR-024](adr/ADR-024-the-union-agreement-is-configuration.md).
-- Role-scoped call sheets as PDF via QuestPDF.
-- Blazor UI with six pages, and a versioned Grafana dashboard and alert rules.
-- 105 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
-  Gemini and Grafana integration tests make real calls and fail — not skip — when the
-  service is configured but broken.
-
-**Not implemented yet — do not read the sections below as claims that these exist:**
-
-| Gap | Where | Tracked by |
-|---|---|---|
-| The **replanner** still reaches the engine over REST (`POST /api/replan`), not MCP — `mcp-schedule` has no replan-from-disruption tool. The scheduler and governance specialists do go over MCP | `agents/replanner` | EV-23, remainder |
-| Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol. **This one is a decision, not a backlog item** — A2A solves separately-owned agents discovering each other across a network; ours are four `LlmAgent` objects in one ADK process. Implementing the protocol so the README could name it is the exact inflation this project spent EV-17 removing | `agents/orchestrator` | closed, not planned |
-| The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
-
-One of those rows closes with time. One is already closed the other way, by a decision, and
-the remaining one is a tool `mcp-schedule` does not expose yet. **Nothing in that table is
-waiting on a problem we have not solved.**
-
-The runtime evidence behind every claim in the working list above — with the commands to
-reproduce each one — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
+## Where to look first
 
 **Live demo: <https://stripboard-web-wc7oib7k6q-ew.a.run.app>** — deployed on Cloud Run and
 verified end to end in a browser with zero console errors: inject a disruption, compare the
@@ -179,6 +41,9 @@ few seconds. Everything after that is warm. See *Stopping the paid services* bel
 "Shoot Mission Control", reading the same `shoot_*` metrics the Conflict Sentinel queries over
 MCP. It is the shortest way to check that the partner integration is real rather than
 described.
+
+**The 3-minute video:** not recorded yet. The shot-by-shot script and the narration live in
+[`demo/video/`](demo/video/); this line becomes a link the day it is up.
 
 ## The problem
 
@@ -405,36 +270,6 @@ Grafana at its own request latency; here the *shoot* is the observed system — 
 down, actors paid against days they do not work, a schedule risk index — and Grafana is what
 notices when it goes wrong.
 
-## What the money figures are anchored to
-
-A cost model nobody can check is a number with a dollar sign in front of it. Every figure the
-board shows comes from the day rates in the database and the rules in `CostModel`, and this is
-where each one stands (EV-44):
-
-| Figure | Anchor |
-|---|---|
-| Cast day rate | A SAG-AFTRA day player on the 2025–26 Basic Theatrical Agreement is **$1,246 in wages plus $261.66 pension and health, $1,507.66 all in**, before overtime or overscale. The demo seeds $1,500 for a lead |
-| Low-budget productions | Run at **65%** of Basic, micro-budget at **35%** — which is why rates live in the database and a production substitutes its own |
-| Meal penalty | Per performer and escalating: **$25** for the first half hour, **$35** for the second, **$50** thereafter |
-| Turnaround violation | The expensive one — compensated at up to **a full day's pay** |
-| Company move | **A stand-in.** There is no published rate. The shooting hour it eats is charged separately in the schedule; the $2,500 is the cash on top, an order of magnitude rather than a quotation |
-
-**And one figure is honestly blended.** `UnionViolationPenaltyUsd` is a single $750 constant
-covering both violations above, which in reality cost about $360 and about $1,246. One constant
-cannot be both. It sits between them so a violation stays expensive enough to matter to the
-objective without pretending to price a specific breach — and pricing them apart is the obvious
-next refinement, needing the anomaly type to reach the cost model, which today it does not.
-
-The `shoot_cost_estimate_usd > 45000` alert threshold follows from the demo's own shape rather
-than from an industry figure: a four-day shoot of this crew and cast lands near $29,600, so
-$45,000 is roughly half as much again — the point at which a schedule has drifted rather than
-merely moved. A real production would set it from its budget line.
-
-Sources: [SAG-AFTRA 2025 theatrical rates](https://www.topsheet.io/edu/rates/sag-aftra/sag-aftra-theatrical-rates-2025) ·
-[Wrapbook, SAG rates guide](https://www.wrapbook.com/blog/essential-guide-sag-rates) ·
-[SAG-AFTRA meal periods](https://www.sagaftra.org/meal-periods) ·
-[Wrapbook, meal penalties](https://www.wrapbook.com/blog/meal-penalties-producers-guide)
-
 ## Why not Movie Magic?
 
 Because it is very good at the half of the problem this does not touch, and does not attempt
@@ -509,6 +344,36 @@ dotnet run --project src/Stripboard.Web          # in another terminal
 python demo/make_longform_screenplay.py
 python demo/run_scale_benchmark.py               # refuses to run against a deployed instance
 ```
+
+## What the money figures are anchored to
+
+A cost model nobody can check is a number with a dollar sign in front of it. Every figure the
+board shows comes from the day rates in the database and the rules in `CostModel`, and this is
+where each one stands (EV-44):
+
+| Figure | Anchor |
+|---|---|
+| Cast day rate | A SAG-AFTRA day player on the 2025–26 Basic Theatrical Agreement is **$1,246 in wages plus $261.66 pension and health, $1,507.66 all in**, before overtime or overscale. The demo seeds $1,500 for a lead |
+| Low-budget productions | Run at **65%** of Basic, micro-budget at **35%** — which is why rates live in the database and a production substitutes its own |
+| Meal penalty | Per performer and escalating: **$25** for the first half hour, **$35** for the second, **$50** thereafter |
+| Turnaround violation | The expensive one — compensated at up to **a full day's pay** |
+| Company move | **A stand-in.** There is no published rate. The shooting hour it eats is charged separately in the schedule; the $2,500 is the cash on top, an order of magnitude rather than a quotation |
+
+**And one figure is honestly blended.** `UnionViolationPenaltyUsd` is a single $750 constant
+covering both violations above, which in reality cost about $360 and about $1,246. One constant
+cannot be both. It sits between them so a violation stays expensive enough to matter to the
+objective without pretending to price a specific breach — and pricing them apart is the obvious
+next refinement, needing the anomaly type to reach the cost model, which today it does not.
+
+The `shoot_cost_estimate_usd > 45000` alert threshold follows from the demo's own shape rather
+than from an industry figure: a four-day shoot of this crew and cast lands near $29,600, so
+$45,000 is roughly half as much again — the point at which a schedule has drifted rather than
+merely moved. A real production would set it from its budget line.
+
+Sources: [SAG-AFTRA 2025 theatrical rates](https://www.topsheet.io/edu/rates/sag-aftra/sag-aftra-theatrical-rates-2025) ·
+[Wrapbook, SAG rates guide](https://www.wrapbook.com/blog/essential-guide-sag-rates) ·
+[SAG-AFTRA meal periods](https://www.sagaftra.org/meal-periods) ·
+[Wrapbook, meal penalties](https://www.wrapbook.com/blog/meal-penalties-producers-guide)
 
 ## Repository layout
 
@@ -781,6 +646,150 @@ cold. Stopping the database takes the demo down until it is restarted.
 Bringing them back is the same two commands with `--min-instances=1` and
 `--activation-policy=ALWAYS`. Check `/api/health` reports a committed schedule before
 demonstrating anything.
+
+## ⚠️ Implementation status
+
+This is a hackathon entry, and this section is the contract between what the rest of this
+README claims and what the code actually does. It sits here, after the Quickstart, rather than
+at the top: honesty about the gaps is worth more once a reader has seen what the thing is, and
+a page that opens on its own caveats invites you to stop reading before it has said anything.
+
+Everything in the first list is built and verified. Everything in the second is not, and says
+so. The architecture diagram above carries no open marks, because there are none left in it.
+
+**Working today:**
+
+- **Screenplay breakdown with Gemini 2.5 Flash on Vertex AI** (`agents/breakdown`, EV-18 and
+  EV-28) from **Fountain, Final Draft `.fdx` or PDF** — a scanned script is read by Gemini
+  multimodal. Native structured output against a Pydantic schema, a validation-feedback
+  retry loop, and an explicitly-labelled fallback. The agent also separates the
+  *location* the unit travels to from the *set* within it, which is what makes the
+  company-move count real. See [ADR-009](adr/ADR-009-gemini-structured-output-breakdown.md)
+  and [ADR-013](adr/ADR-013-screenplay-formats-and-location-vs-set.md).
+- **Grafana observes the shoot, not the app** (EV-29): OpenTelemetry exports `shoot_*`
+  metrics — days, company moves, cost, union violations, a schedule risk index, the worst
+  day's location count and per-actor idle time — to Grafana Cloud, and every Mission Control
+  panel queries them.
+  **"Ask your shoot"** answers questions in plain English by discovering the Grafana MCP
+  server's tools at runtime and letting Gemini query them; the first turn is forced to
+  call a tool so an answer can never be a number the model made up. It runs as a private
+  multi-container Cloud Run service — agent plus Grafana MCP sidecar — reachable only by
+  the web app. See [ADR-014](adr/ADR-014-observing-the-shoot.md) and
+  [ADR-015](adr/ADR-015-deploying-the-sentinel.md).
+- **Grafana starts the loop, not a person** (EV-29): four alert rules over those production
+  metrics live in `infra/grafana/alert-rules.json` — union violations, a day hopping between
+  locations, cast paid to wait, cost above budget. The Conflict Sentinel reads the firing ones back over
+  MCP and hands them to the agents, so *alert → options → human approval* runs without a
+  person starting it (`demo/run_alert_loop.py`). A gauge with no schedule to describe now
+  publishes **nothing** rather than `0`, because a rule watching for union violations reads
+  zero as a clean shoot. See [ADR-019](adr/ADR-019-alerting-on-the-shoot.md).
+- **Conflict Sentinel as a live Grafana MCP client** (`agents/sentinel`, EV-19), speaking the MCP
+  Streamable HTTP transport to the official `grafana/mcp-grafana` server: 73 tools
+  discovered on Grafana Cloud, disruptions published as real annotations via
+  `create_annotation`. See
+  [ADR-010](adr/ADR-010-grafana-mcp-sidecar-transport.md).
+- **Deterministic shooting-schedule solver on Google OR-Tools CP-SAT**
+  (`src/Stripboard.Solver`, EV-27): day/night units, Day Out of Days cast availability, permit
+  windows, disruption blocks, an optional hard cap on locations per day, and a day length
+  that includes its meal break and company moves. Union turnaround holds **by construction**
+  rather than being checked afterwards — see [ADR-012](adr/ADR-012-scheduling-model.md).
+- **A poor plan is priced, not just replanned around** (EV-29): when nothing is blocked but
+  the schedule is bad — a day hopping between four locations — `POST /api/schedule/consolidate`
+  re-solves under a hard cap and answers with what obeying it costs in shooting days and
+  dollars. Grafana's alerts carry a `stripboardAction` label saying which of the two a firing
+  rule wants, because *what happened* and *what to do about it* are different questions.
+- **The UI is driven by the engine** (EV-21): the stripboard, the replan options and their
+  cost deltas are all read from persisted schedule versions produced by real solver runs.
+  Importing a different screenplay changes what the board shows.
+
+  ![The shooting stripboard, with the industry strip colour code and the day's call, wrap and turnaround](docs/img/01-stripboard.png)
+- **Disruption → replan → human approval**, end to end: a disruption becomes scene-date
+  constraints, each replan strategy is a separate CP-SAT run, and only the Producer role
+  can commit the result.
+
+  ![Two replan options with cost deltas, and a note saying the second matches the first on every figure](docs/img/02-proposals.png)
+- **The replanner is a Google ADK agent that explains options it did not compute**
+  (`agents/replanner`, EV-24): its single tool calls the solver, so every figure it states is
+  traceable to a CP-SAT run. See [ADR-017](adr/ADR-017-adk-replanner.md).
+- **A multi-agent orchestrator that delegates rather than answers** (`agents/orchestrator`,
+  EV-25): a root ADK agent with **no tools at all** routes each request to `scheduler`,
+  `replanner` or `governance` through ADK sub-agent transfer. It owns nothing it could
+  answer from, so no figure it reports can be one a specialist did not produce. The
+  governance agent **has** the commit tool and is refused by the service with HTTP 403 —
+  the rule is tested by being broken, not by being withheld. See
+  [ADR-018](adr/ADR-018-orchestration-and-delegated-authority.md).
+- **Stripboard is an MCP server too, not only a client** (EV-23): the four
+  `Stripboard.Mcp.*` services speak the real protocol through the official
+  `ModelContextProtocol.AspNetCore` SDK — `initialize`, `tools/list` with generated schemas,
+  `tools/call`. 33 contract tests drive the protocol itself rather than the classes behind it.
+  See [ADR-021](adr/ADR-021-our-own-mcp-servers.md).
+- **And the agents consume them** (EV-23): the orchestrator's `scheduler` and `governance`
+  specialists have **no tools written in Python**. They are read from `mcp-schedule` with
+  `tools/list` — at startup when the orchestrator runs locally, and **at deploy time against
+  the live server** when it is packaged for Agent Engine, because a socket cannot be pickled
+  and a credential belonging to whoever ran the deploy has no business travelling with it.
+  Either way the tool is invoked at runtime with a `tools/call`, their MCP schemas become Gemini function declarations, and calling
+  one is a `tools/call` — so adding a tool in `ScheduleTools.cs` gives the agents a new
+  capability with no Python change. The commit refusal now travels that path too: the
+  governance agent calls `commit_schedule` over MCP and the **server** refuses it. Not ADK's
+  `MCPToolset`, which imports the reference SDK from a vendor the rules name — the toolset is
+  ~80 lines on the transport we already wrote for Grafana. See
+  [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
+- **The four MCP servers are on Cloud Run, and private** (EV-23): each runs as its own
+  service account, three reaching Cloud SQL and `sa-mcp-weather` holding **no project role at
+  all** — the weather server cannot read the schedule rather than merely not doing so. An
+  anonymous caller gets 403; an authenticated one completes the MCP handshake. Deployment
+  changes what the governance rule can say: locally nothing is verified so *nobody* may
+  commit, while on Cloud Run the identity is one Google validated, and the refusal names the
+  caller. `infra/deploy-mcp.sh`, and see
+  [ADR-023](adr/ADR-023-agents-consume-our-own-mcp-servers.md).
+- **The orchestrator runs on Vertex AI Agent Engine, as its own service account** (EV-26):
+  deployed with `agents/deploy_agent_engine.py`, and verified by invoking it remotely — the
+  trace shows `get_schedule` going out and the committed board coming back. It reaches the
+  **private** `mcp-schedule` service over MCP, minting its own identity token as
+  `sa-orchestrator` from the metadata server: no credential travels in the deployment package,
+  and Cloud Run would answer 403 to any other identity. That is Workload Identity being the
+  thing that stops an agent, rather than a setup script that describes one.
+- **An identity is not a string the caller sends** (EV-33): committing requires a principal
+  the *platform* proved — Cloud Run's validated identity token, or an authenticated human
+  session. A name in a request body is a claim, and a claim cannot commit. Before this, an
+  agent told not to commit only had to send `identity: "Producer"`. See
+  [ADR-020](adr/ADR-020-identity-is-not-a-string-the-caller-sends.md).
+- **The union rules are verified by mutation testing** (EV-34) — 100%, 21 mutants killed,
+  0 survived over `UnionRulesService` (`dotnet stryker`). It found two real gaps: the
+  night-to-day rule was never tested for *not* applying, and the 14-hour boundary was
+  unpinned. See [ADR-022](adr/ADR-022-mutation-testing-the-union-rules.md).
+- **State survives a restart** (EV-22): schedules, disruptions and the audit trail live in
+  Cloud SQL, reached over a Unix socket with the connection string held in Secret
+  Manager. See [ADR-016](adr/ADR-016-cloud-sql-persistence.md).
+- **The union agreement is named, and it is configuration** (EV-42): turnaround, meal breaks and
+  the night→day transition are IATSE / SAG-AFTRA figures, stated as such, and selectable —
+  `Stripboard:UnionAgreement=european` switches to the Working Time Directive's eleven-hour
+  daily rest. **The longest lawful day is derived from the rest owed**, not configured
+  separately, so eleven hours of rest permits a thirteen-hour day and the same screenplay needs
+  fewer of them: changing the profile changes the schedule, not just the warnings. See
+  [ADR-024](adr/ADR-024-the-union-agreement-is-configuration.md).
+- Role-scoped call sheets as PDF via QuestPDF.
+- Blazor UI with six pages, and a versioned Grafana dashboard and alert rules.
+- 105 xUnit tests and 83 Python tests, green (`dotnet test`, `python -m unittest`). The
+  Gemini and Grafana integration tests make real calls and fail — not skip — when the
+  service is configured but broken.
+
+**Not implemented yet — do not read the sections below as claims that these exist:**
+
+| Gap | Where | Tracked by |
+|---|---|---|
+| The **replanner** still reaches the engine over REST (`POST /api/replan`), not MCP — `mcp-schedule` has no replan-from-disruption tool. The scheduler and governance specialists do go over MCP | `agents/replanner` | EV-23, remainder |
+| Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol. **A decision, not a backlog item**: A2A solves separately-owned agents discovering each other across a network, and ours are four `LlmAgent` objects in one process | `agents/orchestrator` | closed, not planned |
+| The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
+
+One of those rows closes with time. One is already closed the other way, by a decision, and
+the remaining one is a tool `mcp-schedule` does not expose yet. **Nothing in that table is
+waiting on a problem we have not solved.**
+
+The runtime evidence behind every claim in the working list above — with the commands to
+reproduce each one — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
+
 
 ## The 3-minute demo
 
