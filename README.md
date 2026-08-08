@@ -274,8 +274,12 @@ notices when it goes wrong.
 
 The track asks for two things — *build an agent that uses observability data*, and *observe the
 agent you build*. The paragraph above is the first. The second is a separate dashboard,
-**"The Agents Themselves"** (`infra/grafana/dashboard-agent-observability.json`), over four
-metrics the agents emit about their own behaviour:
+**"The Agents Themselves"**, published read-only alongside the first:
+
+**<https://pinkcorridor3522.grafana.net/public-dashboards/c046a2db657a4d42bf4e243afc825bc9>**
+
+It reads four metrics the agents emit about their own behaviour
+(`infra/grafana/dashboard-agent-observability.json`):
 
 | Metric | The question it answers |
 |---|---|

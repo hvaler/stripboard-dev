@@ -9,8 +9,8 @@
 > **Project Name**: Stripboard
 > **Repository**: [https://github.com/hvaler/stripboard-dev](https://github.com/hvaler/stripboard-dev) (Public, Apache-2.0)
 > **Deployment**: [https://stripboard-web-wc7oib7k6q-ew.a.run.app](https://stripboard-web-wc7oib7k6q-ew.a.run.app) — ✅ stable, full walkthrough verified in a browser with zero console errors (ADR-011)
-> **Live Grafana dashboard**: [Shoot Mission Control](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3) — public, no account needed
-> **Status verified**: 2026-08-05 · **Deadline**: 2026-09-07 14:00 PT
+> **Live Grafana dashboards**: [Shoot Mission Control](https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3) — the production observed · [The Agents Themselves](https://pinkcorridor3522.grafana.net/public-dashboards/c046a2db657a4d42bf4e243afc825bc9) — the software that reschedules it. Both public, no account needed
+> **Status verified**: 2026-08-05 (browser walkthrough) · agent observability 2026-08-08 · **Deadline**: 2026-09-07 14:00 PT
 > **Evidence**: [`docs/EVIDENCE.md`](../docs/EVIDENCE.md) — runtime logs and figures behind every ✅ below
 
 ---
@@ -103,6 +103,12 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
    above budget). The Conflict Sentinel queries the firing ones with `alerting_manage_rules`
    and hands them to the agents, so *alert → options → approval* runs without a person
    starting it (ADR-019).
+7. **Observing the agent we built** — ✅ the other half of the track's framing. Token spend,
+   model latency, and every `tools/call` by server, tool and outcome, on a **separate**
+   dashboard so that "what is being observed here?" keeps one answer per screen:
+   <https://pinkcorridor3522.grafana.net/public-dashboards/c046a2db657a4d42bf4e243afc825bc9>
+   One question to the deployed sentinel reported `total_tokens: 13596`; Grafana received
+   `agent_llm_tokens_total{job="stripboard-sentinel"} = 13596` (EVIDENCE §12).
 
 ### Findings and learnings
 

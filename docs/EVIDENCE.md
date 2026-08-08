@@ -782,11 +782,51 @@ ours — `_total` on counters, `_bucket`/`_sum`/`_count` on histograms — which
 they were confirmed rather than assumed: **a panel querying a name that does not exist and a
 panel with no data to draw render identically.**
 
+### The cross-check
+
+Series names existing is the weaker half. The stronger half is that the numbers agree with a
+source that never touched Grafana. One question to the **deployed** sentinel
+(`stripboard-sentinel-00007-htq`), authenticated with an identity token:
+
+```
+POST /api/ask  {"question": "Which cast member am I paying for days they do not work?"}
+
+{"rounds": 3, "total_tokens": 13596,
+ "tool_calls": [{"name": "list_datasources"}, {"name": "query_prometheus"}, …]}
+```
+
+Then the same stack, asked over MCP:
+
+```
+sum by (job) (agent_llm_tokens_total)
+  {job="stripboard-sentinel"} = 13596
+
+sum by (job, status) (agent_mcp_calls_total)
+  {job="stripboard-sentinel", status="ok"} = 3
+
+topk(6, sum by (tool) (agent_mcp_calls_total))
+  {tool="list_datasources"} = 1   {tool="query_prometheus"} = 1
+  {tool="alerting_manage_rules"} = 1
+```
+
+**13,596 by two independent routes** — the HTTP response the agent composed for itself, and
+the counter Grafana received over OTLP from a Cloud Run container. Three tool calls, named
+individually. This is the partner integration counted from the inside rather than asserted.
+
 `agent_mcp_calls_total` carries a `status` label and is incremented on the failure path too.
 That was a deliberate choice in `telemetry.mcp_call`, which is a context manager rather than a
 decorator for this reason: a counter that only increments on success reports a healthy
 integration right up until nothing works.
 
 The dashboard is `infra/grafana/dashboard-agent-observability.json`, uid `stripboard-agents`,
-provisioned from versioned JSON by the same script that provisions Mission Control. It is a
-**second** dashboard on purpose — see the README for why the two are not merged.
+provisioned from versioned JSON by the same script that provisions Mission Control, and
+published read-only:
+
+**<https://pinkcorridor3522.grafana.net/public-dashboards/c046a2db657a4d42bf4e243afc825bc9>**
+
+It is a **second** dashboard on purpose — see the README for why the two are not merged.
+
+Publishing it was done from the Grafana UI, not by the sentinel's token, which is refused with
+`403 Permissions needed: dashboards.public:write`. That refusal is the credential being scoped
+correctly rather than an obstacle: the token in the sentinel's sidecar exists to read alerts
+and write annotations at runtime, and a leaked one should not be able to expose the stack.

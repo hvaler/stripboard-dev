@@ -121,7 +121,7 @@
       "id": 5,
       "type": "timeseries",
       "title": "⏱️ Where the twenty seconds go",
-      "description": "Model time and tool time on the same axis. 'The model is slow' and 'Grafana is slow' need different fixes, and one number cannot tell them apart.",
+      "description": "Model time and tool time on the same axis. 'The model is slow' and 'Grafana is slow' need different fixes, and one number cannot tell them apart. Quantile over a 30-minute window: the agents work in bursts, and a 5-minute rate reads NaN minutes after a demo — indistinguishable from a broken panel.",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -135,7 +135,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(agent_llm_duration_milliseconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(agent_llm_duration_milliseconds_bucket[30m])))",
           "instant": false,
           "legendFormat": "p95 model"
         }
@@ -175,7 +175,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "🐢 How long the far end takes",
-      "description": "p95 of a tools/call, by server. Grafana Cloud and our own Cloud Run services answer at very different speeds, and both are on this line.",
+      "description": "p95 of a tools/call, by server. Grafana Cloud and our own Cloud Run services answer at very different speeds, and both are on this line. Quantile over a 30-minute window: the agents work in bursts, and a 5-minute rate reads NaN minutes after a demo — indistinguishable from a broken panel.",
       "datasource": {
         "type": "prometheus",
         "uid": "grafanacloud-prom"
@@ -189,7 +189,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, server) (rate(agent_mcp_duration_milliseconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, server) (rate(agent_mcp_duration_milliseconds_bucket[30m])))",
           "instant": false,
           "legendFormat": "{{server}}"
         }
