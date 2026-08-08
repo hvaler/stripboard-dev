@@ -1,11 +1,21 @@
 """
-Provisions the "Shoot Mission Control" dashboard from versioned JSON (§6 / ADR-008).
+Provisions a dashboard from versioned JSON (§6 / ADR-008).
+
+    python infra/grafana/provision-dashboard.py                    # every dashboard-*.json
+    python infra/grafana/provision-dashboard.py dashboard-agent-observability.json
 
 This is infrastructure setup, not agent runtime, so it talks to the Grafana HTTP API
 directly. Everything the Conflict Sentinel does at runtime goes through the Grafana MCP
 server instead (ADR-010).
+
+**There are two dashboards and they are deliberately not one.** "Shoot Mission Control"
+observes the production; "The Agents Themselves" observes the software that reschedules it
+(EV-47). Provisioning them from one loop rather than two scripts is what keeps the second
+from quietly rotting — a dashboard nobody redeploys is a dashboard that stops matching the
+metrics it draws.
 """
 
+import glob
 import json
 import logging
 import os
@@ -21,9 +31,31 @@ class ProvisioningError(RuntimeError):
     pass
 
 
-def provision_dashboard(grafana_url: str = None, token: str = None) -> dict:
+def dashboard_files(names=None):
     """
-    Push the dashboard to Grafana. Raises ProvisioningError on any failure — this used
+    The dashboard JSON to push: what was named, or every `dashboard-*.json` beside this file.
+
+    Globbing rather than a hardcoded list so adding a dashboard is adding a file. A list here
+    would have to be remembered, and the failure mode of forgetting is a dashboard that exists
+    in the repo and not in Grafana.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    if names:
+        paths = [n if os.path.isabs(n) else os.path.join(here, os.path.basename(n)) for n in names]
+        missing = [p for p in paths if not os.path.isfile(p)]
+        if missing:
+            raise ProvisioningError(f"No such dashboard JSON: {', '.join(missing)}")
+        return paths
+
+    paths = sorted(glob.glob(os.path.join(here, "dashboard-*.json")))
+    if not paths:
+        raise ProvisioningError(f"No dashboard-*.json found in {here}.")
+    return paths
+
+
+def provision_dashboard(grafana_url: str = None, token: str = None, names=None) -> list:
+    """
+    Push the dashboards to Grafana. Raises ProvisioningError on any failure — this used
     to swallow exceptions and return success, which meant a broken provisioning run
     looked identical to a working one.
     """
@@ -41,7 +73,13 @@ def provision_dashboard(grafana_url: str = None, token: str = None) -> dict:
     if not token.startswith("glsa_"):
         logger.warning("Token does not start with 'glsa_'; the instance API may reject it (DT-009).")
 
-    json_path = os.path.join(os.path.dirname(__file__), "dashboard-mission-control.json")
+    results = []
+    for json_path in dashboard_files(names):
+        results.append(_push(grafana_url, token, json_path))
+    return results
+
+
+def _push(grafana_url: str, token: str, json_path: str) -> dict:
     with open(json_path, "r", encoding="utf-8") as f:
         dashboard_json = json.load(f)
 
@@ -82,7 +120,7 @@ def provision_dashboard(grafana_url: str = None, token: str = None) -> dict:
 
 if __name__ == "__main__":
     try:
-        provision_dashboard()
+        provision_dashboard(names=sys.argv[1:] or None)
     except ProvisioningError as exc:
         logger.error("%s", exc)
         sys.exit(1)

@@ -47,6 +47,22 @@ spec:
               value: __PROJECT__
             - name: GOOGLE_CLOUD_LOCATION
               value: global
+            # Observing the agent, as distinct from observing the shoot (EV-47). Same OTLP
+            # gateway and the same credentials the web service uses, so there is one place
+            # to configure and one to rotate. Without these the SDK stays inert and the
+            # "The Agents Themselves" dashboard renders empty panels — which look exactly
+            # like an agent that is running and doing nothing.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: https://otlp-gateway-prod-eu-north-0.grafana.net/otlp
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+            - name: OTEL_SERVICE_NAME
+              value: stripboard-sentinel
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-otlp-headers
+                  key: latest
           resources:
             limits:
               cpu: "1"

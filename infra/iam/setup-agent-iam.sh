@@ -47,6 +47,14 @@ gcloud secrets add-iam-policy-binding grafana-sentinel-token \
     --role="roles/secretmanager.secretAccessor" \
     --project="${PROJECT_ID}" || true
 
+# And the OTLP push credentials, so the sentinel can report on itself (EV-47). Scripted
+# rather than granted by hand: a permission that exists only because someone once typed it
+# is a permission that will be missing on the next project.
+gcloud secrets add-iam-policy-binding grafana-otlp-headers \
+    --member="serviceAccount:sa-sentinel@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor" \
+    --project="${PROJECT_ID}" || true
+
 # The orchestrator runs on Vertex AI Agent Engine under its own identity (EV-26/ADR-018),
 # so it needs to use Vertex AI and to read the staging bucket its package is uploaded to.
 # It gets nothing else: committing a schedule is refused in the application, not by IAM,

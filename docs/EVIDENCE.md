@@ -743,10 +743,50 @@ Three things had to be true for that line to print, and none of them is a prompt
 - The **replanner** does not reach the engine over MCP. It calls `POST /api/replan` on the
   web app, because `mcp-schedule` exposes no replan-from-disruption tool. The scheduler and
   governance specialists do go over MCP; the replanner is REST.
-- The orchestrator has not been deployed to Vertex AI Agent Engine.
-  `agents/deploy_agent_engine.py` is written and passes its own preflight; it has not been
-  run, because Agent Engine is a billed resource (EV-26).
 - Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol.
-- Per-agent IAM is a setup script. Google is not yet the thing stopping an agent from
-  reaching a service it should not; the commit rule is enforced in the application.
+- **The commit rule is enforced in the application, not by IAM.** Per-agent identities are
+  real and applied (§8), but Google is not the thing stopping an agent from committing —
+  deliberately, because the rule is *only a human Producer*, not *only this principal*.
 - Mutation testing covers the union rules, not the codebase.
+- The agent metrics in §12 are exported by the **sentinel**. The orchestrator on Agent Engine
+  is not wired to the same OTLP endpoint: doing so would mean passing the push credentials as
+  a plain deployment variable rather than reading them from Secret Manager, and Agent Engine
+  emits its own traces already.
+
+---
+
+## 12. The agents, observed (EV-47)
+
+The track asks for two things, and this is the second: *observe the agent you build*. Four
+instruments in `agents/common/telemetry.py`, exported over standard OTLP to the same Grafana
+Cloud stack the Conflict Sentinel queries over MCP.
+
+**The check that matters is not that panels exist — it is that they query names that do.** The
+Prometheus series below were read back from the stack after a real export, using the Grafana
+MCP server itself:
+
+```python
+c.call_tool("list_prometheus_metric_names",
+            {"datasourceUid": "grafanacloud-prom", "regex": "agent.*"})
+```
+
+```
+['agent_llm_duration_milliseconds_bucket', 'agent_llm_duration_milliseconds_count',
+ 'agent_llm_duration_milliseconds_sum',    'agent_llm_tokens_total',
+ 'agent_mcp_calls_total',                  'agent_mcp_duration_milliseconds_bucket',
+ 'agent_mcp_duration_milliseconds_count',  'agent_mcp_duration_milliseconds_sum']
+```
+
+Eight series, and the dashboard queries eight. The suffixes are the exporter's doing, not
+ours — `_total` on counters, `_bucket`/`_sum`/`_count` on histograms — which is exactly why
+they were confirmed rather than assumed: **a panel querying a name that does not exist and a
+panel with no data to draw render identically.**
+
+`agent_mcp_calls_total` carries a `status` label and is incremented on the failure path too.
+That was a deliberate choice in `telemetry.mcp_call`, which is a context manager rather than a
+decorator for this reason: a counter that only increments on success reports a healthy
+integration right up until nothing works.
+
+The dashboard is `infra/grafana/dashboard-agent-observability.json`, uid `stripboard-agents`,
+provisioned from versioned JSON by the same script that provisions Mission Control. It is a
+**second** dashboard on purpose — see the README for why the two are not merged.

@@ -1,3 +1,7 @@
 # Grafana MCP transport and the Annotations API. No third-party AI SDK: the Gemini client
 # is shared with the breakdown agent (agents/breakdown/requirements.txt).
 requests>=2.31.0
+
+# Agent telemetry (EV-47). Inert unless OTEL_EXPORTER_OTLP_ENDPOINT is set.
+opentelemetry-sdk>=1.27.0
+opentelemetry-exporter-otlp-proto-http>=1.27.0

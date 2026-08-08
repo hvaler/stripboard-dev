@@ -270,6 +270,39 @@ Grafana at its own request latency; here the *shoot* is the observed system — 
 down, actors paid against days they do not work, a schedule risk index — and Grafana is what
 notices when it goes wrong.
 
+#### The second dashboard: observing the agent
+
+The track asks for two things — *build an agent that uses observability data*, and *observe the
+agent you build*. The paragraph above is the first. The second is a separate dashboard,
+**"The Agents Themselves"** (`infra/grafana/dashboard-agent-observability.json`), over four
+metrics the agents emit about their own behaviour:
+
+| Metric | The question it answers |
+|---|---|
+| `agent_llm_tokens_total` | What a question costs. *Ask your shoot* runs several Gemini rounds with MCP calls between them, and a question that quietly takes six rounds costs six times one that takes one. |
+| `agent_llm_duration_milliseconds` | Where the twenty seconds go — model time, split from tool time below, because *the model is slow* and *Grafana is slow* need different fixes. |
+| `agent_mcp_calls_total` | Every `tools/call`, by server, tool and outcome. The partner integration counted from the inside: not "we use MCP" but which tools, how often, and **how many fail** — the failure path is counted too, because a counter that only increments on success reports a healthy integration right up until nothing works. |
+| `agent_mcp_duration_milliseconds` | How long the far end takes, by server. Grafana Cloud and our own Cloud Run services answer at very different speeds. |
+
+Those series names are not a guess. They were read back from the stack with
+`list_prometheus_metric_names` after a real export, because a panel querying a name that does
+not exist and a panel with nothing to draw look identical.
+
+**Two dashboards rather than one, on purpose.** The distinguishing claim of this project is
+that the *shoot* is the observed system, and that claim survives only while "what is being
+observed here?" has one answer per screen. Put `agent_llm_tokens_total` beside
+`shoot_cast_utilization` and a judge has to work out which one the project is about. Separate
+boards keep both questions askable: Mission Control is the production, this one is the software
+that reschedules it.
+
+Instrumentation lives in `agents/common/telemetry.py` and is **inert without
+`OTEL_EXPORTER_OTLP_ENDPOINT`** — the agents run on laptops as often as in Cloud Run, and an
+SDK that fails loudly because nobody set an endpoint makes a working demo look broken. The
+deployed sentinel gets the endpoint and its push credentials from the same Secret Manager entry
+the web service uses, so there is one place to configure and one to rotate.
+
+    python infra/grafana/provision-dashboard.py     # provisions both, from versioned JSON
+
 ## Why not Movie Magic?
 
 Because it is very good at the half of the problem this does not touch, and does not attempt

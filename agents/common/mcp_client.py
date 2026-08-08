@@ -30,6 +30,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+import telemetry
+
 logger = logging.getLogger("McpClient")
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -177,7 +179,12 @@ class McpHttpClient:
         be mistaken for an empty result.
         """
         self._require_session()
-        result = self._request("tools/call", {"name": name, "arguments": arguments or {}})
+
+        # Instrumented here rather than at each call site, because this is the one place every
+        # MCP call in the project passes through — the sentinel's to Grafana and the
+        # orchestrator's to our own servers alike (EV-47).
+        with telemetry.mcp_call(server=self.label, tool=name):
+            result = self._request("tools/call", {"name": name, "arguments": arguments or {}})
 
         if result.get("isError"):
             raise McpError(f"{self.label} tool {name!r} failed: {self._as_text(result)}")

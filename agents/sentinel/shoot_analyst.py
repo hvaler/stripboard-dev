@@ -13,6 +13,7 @@ result back in English.
 
 import json
 import logging
+import time
 import os
 import sys
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ from grafana_mcp_client import GrafanaMcpClient, GrafanaMcpError  # noqa: E402
 # One schema adapter for every MCP server we expose to Gemini. It used to live here, which
 # was fine until a second caller needed it.
 from mcp_client import sanitise_schema as _sanitise_schema  # noqa: E402,F401
+import telemetry  # noqa: E402
 
 logger = logging.getLogger("ShootAnalyst")
 
@@ -124,6 +126,17 @@ class ShootAnalyst:
         return [types.Tool(function_declarations=declarations)]
 
     def ask(self, question: str) -> Answer:
+        """Times and counts the exchange, then delegates. See agents/common/telemetry.py."""
+        started = time.perf_counter()
+        answer = self._ask(question)
+        telemetry.record_llm(
+            model=self.gemini.model,
+            tokens=answer.total_tokens,
+            milliseconds=(time.perf_counter() - started) * 1000,
+            rounds=answer.rounds)
+        return answer
+
+    def _ask(self, question: str) -> Answer:
         client = self.gemini._ensure_client()  # noqa: SLF001 - same package, one owner
         tools = self._declarations()
 

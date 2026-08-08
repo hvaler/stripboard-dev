@@ -1,0 +1,229 @@
+{
+  "uid": "stripboard-agents",
+  "title": "The Agents Themselves — Stripboard",
+  "description": "The other half of the Grafana track: observe the agent you build (EV-47).\n\nSeparate from 'Shoot Mission Control' on purpose. That dashboard answers 'how is the production doing'; this one answers 'how is the software doing', and putting the two on one screen makes neither question easy to ask.\n\nNOTE ON SERIES NAMES: these are the Prometheus forms of the OTLP instruments in agents/common/telemetry.py — dots become underscores and counters gain _total. If a panel reads No data after the agents have run, confirm the exact names with the MCP tool list_prometheus_metric_names against regex 'agent.*' rather than guessing; an empty panel and a wrong query look identical.",
+  "tags": [
+    "stripboard",
+    "agents",
+    "ai-observability"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "🎟️ Tokens spent",
+      "description": "Every Gemini token these agents have consumed. 'Ask your shoot' runs several rounds per question, so this grows in steps rather than smoothly.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(agent_llm_tokens_total)",
+          "instant": true,
+          "legendFormat": "tokens"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "🔌 MCP calls",
+      "description": "Every tools/call the agents have made, to Grafana and to our own servers. This is the partner integration counted from the inside.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(agent_mcp_calls_total)",
+          "instant": true,
+          "legendFormat": "calls"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "❌ MCP calls that failed",
+      "description": "Counted separately because a counter that only increments on success reports a healthy integration right up until nothing works.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(agent_mcp_calls_total{status=\"error\"})",
+          "instant": true,
+          "legendFormat": "errors"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "💬 Tokens per question, over time",
+      "description": "A question that quietly takes six rounds costs six times one that takes one. Without this the only signal is the bill at the end of the month.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model) (rate(agent_llm_tokens_total[5m]))",
+          "instant": false,
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "⏱️ Where the twenty seconds go",
+      "description": "Model time and tool time on the same axis. 'The model is slow' and 'Grafana is slow' need different fixes, and one number cannot tell them apart.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(agent_llm_duration_milliseconds_bucket[5m])))",
+          "instant": false,
+          "legendFormat": "p95 model"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "🔧 Which MCP tools, how often",
+      "description": "Not 'we use MCP' but which tools the agents actually reach for. The shape of this is the integration's real surface area.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tool) (rate(agent_mcp_calls_total[5m]))",
+          "instant": false,
+          "legendFormat": "{{tool}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "🐢 How long the far end takes",
+      "description": "p95 of a tools/call, by server. Grafana Cloud and our own Cloud Run services answer at very different speeds, and both are on this line.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, server) (rate(agent_mcp_duration_milliseconds_bucket[5m])))",
+          "instant": false,
+          "legendFormat": "{{server}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "📊 Calls by outcome",
+      "description": "ok against error. A rising error line here is the first thing that would tell you the sentinel has stopped being able to read alerts.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "grafanacloud-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(agent_mcp_calls_total[5m]))",
+          "instant": false,
+          "legendFormat": "{{status}}"
+        }
+      ]
+    }
+  ]
+}
