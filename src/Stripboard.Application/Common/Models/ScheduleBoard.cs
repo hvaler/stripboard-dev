@@ -145,13 +145,54 @@ public static class ShootDayModel
 /// <summary>
 /// Production cost model. Crude but honest: every figure the UI shows is derived from these
 /// rules and the cast/crew day rates in the database, never from a literal in a page.
+///
+/// **Where the numbers come from (EV-44).** A cost model nobody can check is a number with a
+/// dollar sign in front of it, so each figure below says what it is anchored to and which of
+/// them is a stand-in.
+///
+/// The day rates live in the database, not here, and the seeded ones are close to scale: a
+/// SAG-AFTRA day player on the 2025–26 Basic Theatrical Agreement is **$1,246 in wages plus
+/// $261.66 pension and health — $1,507.66 before overtime or overscale**, against the $1,500
+/// the demo seeds for a lead. Low-budget agreements run at 65% of that and micro-budget at
+/// 35%, which is why a production substitutes its own rates rather than adopting these.
+///
+///   https://www.topsheet.io/edu/rates/sag-aftra/sag-aftra-theatrical-rates-2025
+///   https://www.wrapbook.com/blog/essential-guide-sag-rates
 /// </summary>
 public static class CostModel
 {
-    /// <summary>Moving the whole unit to another location costs a fixed sum.</summary>
+    /// <summary>
+    /// Moving the whole unit to another location costs a fixed sum.
+    ///
+    /// **This one is a stand-in and should be read as one.** There is no published rate for a
+    /// company move; what it really costs is transport plus the shooting hour it eats, and the
+    /// hour is the larger half — <see cref="ShootDayModel.CompanyMoveMinutes"/> already charges
+    /// the schedule for it, so this figure is the cash on top. $2,500 is the order of magnitude
+    /// a mid-size unit spends moving trucks, crew and equipment across a city, not a quotation.
+    /// </summary>
     public const decimal CompanyMoveUsd = 2_500m;
 
-    /// <summary>A union violation carries a penalty payment.</summary>
+    /// <summary>
+    /// A union violation carries a penalty payment.
+    ///
+    /// **Blended on purpose, and the blend is worth knowing.** The two violations this model
+    /// detects cost very different amounts in reality:
+    ///
+    /// - A **meal penalty** is per performer and escalates: $25 for the first half hour, $35
+    ///   for the second, $50 for each thereafter. On a six-person cast an hour late that is
+    ///   $360, not $750.
+    /// - A **turnaround violation** is the expensive one. Cutting a performer's rest short is
+    ///   compensated at up to a full day's pay, so a single one costs more like $1,246 —
+    ///   nearly twice this figure.
+    ///
+    /// One constant cannot be both, and the honest reading of $750 is a midpoint that keeps
+    /// violations expensive enough to matter in the objective without pretending to price a
+    /// specific breach. Pricing them separately is the obvious next refinement; it needs the
+    /// anomaly type to reach the cost model, which today it does not.
+    ///
+    ///   https://www.sagaftra.org/meal-periods
+    ///   https://www.wrapbook.com/blog/meal-penalties-producers-guide
+    /// </summary>
     public const decimal UnionViolationPenaltyUsd = 750m;
 
     /// <summary>Cost of one shooting day: every crew member, plus the cast actually called.</summary>

@@ -405,6 +405,36 @@ Grafana at its own request latency; here the *shoot* is the observed system — 
 down, actors paid against days they do not work, a schedule risk index — and Grafana is what
 notices when it goes wrong.
 
+## What the money figures are anchored to
+
+A cost model nobody can check is a number with a dollar sign in front of it. Every figure the
+board shows comes from the day rates in the database and the rules in `CostModel`, and this is
+where each one stands (EV-44):
+
+| Figure | Anchor |
+|---|---|
+| Cast day rate | A SAG-AFTRA day player on the 2025–26 Basic Theatrical Agreement is **$1,246 in wages plus $261.66 pension and health, $1,507.66 all in**, before overtime or overscale. The demo seeds $1,500 for a lead |
+| Low-budget productions | Run at **65%** of Basic, micro-budget at **35%** — which is why rates live in the database and a production substitutes its own |
+| Meal penalty | Per performer and escalating: **$25** for the first half hour, **$35** for the second, **$50** thereafter |
+| Turnaround violation | The expensive one — compensated at up to **a full day's pay** |
+| Company move | **A stand-in.** There is no published rate. The shooting hour it eats is charged separately in the schedule; the $2,500 is the cash on top, an order of magnitude rather than a quotation |
+
+**And one figure is honestly blended.** `UnionViolationPenaltyUsd` is a single $750 constant
+covering both violations above, which in reality cost about $360 and about $1,246. One constant
+cannot be both. It sits between them so a violation stays expensive enough to matter to the
+objective without pretending to price a specific breach — and pricing them apart is the obvious
+next refinement, needing the anomaly type to reach the cost model, which today it does not.
+
+The `shoot_cost_estimate_usd > 45000` alert threshold follows from the demo's own shape rather
+than from an industry figure: a four-day shoot of this crew and cast lands near $29,600, so
+$45,000 is roughly half as much again — the point at which a schedule has drifted rather than
+merely moved. A real production would set it from its budget line.
+
+Sources: [SAG-AFTRA 2025 theatrical rates](https://www.topsheet.io/edu/rates/sag-aftra/sag-aftra-theatrical-rates-2025) ·
+[Wrapbook, SAG rates guide](https://www.wrapbook.com/blog/essential-guide-sag-rates) ·
+[SAG-AFTRA meal periods](https://www.sagaftra.org/meal-periods) ·
+[Wrapbook, meal penalties](https://www.wrapbook.com/blog/meal-penalties-producers-guide)
+
 ## Why not Movie Magic?
 
 Because it is very good at the half of the problem this does not touch, and does not attempt
