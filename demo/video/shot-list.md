@@ -1,6 +1,6 @@
 # Shot list — what is on screen, in order
 
-Pairs with `narration.md`. Six shots, six audio files. Record the screen **silently**; the
+Pairs with `narration.md`. Seven shots, seven audio files. Record the screen **silently**; the
 voice is added afterwards, so a page that loads slowly costs a trim rather than a retake.
 
 ---
@@ -20,12 +20,12 @@ curl https://stripboard-web-wc7oib7k6q-ew.a.run.app/api/health     # must report
 > alert strip on the front page is served by it** — read back from Grafana over MCP on every
 > page load. A cold sentinel has to start a container, a sidecar and an MCP handshake; the
 > client waits thirty seconds and then gives up **silently**, so the page renders with no strip
-> and reads as *no alerts are firing*. That is shot 3.
+> and reads as *no alerts are firing*. That is shot 4.
 
 Open the public dashboard and **leave it open for a minute** before recording it. Its panels
 draw their frames before their data; a screenshot taken at eight seconds shows an empty board.
 
-**Arm the alert, then wait.** This is the step that decides whether shot 3 works.
+**Arm the alert, then wait.** This is the step that decides whether shot 4 works.
 
 1. Go to `/inject-disruption`, section **Rehearsal**, press **Arm**.
 2. Wait **five full minutes**. Grafana evaluates every minute and the rule needs five
@@ -38,7 +38,7 @@ draw their frames before their data; a screenshot taken at eight seconds shows a
 > which is honest and makes a confusing thirty seconds of video. *Unit hopping* carries
 > `consolidate`, which is the action the loop actually completes. Arm gives you that one.
 
-**Two terminals ready**, both with the environment set, because shot 3 shows one of them:
+**Two terminals ready**, both with the environment set, because shot 4 shows one of them:
 
 ```bash
 export GOOGLE_CLOUD_PROJECT=stripboard-hack
@@ -53,7 +53,7 @@ export GRAFANA_MCP_ENDPOINT=http://localhost:8000/mcp
 >
 > The block above exports `GRAFANA_SERVICE_ACCOUNT_TOKEN`. Set it up in a terminal you will
 > **never record**, and use a second, clean one for the three commands that do appear —
-> `agents.breakdown` at 0:25, `run_alert_loop.py` at 0:50, `run_orchestrator.py` at 1:30.
+> `agents.breakdown` at 0:42, `run_alert_loop.py` at 1:04, `run_orchestrator.py` at 1:37.
 >
 > A shared terminal keeps the token in its scrollback. One stray scroll, or a tall prompt,
 > and a live credential is on YouTube. `clear` before each take, and never `echo` the token
@@ -62,7 +62,7 @@ export GRAFANA_MCP_ENDPOINT=http://localhost:8000/mcp
 
 ---
 
-## 0:00 – 0:25 · "It is a film shoot"
+## 0:00 – 0:19 · "It is a film shoot"
 
 **Screen:** the public Grafana dashboard, full screen, already populated.
 `https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3`
@@ -70,7 +70,25 @@ export GRAFANA_MCP_ENDPOINT=http://localhost:8000/mcp
 Let it sit. Move the mouse slowly across *Cast utilisation — who is being paid to wait* when
 the narration reaches "sit in a trailer". Do not click anything.
 
-## 0:25 – 0:50 · Screenplay to stripboard
+## 0:22 – 0:38 · Ask your shoot
+
+**Screen:** `/ask` on the deployed app.
+
+Type **"How much of the budget have we burned so far?"** and let it answer. Fifteen to twenty
+seconds — that is several Gemini rounds with MCP calls between them, and the page says so while
+you wait.
+
+The answer is **$29,600**. Then scroll to the queries printed underneath it: `query_prometheus`
+against `shoot_cost_estimate_usd`. **Hold on those.** They are the whole point of the shot — the
+figure was read off a metric over MCP, live, not composed by a model.
+
+> **Ask this question and not the cast one.** "Which actor am I paying for days they do not
+> work?" is the better sentence, and it is already the alert in shot 4 — asking it here spends
+> the reveal twice. The budget question is the one that used to fail: the model invented a
+> metric name that had never existed and reported the budget as unavailable. It is fixed, and
+> it is the one to rehearse once before recording.
+
+## 0:42 – 1:01 · Screenplay to stripboard
 
 **Screen:** two halves.
 
@@ -80,7 +98,7 @@ the narration reaches "sit in a trailer". Do not click anything.
 - Then: the board at `https://stripboard-web-wc7oib7k6q-ew.a.run.app/`
   Scroll slowly through the strips so the colour code and the turnaround figures are visible.
 
-## 0:50 – 1:30 · Grafana starts the loop  ← **the shot that wins the track**
+## 1:04 – 1:33 · Grafana starts the loop  ← **the shot that wins the track**
 
 **Screen:** three beats, in this order.
 
@@ -91,7 +109,7 @@ the narration reaches "sit in a trailer". Do not click anything.
    qualifying evidence for the partner track: the MCP call, on screen, in a terminal.
 3. Back to the dashboard if there is room.
 
-## 1:30 – 2:15 · Agents and the solver
+## 1:37 – 2:03 · Agents and the solver
 
 **Screen:** the terminal, `python demo/run_orchestrator.py`, then `/proposals`.
 
@@ -99,14 +117,14 @@ The terminal prints `handled by: replanner` and the tool calls. Then switch to t
 show the two option cards side by side, with the deltas. Pause on the grey note that says
 *Same outcome as Option A on every figure below — this is not a second choice.*
 
-## 2:15 – 2:45 · The refusal
+## 2:07 – 2:28 · The refusal
 
 **Screen:** `/proposals`, with **Acting as** set to `sa-replanner (agent)`.
 
 Press **Approve** on an option. The red panel appears with the service's own words. Hold on it
 — this is the shot that carries the whole governance argument, and it needs a beat to be read.
 
-## 2:45 – 3:00 · The human, and back to Grafana
+## 2:31 – 2:44 · The human, and back to Grafana
 
 **Screen:** three quick cuts.
 
