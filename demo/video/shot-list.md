@@ -140,3 +140,55 @@ If there is a second left, the Grafana annotation on the dashboard timeline.
 
 **Settle the schedule again** so the demo is left in its good state for judges:
 `/inject-disruption` → **Settle**. The board goes back to four days at two locations a day.
+
+**And put the minimum instances back.** You set them to 1 to record; at 1 they are billed around
+the clock, and there are weeks left until 7 September.
+
+```bash
+gcloud run services update stripboard-web      --min-instances=0 --project stripboard-hack --region europe-west1
+gcloud run services update stripboard-sentinel --min-instances=0 --project stripboard-hack --region europe-west1
+```
+
+The trade is that a judge's first visit starts cold and takes a few seconds. That is the right
+price: the video is recorded once, and the URL has to live for a month.
+
+---
+
+## Recording as seven separate clips
+
+This is the intended way. The narration is already one MP3 per shot, so a clip that goes wrong
+costs one retake instead of a re-cut.
+
+**Each screen clip must outlast its voice.** The voice files total 2:19; the finished video runs
+2:43 because there are four seconds of air between shots, and the screen keeps moving through
+that air rather than cutting to black. So a clip has to cover its own narration *plus* the pause
+after it, and a few seconds more at each end that you will trim away.
+
+| Clip | Voice | Screen must cover | Record at least |
+|---|---:|---:|---:|
+| 1 · Mission Control | 18.9s | 23s | 30s |
+| 2 · Ask your shoot | 15.5s | 20s | 45s — the answer itself takes 15 to 20 |
+| 3 · Screenplay to stripboard | 18.5s | 23s | 30s |
+| 4 · Grafana starts the loop | 28.9s | 33s | 45s |
+| 5 · Agents and the solver | 25.3s | 29s | 40s |
+| 6 · The refusal | 20.2s | 24s | 30s |
+| 7 · The human | 12.2s | 12s | 20s |
+
+Clip 2 is the one to over-record: you cannot pause a model mid-answer, and if the reply lands at
+nineteen seconds a thirty-second take leaves you nothing.
+
+**What makes seven clips cut together like one recording:**
+
+- **Never resize the window between takes.** Set the browser once, at one zoom level, and leave
+  it. A frame that jumps two pixels between clips is the most visible amateur tell there is.
+- **Record every clip at the same resolution**, 1920×1080 — not "whatever the window was".
+- **Same browser chrome throughout**: same tabs, same bookmarks bar, and no notification
+  arriving during take four. Close everything else first.
+- **Start each clip on a still frame and end on one.** Trimming into motion is what produces a
+  jump cut; trimming into stillness produces a cut nobody notices.
+- Screen audio is discarded, so the room need not be quiet. The takes do.
+
+**Assembly order:** lay the seven audio files end to end with four seconds between them, then
+fit each screen clip to its own voice. Never the other way round — stretching a clip to reach a
+line is how a demo starts looking slowed down. Import `subtitles.srt` last; it is timed against
+exactly this layout.
