@@ -9,12 +9,29 @@ voice is added afterwards, so a page that loads slowly costs a trim rather than 
 
 **Wake everything up.** Cold Cloud Run and a cold dashboard both look broken on camera.
 
-```bash
-gcloud sql instances patch stripboard-db --activation-policy=ALWAYS --project stripboard-hack
-gcloud run services update stripboard-web --min-instances=1 --project stripboard-hack --region europe-west1
-gcloud run services update stripboard-sentinel --min-instances=1 --project stripboard-hack --region europe-west1
-curl https://stripboard-web-wc7oib7k6q-ew.a.run.app/api/health     # must report a committed schedule
+Commands are **PowerShell 7**, which is the shell this was recorded from. `gcloud` is the same
+executable either way; the shell only changes how variables are set and how the health check
+is spelled.
+
+Read the state first — warming what is already warm costs money and proves nothing:
+
+```powershell
+gcloud sql instances describe stripboard-db --project stripboard-hack --format="value(state,settings.activationPolicy)"
+gcloud run services list --project stripboard-hack --region europe-west1 --format="table(metadata.name,spec.template.metadata.annotations['autoscaling.knative.dev/minScale']:label=MIN)"
 ```
+
+Then warm whatever the two commands above did not already report as warm:
+
+```powershell
+gcloud sql instances patch stripboard-db --activation-policy=ALWAYS --project stripboard-hack
+gcloud run services update stripboard-web      --min-instances=1 --project stripboard-hack --region europe-west1
+gcloud run services update stripboard-sentinel --min-instances=1 --project stripboard-hack --region europe-west1
+
+Invoke-RestMethod https://stripboard-web-wc7oib7k6q-ew.a.run.app/api/health   # must report a committed schedule
+```
+
+`curl` is not a PowerShell alias in 7.x, so `Invoke-RestMethod` is the honest spelling —
+and it parses the JSON, which is what you actually want to read.
 
 > **The sentinel matters as much as the web app here.** It scales to zero too, and **the amber
 > alert strip on the front page is served by it** — read back from Grafana over MCP on every
@@ -38,27 +55,67 @@ draw their frames before their data; a screenshot taken at eight seconds shows a
 > which is honest and makes a confusing thirty seconds of video. *Unit hopping* carries
 > `consolidate`, which is the action the loop actually completes. Arm gives you that one.
 
-**Two terminals ready**, both with the environment set, because shot 4 shows one of them:
+**Start the Grafana MCP sidecar, once.** It runs detached, so it occupies no terminal and does
+not have to be kept off camera:
 
-```bash
-export GOOGLE_CLOUD_PROJECT=stripboard-hack
-export STRIPBOARD_URL=https://stripboard-web-wc7oib7k6q-ew.a.run.app
-export GRAFANA_URL=https://pinkcorridor3522.grafana.net
-export GRAFANA_SERVICE_ACCOUNT_TOKEN=<from .secrets/grafana-token>
-./infra/grafana/run-mcp-sidecar.sh
-export GRAFANA_MCP_ENDPOINT=http://localhost:8000/mcp
+```powershell
+$env:GRAFANA_URL = "https://pinkcorridor3522.grafana.net"
+& "C:\Program Files\Git\bin\bash.exe" ./infra/grafana/run-mcp-sidecar.sh
 ```
 
-> **Two terminals, and only one of them is ever on camera.**
+It finds the token in `.secrets/grafana-token` on its own and finishes with
+`Grafana MCP server ready at http://localhost:8000/mcp`.
+
+> **Why Git Bash rather than a PowerShell rewrite of the script.** The script resolves the
+> token from three places in order, warns when it is a `glc_` access policy token instead of
+> a `glsa_` service account one — that was DT-009 — and waits for a real `initialize`
+> handshake before it claims to be ready. A second copy of that logic in PowerShell is a
+> second thing to keep correct, and the one that rots is the one nobody runs. `docker` is the
+> same `docker.exe` from either shell.
+
+**Then the terminal you record.** PowerShell, three variables, **not one of them secret**:
+
+```powershell
+$env:GOOGLE_CLOUD_PROJECT = "stripboard-hack"
+$env:STRIPBOARD_URL       = "https://stripboard-web-wc7oib7k6q-ew.a.run.app"
+$env:GRAFANA_MCP_ENDPOINT = "http://localhost:8000/mcp"
+```
+
+Confirm without printing anything: `if ($env:GRAFANA_MCP_ENDPOINT) { "endpoint set" }`.
+
+> **The token never enters the terminal you record, so there is nothing there to leak.**
 >
-> The block above exports `GRAFANA_SERVICE_ACCOUNT_TOKEN`. Set it up in a terminal you will
-> **never record**, and use a second, clean one for the three commands that do appear —
-> `agents.breakdown` at 0:42, `run_alert_loop.py` at 1:04, `run_orchestrator.py` at 1:37.
+> No agent reads `GRAFANA_SERVICE_ACCOUNT_TOKEN`; searching `agents/` for it returns nothing.
+> `grafana_mcp_client.py` says so in a comment — *the sidecar holds the Grafana service
+> account token itself* — and the recorded shell only ever talks to `http://localhost:8000/mcp`,
+> which carries no credential.
 >
-> A shared terminal keeps the token in its scrollback. One stray scroll, or a tall prompt,
-> and a live credential is on YouTube. `clear` before each take, and never `echo` the token
-> to check it — `[ -n "$GRAFANA_SERVICE_ACCOUNT_TOKEN" ] && echo set` tells you what you need
-> to know without printing it.
+> This is why there is one terminal here and not two. The earlier instruction to keep a
+> separate, never-recorded shell existed because this block used to export the token. It no
+> longer does. Open a fresh window before a take if you want a clean prompt, but that is now
+> a question of the prompt and not of a credential.
+
+> **`STRIPBOARD_MCP_SCHEDULE_ENDPOINT` is deliberately not set, and shot 5 pays a small price
+> for it.**
+>
+> `run_orchestrator.py` reads the board over MCP only when that variable is set, and over the
+> web app's REST API otherwise. Unset, it prints
+> `Engine reached over: REST — the web app's API (the MCP servers are not running)`.
+>
+> Setting it is worse, not better. It would need `dotnet run --project
+> src/Stripboard.Mcp.Schedule` locally, and a local server without `STRIPBOARD_DB_CONNECTION`
+> falls back to an **in-memory** database — `DatabaseRegistration` says so and logs it. The
+> board it served would be empty, so the shot would print *the scheduling service has no
+> schedule to talk about* instead. Pointing it at the real Cloud SQL means the Auth Proxy and
+> a connection string, which is an hour of setup an hour before recording, and the deployed
+> `mcp-schedule` is private, so reaching that one instead would put a bearer token back in the
+> shell that is on camera.
+>
+> **The MCP evidence does not depend on this shot.** Shot 4 already shows
+> `tools/call alerting_manage_rules` going out in a terminal, which is the qualifying evidence
+> for the partner track. Shot 5 is about the specialists and the solver, and the REST line is
+> a true statement about how it was run. Leave it, and do not crop it — a cropped terminal is
+> a worse problem than an honest line.
 
 ---
 
@@ -74,9 +131,18 @@ the narration reaches "sit in a trailer". Do not click anything.
 
 **Screen:** `/ask` on the deployed app.
 
-Type **"How much of the budget have we burned so far?"** and let it answer. Fifteen to twenty
-seconds — that is several Gemini rounds with MCP calls between them, and the page says so while
-you wait.
+Type **"How much of the budget have we burned so far?"** and let it answer. It comes back
+quickly — two Gemini rounds and a single MCP call — and the page says it is working while you
+wait.
+
+> **This used to say fifteen to twenty seconds, and that is no longer true.** EV-47 put the
+> Prometheus datasource uid in the prompt instead of leaving the model to discover it, which
+> removed an entire round from every answer: the four demo questions went from three rounds and
+> two tool calls to two and one. The old figure described the system before that fix.
+>
+> **It only holds with the sentinel warm.** Cold, the first question pays for a container start
+> and an MCP handshake on top, and then no take is long enough. That is the warm-up step, and
+> it is why it is not optional.
 
 The answer is **$29,600**. Then scroll to the queries printed underneath it: `query_prometheus`
 against `shoot_cost_estimate_usd`. **Hold on those.** They are the whole point of the shot — the
@@ -90,7 +156,8 @@ figure was read off a metric over MCP, live, not composed by a model.
 
 ## 0:42 – 1:01 · Screenplay to stripboard
 
-**Screen:** two halves.
+**Screen:** two halves **of time — not a split screen.** The terminal fills the frame, then the
+board fills the frame, and the cut between them happens in the editor.
 
 - First ten seconds: the terminal, running
   `python -m agents.breakdown --file demo/screenplay-nightfall.fountain`
@@ -105,9 +172,35 @@ figure was read off a metric over MCP, live, not composed by a model.
 1. The home page, on the **amber alert strip**. This is a judge-visible page saying a rule is
    firing. Two seconds.
 2. The terminal: `python demo/run_alert_loop.py`
-   Let the `tools/call alerting_manage_rules` line print. **Do not cut this.** It is the
-   qualifying evidence for the partner track: the MCP call, on screen, in a terminal.
-3. Back to the dashboard if there is room.
+   **Do not cut this.** It is the qualifying evidence for the partner track: the MCP call, on
+   screen, in a terminal. What prints, and what to let finish:
+
+   ```
+   Grafana MCP: mcp-grafana (devel)
+   [1/3] Conflict Sentinel asking Grafana which of the shoot's rules are firing...
+      -> [high] Unit hopping between locations in a day
+   [2/3] Handing 'Unit hopping…' to the agents  (action: consolidate)...
+     tool:  line_producer -> transfer_to_agent({'agent_name': 'replanner'})
+     tool:  replanner -> consolidate_schedule({'max_locations_per_day': 2})
+   [3/3] The agent tries to commit its own recommendation...
+      -> committed=False  'sa-stripboard-replanner' cannot commit a schedule.
+   ```
+
+   > **An earlier version of this list said to wait for a literal `tools/call
+   > alerting_manage_rules` line. It never prints.** `tools/call` is the JSON-RPC method the
+   > client sends over the wire (`agents/common/mcp_client.py:187`) and `run_alert_loop.py`
+   > configures no logging, so nothing at that level reaches stdout. What does reach it is the
+   > list above, which names the Grafana MCP server and the tools the agents call — and it says
+   > it in a sentence a judge can read, which the wire-level line does not.
+   >
+   > `[3/3]` is a bonus this shot was not planned around: the refusal shows up here too, before
+   > shot 6 stages it on screen. Let it print.
+
+   An ADK `UserWarning` about `SCHEMA_FOR_FUNC_DECL` lands in the middle of `[2/3]`. It is
+   library noise, not a failure, and it is not worth a retake.
+3. Back to the **public Mission Control dashboard** if there is room — the same page as shot 1,
+   not the Stripboard board. The narration closes this shot on *Grafana does not receive the
+   result. Grafana starts the work*, and returning to Grafana is what closes that loop on screen.
 
 ## 1:37 – 2:03 · Agents and the solver
 
@@ -116,6 +209,11 @@ figure was read off a metric over MCP, live, not composed by a model.
 The terminal prints `handled by: replanner` and the tool calls. Then switch to the browser and
 show the two option cards side by side, with the deltas. Pause on the grey note that says
 *Same outcome as Option A on every figure below — this is not a second choice.*
+
+**Near the top it will print** `Engine reached over: REST — the web app's API (the MCP servers
+are not running)`, and that is the accepted trade rather than a mistake — the setup block above
+says why, and why the alternatives are worse. Do not crop it. What must be right in this shot is
+`handled by: replanner` and the tool calls under it.
 
 ## 2:07 – 2:28 · The refusal
 
@@ -144,9 +242,15 @@ If there is a second left, the Grafana annotation on the dashboard timeline.
 **And put the minimum instances back.** You set them to 1 to record; at 1 they are billed around
 the clock, and there are weeks left until 7 September.
 
-```bash
+```powershell
 gcloud run services update stripboard-web      --min-instances=0 --project stripboard-hack --region europe-west1
 gcloud run services update stripboard-sentinel --min-instances=0 --project stripboard-hack --region europe-west1
+```
+
+**And stop the sidecar**, which is a container that outlives the session otherwise:
+
+```powershell
+docker rm -f stripboard-mcp-grafana
 ```
 
 The trade is that a judge's first visit starts cold and takes a few seconds. That is the right
@@ -167,21 +271,49 @@ after it, and a few seconds more at each end that you will trim away.
 | Clip | Voice | Screen must cover | Record at least |
 |---|---:|---:|---:|
 | 1 · Mission Control | 18.9s | 23s | 30s |
-| 2 · Ask your shoot | 15.5s | 20s | 45s — the answer itself takes 15 to 20 |
+| 2 · Ask your shoot | 15.5s | 20s | 30s — see the note in that shot |
 | 3 · Screenplay to stripboard | 18.5s | 23s | 30s |
-| 4 · Grafana starts the loop | 28.9s | 33s | 45s |
+| 4 · Grafana starts the loop | 28.6s | 33s | 45s |
 | 5 · Agents and the solver | 25.3s | 29s | 40s |
 | 6 · The refusal | 20.2s | 24s | 30s |
 | 7 · The human | 12.2s | 12s | 20s |
 
-Clip 2 is the one to over-record: you cannot pause a model mid-answer, and if the reply lands at
-nineteen seconds a thirty-second take leaves you nothing.
+**What matters is the middle column, not the last one.** The right-hand figures are insurance
+against a slow answer or a fumbled start, not a length the edit needs. A clip that covers its
+voice plus the four seconds of air after it is usable, however short the take was: 28 seconds is
+a good clip 2, because clip 2 needs 20.
+
+Clip 2 is still the one where the take can come out short of its own accord, because it is the
+only one waiting on a model. It is no longer the one to over-record by a wide margin — that
+advice belonged to the fifteen-to-twenty-second era described above.
 
 **What makes seven clips cut together like one recording:**
 
+- **One application per take, maximised with `Win+↑`. Never tile two side by side.** The shots
+  that name a terminal *and* a browser mean one after the other, cut in the editor — not a split
+  screen. Half of a 1440-logical-pixel desktop is about 720, and `/proposals` puts two option
+  cards side by side: they do not fit, and the second one is clipped by the browser's own
+  viewport before OBS sees anything.
+- **Maximise; do not drag windows into place.** A window nudged by hand can sit a few pixels off
+  the left edge of the desktop, and Windows only draws what is on screen — so the recording is
+  faithfully capturing a window that is genuinely cut. This cost a full set of takes once: the
+  frame read `oot Mission Control` instead of *Shoot Mission Control*, and the fault was the
+  window position, not the capture.
 - **Never resize the window between takes.** Set the browser once, at one zoom level, and leave
   it. A frame that jumps two pixels between clips is the most visible amateur tell there is.
-- **Record every clip at the same resolution**, 1920×1080 — not "whatever the window was".
+- **Record every clip to a 1920×1080 output, and get there through OBS rather than through the
+  window size.** This was recorded on a 2880×1800 panel at 200% scaling, so the *logical*
+  desktop is 1440×900: no window can be 1920 wide, and the panel is 16:10 rather than 16:9.
+  Set OBS **base canvas 2880×1620** — the 16:9 crop of the panel — and **output 1920×1080**,
+  which is an exact two-thirds downscale with no dirty interpolation. Place the Display Capture
+  source at 0,0 and the bottom 180 physical pixels, taskbar included, fall outside the canvas
+  on their own. **Check the taskbar is really gone in the OBS preview**: leaving the canvas at
+  the full 2880×1800 outputs 1920×1200, which is 16:10 and ships your clock, your tray icons and
+  whatever notification badge is showing to YouTube.
+- **Pick one browser zoom and keep it across all six browser clips.** At 1440×900 logical the
+  viewport is small and the Grafana dashboard comes out cramped. Whatever zoom makes shot 1 fit
+  is the zoom shots 2, 6 and 7 use too. Choosing it per shot is the same jump-cut tell as
+  resizing the window. Decide it against shot 1, which is the one starved for room.
 - **Same browser chrome throughout**: same tabs, same bookmarks bar, and no notification
   arriving during take four. Close everything else first.
 - **Start each clip on a still frame and end on one.** Trimming into motion is what produces a
@@ -192,3 +324,25 @@ nineteen seconds a thirty-second take leaves you nothing.
 fit each screen clip to its own voice. Never the other way round — stretching a clip to reach a
 line is how a demo starts looking slowed down. Import `subtitles.srt` last; it is timed against
 exactly this layout.
+
+## Tools
+
+| For | Use |
+|---|---|
+| Recording | **OBS Studio** — free, no watermark, scenes prepared in advance and a clean switch between them. Settings above |
+| Fallback | **ShareX**, pinning one capture region and never moving it. No scenes, so the app-switching shots are harder |
+| Editing | **Clipchamp**, ships with Windows 11 and imports `.srt` directly |
+| Voice | Already generated: **seven MP3s** in `demo/video/audio/`. To rebuild, `python demo/video/make_voiceover.py` |
+| **Not this** | **Xbox Game Bar** (`Win+Alt+R`). It captures **no mouse pointer**, records only the app that had focus when recording started, and sizes the file to the window. Shot 1 is a mouse moving across a panel, and shots 3, 4 and 5 switch between terminal and browser |
+
+DaVinci Resolve is better and will cost you a Sunday to learn. For seven clips and seven voice
+tracks, Clipchamp is more than enough.
+
+## The order that saves retakes
+
+1. Wake everything up and **arm the alert**. Wait the five minutes.
+2. Record the seven screens **silently**, without hurrying.
+3. Generate the voice — or reuse what is already in `demo/video/audio/`.
+4. Assemble: the screen fits the audio, never the other way round.
+5. Import the subtitles.
+6. **Settle**, and put the minimum instances back.

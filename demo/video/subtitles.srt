@@ -41,85 +41,81 @@ Twelve hour turnaround holds by construction, not by checking afterwards
 and apologising.
 
 10
-00:01:04,800 --> 00:01:06,501
+00:01:04,800 --> 00:01:06,520
 Now watch what starts this.
 
 11
-00:01:06,501 --> 00:01:09,563
-The shoot exports its own metrics to Grafana Cloud.
+00:01:06,520 --> 00:01:14,435
+The shoot exports its own metrics to Grafana Cloud. A rule evaluates
+them, and it is firing: one shooting day visits four locations.
 
 12
-00:01:09,563 --> 00:01:16,368
-A rule evaluates them, and it is firing: three cast members are called
-on a quarter of the shooting days.
+00:01:14,435 --> 00:01:19,252
+Each company move costs an hour of shooting light. A day in the van.
 
 13
-00:01:16,368 --> 00:01:19,770
-That is a contract being paid against days nobody works.
-
-14
-00:01:19,770 --> 00:01:21,472
+00:01:19,252 --> 00:01:20,973
 Nobody is watching a screen.
 
-15
-00:01:21,472 --> 00:01:28,276
+14
+00:01:20,973 --> 00:01:27,854
 The Conflict Sentinel asks Grafana which rules are firing, through the
 official Grafana MCP server, and reads that alert back.
 
-16
-00:01:28,276 --> 00:01:33,720
+15
+00:01:27,854 --> 00:01:33,360
 This is the direction that matters. Grafana does not receive the result.
 Grafana starts the work.
 
-17
-00:01:37,720 --> 00:01:45,193
+16
+00:01:37,360 --> 00:01:44,833
 The orchestrator routes it. A root agent with no tools of its own, so
 nothing it reports can be a figure it invented.
 
-18
-00:01:45,193 --> 00:01:50,717
+17
+00:01:44,833 --> 00:01:50,357
 The replanner does no arithmetic at all. Every number it states comes
 from a separate CP-SAT run.
 
-19
-00:01:50,717 --> 00:01:53,966
+18
+00:01:50,357 --> 00:01:53,606
 Two options, with real cost deltas between two solved schedules.
 
-20
-00:01:53,966 --> 00:02:03,064
+19
+00:01:53,606 --> 00:02:02,704
 And when both come out identical, it says so, instead of dressing one up
 as a recommendation. The honest answer was: you do not need the extra
 day.
 
-21
-00:02:07,064 --> 00:02:09,997
+20
+00:02:06,704 --> 00:02:09,637
 Now the agent tries to commit its own recommendation.
 
-22
-00:02:09,997 --> 00:02:10,323
+21
+00:02:09,637 --> 00:02:09,963
 Refused.
 
-23
-00:02:10,323 --> 00:02:18,472
+22
+00:02:09,963 --> 00:02:18,112
 Not because we withheld the tool. The governance agent has the commit
 tool, is told to use it, and the scheduling service turns it down.
 
-24
-00:02:18,472 --> 00:02:23,035
+23
+00:02:18,112 --> 00:02:22,675
 The check lives behind an HTTP boundary where no prompt can argue with
 it.
 
-25
-00:02:23,035 --> 00:02:27,272
+24
+00:02:22,675 --> 00:02:26,912
 An identity in a request body is a claim. A claim cannot commit.
 
-26
-00:02:31,272 --> 00:02:36,835
+25
+00:02:30,912 --> 00:02:36,475
 The Producer approves. New version. New audit entry, naming who proposed
 it and who approved it.
 
-27
-00:02:36,835 --> 00:02:43,440
+26
+00:02:36,475 --> 00:02:43,080
 And the decision is written back to Grafana as an annotation, so the
 timeline shows why the schedule changed.
 

@@ -55,8 +55,8 @@ align third. That way a slow page costs you a trim, not a retake.
 > Now watch what starts this.
 >
 > The shoot exports its own metrics to Grafana Cloud. A rule evaluates them, and it is firing:
-> three cast members are called on a quarter of the shooting days. That is a contract being paid
-> against days nobody works.
+> one shooting day visits four locations. Each company move costs an hour of shooting light.
+> A day in the van.
 >
 > Nobody is watching a screen. The Conflict Sentinel asks Grafana which rules are firing, through
 > the official Grafana MCP server, and reads that alert back.
