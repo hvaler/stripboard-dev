@@ -40,7 +40,7 @@ align third. That way a slow page costs you a trim, not a retake.
 > So ask one, in plain English. Gemini answers by querying Grafana live, over the Model Context
 > Protocol, and shows the query it ran.
 >
-> Twenty nine thousand six hundred dollars. Read off a metric, not guessed at.
+> Twenty six thousand eight hundred dollars. Read off a metric, not guessed at.
 
 ## 0:42 – 1:01 · Screenplay to stripboard
 
@@ -87,10 +87,10 @@ align third. That way a slow page costs you a trim, not a retake.
 >
 > An identity in a request body is a claim. A claim cannot commit.
 
-## 2:31 – 2:44 · The human, and back to Grafana
+## 2:31 – 2:44 · The human, and the trail
 
 > The Producer approves. New version. New audit entry, naming who proposed it and who approved
 > it.
 >
-> And the decision is written back to Grafana as an annotation, so the timeline shows why the
-> schedule changed.
+> Sentinel raised it, an agent proposed it, a human decided. The trail records all three, and
+> nothing rewrites it.

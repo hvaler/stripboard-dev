@@ -13,109 +13,109 @@ Every other project pointing Grafana at something this week is pointing
 it at itself. We pointed it at the production.
 
 4
-00:00:22,864 --> 00:00:26,229
+00:00:22,864 --> 00:00:26,219
 A line producer does not read dashboards. They ask questions.
 
 5
-00:00:26,229 --> 00:00:33,969
+00:00:26,219 --> 00:00:33,935
 So ask one, in plain English. Gemini answers by querying Grafana live,
 over the Model Context Protocol, and shows the query it ran.
 
 6
-00:00:33,969 --> 00:00:38,344
-Twenty nine thousand six hundred dollars. Read off a metric, not guessed
-at.
+00:00:33,935 --> 00:00:38,296
+Twenty six thousand eight hundred dollars. Read off a metric, not
+guessed at.
 
 7
-00:00:42,344 --> 00:00:51,973
+00:00:42,296 --> 00:00:51,925
 A screenplay goes in. Gemini, on Vertex AI, reads it into typed scenes:
 location, set, interior or exterior, day or night, cast, page count.
 
 8
-00:00:51,973 --> 00:00:55,985
+00:00:51,925 --> 00:00:55,937
 Then a constraint solver builds the schedule. Google OR-Tools, CP-SAT.
 
 9
-00:00:55,985 --> 00:01:00,800
+00:00:55,937 --> 00:01:00,752
 Twelve hour turnaround holds by construction, not by checking afterwards
 and apologising.
 
 10
-00:01:04,800 --> 00:01:06,520
+00:01:04,752 --> 00:01:06,472
 Now watch what starts this.
 
 11
-00:01:06,520 --> 00:01:14,435
+00:01:06,472 --> 00:01:14,387
 The shoot exports its own metrics to Grafana Cloud. A rule evaluates
 them, and it is firing: one shooting day visits four locations.
 
 12
-00:01:14,435 --> 00:01:19,252
+00:01:14,387 --> 00:01:19,204
 Each company move costs an hour of shooting light. A day in the van.
 
 13
-00:01:19,252 --> 00:01:20,973
+00:01:19,204 --> 00:01:20,925
 Nobody is watching a screen.
 
 14
-00:01:20,973 --> 00:01:27,854
+00:01:20,925 --> 00:01:27,806
 The Conflict Sentinel asks Grafana which rules are firing, through the
 official Grafana MCP server, and reads that alert back.
 
 15
-00:01:27,854 --> 00:01:33,360
+00:01:27,806 --> 00:01:33,312
 This is the direction that matters. Grafana does not receive the result.
 Grafana starts the work.
 
 16
-00:01:37,360 --> 00:01:44,833
+00:01:37,312 --> 00:01:44,785
 The orchestrator routes it. A root agent with no tools of its own, so
 nothing it reports can be a figure it invented.
 
 17
-00:01:44,833 --> 00:01:50,357
+00:01:44,785 --> 00:01:50,309
 The replanner does no arithmetic at all. Every number it states comes
 from a separate CP-SAT run.
 
 18
-00:01:50,357 --> 00:01:53,606
+00:01:50,309 --> 00:01:53,558
 Two options, with real cost deltas between two solved schedules.
 
 19
-00:01:53,606 --> 00:02:02,704
+00:01:53,558 --> 00:02:02,656
 And when both come out identical, it says so, instead of dressing one up
 as a recommendation. The honest answer was: you do not need the extra
 day.
 
 20
-00:02:06,704 --> 00:02:09,637
+00:02:06,656 --> 00:02:09,589
 Now the agent tries to commit its own recommendation.
 
 21
-00:02:09,637 --> 00:02:09,963
+00:02:09,589 --> 00:02:09,915
 Refused.
 
 22
-00:02:09,963 --> 00:02:18,112
+00:02:09,915 --> 00:02:18,064
 Not because we withheld the tool. The governance agent has the commit
 tool, is told to use it, and the scheduling service turns it down.
 
 23
-00:02:18,112 --> 00:02:22,675
+00:02:18,064 --> 00:02:22,627
 The check lives behind an HTTP boundary where no prompt can argue with
 it.
 
 24
-00:02:22,675 --> 00:02:26,912
+00:02:22,627 --> 00:02:26,864
 An identity in a request body is a claim. A claim cannot commit.
 
 25
-00:02:30,912 --> 00:02:36,475
+00:02:30,864 --> 00:02:36,525
 The Producer approves. New version. New audit entry, naming who proposed
 it and who approved it.
 
 26
-00:02:36,475 --> 00:02:43,080
-And the decision is written back to Grafana as an annotation, so the
-timeline shows why the schedule changed.
+00:02:36,525 --> 00:02:43,248
+Sentinel raised it, an agent proposed it, a human decided. The trail
+records all three, and nothing rewrites it.
 
