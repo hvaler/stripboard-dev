@@ -17,7 +17,8 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 (Google Cloud) — **Grafana partner track**.
 
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
-![Status](https://img.shields.io/badge/status-feature%20complete%20%C2%B7%20video%20pending-yellow)
+![Status](https://img.shields.io/badge/status-feature%20complete%20%C2%B7%20video%20live-brightgreen)
+[![3-minute demo](https://img.shields.io/badge/YouTube-3--minute%20demo-FF0000)](https://youtu.be/6LZxawdvXaU)
 ![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Vertex%20AI-4285F4)
 ![Grafana](https://img.shields.io/badge/Grafana-MCP%20client-F46800)
 ![MCP](https://img.shields.io/badge/MCP-client%20%2B%204%20servers-6E56CF)
@@ -31,7 +32,7 @@ Built for the [Agentic Cinema Hackathon](https://agentic-cinema.devpost.com/)
 verified end to end in a browser with zero console errors: inject a disruption, compare the
 costed options, approve as Producer, read the audit trail. See
 [ADR-011](adr/ADR-011-blazor-server-on-cloud-run.md) for what Blazor Server needs from Cloud
-Run. There is no demo video yet.
+Run.
 
 It scales to zero while the hackathon credits are pending, so the **first** request may take a
 few seconds. Everything after that is warm. See *Stopping the paid services* below.
@@ -42,8 +43,9 @@ few seconds. Everything after that is warm. See *Stopping the paid services* bel
 MCP. It is the shortest way to check that the partner integration is real rather than
 described.
 
-**The 3-minute video:** not recorded yet. The shot-by-shot script and the narration live in
-[`demo/video/`](demo/video/); this line becomes a link the day it is up.
+**The 3-minute video: <https://youtu.be/6LZxawdvXaU>** — seven shots, chaptered, with English
+subtitles. It is the fastest way to see the loop close: a Grafana rule fires, the sentinel reads
+it back over MCP, the solver prices two options, an agent is refused, a human approves.
 
 ## The problem
 
@@ -818,7 +820,7 @@ so. The architecture diagram above carries no open marks, because there are none
 |---|---|---|
 | The **replanner** still reaches the engine over REST (`POST /api/replan`), not MCP — `mcp-schedule` has no replan-from-disruption tool. The scheduler and governance specialists do go over MCP | `agents/replanner` | EV-23, remainder |
 | Agents coordinate through ADK sub-agent transfer, not the A2A wire protocol. **A decision, not a backlog item**: A2A solves separately-owned agents discovering each other across a network, and ours are four `LlmAgent` objects in one process | `agents/orchestrator` | closed, not planned |
-| The Quickstart has **not** been reproduced on a clean machine, and the 3-minute video is not recorded | — | EV-31, EV-32 |
+| The Quickstart has **not** been reproduced on a clean machine | — | EV-31 |
 
 One of those rows closes with time. One is already closed the other way, by a decision, and
 the remaining one is a tool `mcp-schedule` does not expose yet. **Nothing in that table is
@@ -830,11 +832,24 @@ reproduce each one — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
 
 ## The 3-minute demo
 
-Not recorded yet. One shot-by-shot script lives in
-[`demo/submission-checklist.md`](demo/submission-checklist.md) §3, with the Grafana moments
-each shot has to land: the dashboard, a rule in the firing state, the `tools/call` that reads
-it back, and the annotation written when the Producer approves. Every row names what must be
-true before it can be narrated.
+**<https://youtu.be/6LZxawdvXaU>** — seven shots, chaptered, English subtitles.
+
+It lands the Grafana moments in order: the public dashboard reading the shoot's own metrics, a
+rule in the *firing* state on a page a judge can open without an account, the Conflict Sentinel
+reading that rule back through the official Grafana MCP server in a terminal, and the refusal
+the scheduling service returns when an agent tries to commit its own recommendation.
+
+The shot list and the words are in [`demo/video/`](demo/video/). `make_voiceover.py` generates
+the voice **and** `subtitles.srt` from `narration.md`, which is their only copy: there is no
+second transcript to keep in step, and the subtitles are the script rather than a
+transcription of it.
+
+> **One moment that was planned is not in the video, because the system does not do it.** An
+> earlier draft of the narration closed on the decision being *written back to Grafana as an
+> annotation*. Annotations are written by the sentinel when it detects disruptions
+> (`agents/sentinel/sentinel_agent.py`); nothing under `src/` calls the annotations API, and
+> approving a schedule writes none. The closing shot describes the audit trail instead — which
+> is what the screen shows, and what the system actually guarantees.
 
 The runtime evidence behind every claim above — Gemini calls, MCP tool results, the alert
 firing, the figures the solver produced — is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md), with

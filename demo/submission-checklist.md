@@ -29,23 +29,23 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 | **Platform** | Must run on web, Android or iOS. | Blazor web app on Cloud Run, configured for a stateful SignalR circuit (ADR-011). | ✅ |
 | **Hosted project URL** | Working, accessible demo. | Full demo walkthrough driven end to end in a browser: disruption → two costed options → governance refusal for an agent → Producer commit → audit trail. Zero console errors. | ✅ |
 | **Language** | All written parts and video audio/subtitles in English. | Code, comments, commits, ADRs, README and UI are English. | ✅ |
-| **Demo video** | Public YouTube/Vimeo video ≤ 3 minutes of the working product. | Script drafted (§3). Not recorded. | ❌ |
+| **Demo video** | Public YouTube/Vimeo video ≤ 3 minutes of the working product. | <https://youtu.be/6LZxawdvXaU> — **2:43**, seven chaptered shots of the deployed system, English narration, `subtitles.srt` uploaded with timings. Verified public against YouTube's oEmbed endpoint, which does not answer for private videos. | ✅ |
 | **Text description** | Features, technologies, data sources, learnings. | §2 is now true throughout, with the learnings written from what actually broke. Ready to paste. | ✅ |
 
 **Blocking for Stage One: none remaining.** Both mandatory technology requirements are met at
 runtime — Google Cloud AI by EV-18 (ADR-009) and the Grafana MCP server by EV-19 (ADR-010) —
 with the evidence recorded in [`docs/EVIDENCE.md`](../docs/EVIDENCE.md).
 
-**One requirement is still outstanding: the video.** Everything it needs to show exists and
-runs. Nothing else is blocking.
+**Every requirement in the table is met.** The one step left is not a requirement to satisfy but
+a form to send: the Devpost submission itself, with the video URL replacing the placeholder.
 
 ---
 
 ## 2. Devpost text submission
 
-> Every row in the table below now says ✅ or states plainly what is not done. The one claim
-> to keep watching is Agent Engine: the script exists and has not been run, and the copy says
-> so. Do not upgrade it to "deployed" without deploying it.
+> Every row in the table below now says ✅ or states plainly what is not done. Agent Engine was
+> the row to keep watching and it has since been run: the instance exists, and this file was
+> the last place still saying otherwise.
 
 ### Project title
 **Stripboard — Autonomous Line Producer for Film Shoots**
@@ -79,7 +79,7 @@ traditionally spend hours replanning by hand. *(This section is accurate.)*
 | **Our own MCP servers** — schedule, people, locations, weather | Real protocol on the official `ModelContextProtocol.AspNetCore` SDK: `initialize`, `tools/list` with generated schemas, `tools/call`. 33 contract tests drive the protocol (ADR-021). Deployed private on Cloud Run, one service account each, and consumed by the orchestrator's scheduler and governance specialists (ADR-023) | ✅ |
 | **Governance you cannot talk your way past** — identity from the credential, not the payload | An agent sending `identity: "Producer"` is refused; a commit needs a platform-proved principal (ADR-020) | ✅ |
 | **Mutation testing** — union rules | Stryker.NET, 100%, 21 killed, 0 survived (ADR-022) | ✅ |
-| **Agent hosting** — Vertex AI Agent Engine | Deploy script written and passing preflight; **not deployed** — it is a billed resource | 🚧 |
+| **Agent hosting** — Vertex AI Agent Engine | **Deployed 2026-08-07.** Instance `stripboard-line-producer` in `europe-west1`, created by `agents/deploy_agent_engine.py` with `sa-orchestrator` as its service account, and verified against the Vertex AI REST API (`reasoningEngines`) | ✅ |
 
 ### Partner integration (Grafana track)
 1. **Grafana MCP Server client** (`agents/sentinel/grafana_mcp_client.py`) — ✅ MCP
@@ -169,40 +169,42 @@ Both produced text that was *wrong* rather than *absent*, which is why neither f
 
 ## 3. Video recording script (3 minutes)
 
-> **Word-for-word narration, subtitles and the voiceover script live in `demo/video/`.**
-> `narration.md` is timed at 150 words per minute and lands at 2:47, leaving air; `subtitles.srt`
-> matches it cue for cue; `make_voiceover.py` renders it with Google Cloud Text-to-Speech, one
-> file per shot so a slow screen costs a trim rather than a retake.
+> **Recorded and published: <https://youtu.be/6LZxawdvXaU>** — 2:43, seven shots, chaptered,
+> English narration with `subtitles.srt` uploaded to YouTube with timings.
 
-> **This is the script. There is only one.** An earlier draft opened on the architecture
-> diagram and had the Sentinel *posting* an alert to Grafana — the direction the product no
-> longer works in. It was deleted rather than struck through, because a narrator reading a
-> crossed-out table narrates the wrong system. Grafana fires; the Sentinel reads.
->
-> Lead with the differentiator. Every other entry in this track will point Grafana at its own
-> latency; this one points it at the shoot.
+> **The words live in `demo/video/`, and only there.** `narration.md` is the single copy;
+> `make_voiceover.py` renders the voice **and** writes `subtitles.srt` from it, so there is no
+> second transcript to drift. `shot-list.md` carries what is on screen, the OBS settings the
+> recording needs and the warm-up the deployment needs first.
 
-| Timestamp | Screen focus | Narration | Must be true |
-|---|---|---|---|
-| **0:00 – 0:25** | Mission Control dashboard | *"This is not our application's latency. It is a film shoot: days left, budget burning, and which actors we are paying to sit in a trailer."* | ✅ EV-29 — the public dashboard is live |
-| **0:25 – 0:50** | `screenplay-nightfall.fountain` → stripboard | *"Gemini reads the screenplay into typed scenes. CP-SAT builds the schedule — union turnaround holds by construction, not by checking afterwards."* | ✅ EV-18, EV-21, EV-27 |
-| **0:50 – 1:30** | Grafana alert firing → `run_alert_loop.py` | *"Grafana notices that three cast members are called on a quarter of the shooting days — a contract paid against days nobody works — and fires. No one is watching: the Conflict Sentinel reads that alert back through the Grafana MCP server."* | ✅ EV-19, EV-29 — `alerting_manage_rules` over MCP |
-| **1:30 – 2:15** | Orchestrator output, then Proposals | *"The orchestrator routes it. The replanner has no arithmetic: every figure comes from a CP-SAT run. Two options, real cost deltas — and when the two converge it says so rather than inventing a choice."* | ✅ EV-24, EV-25 |
-| **2:15 – 2:45** | The 403 | *"Now the agent tries to commit its own recommendation. The service refuses it. That check is in the scheduling service, not in a prompt — agents propose, humans decide."* | ✅ EV-33 — refused on identity, not on a name |
-| **2:45 – 3:00** | Producer commits → audit trail → annotation lands in Grafana | *"The Producer approves. New version, new audit entry — and the decision is written back to Grafana as an annotation, so the timeline shows why the schedule changed."* | ✅ EV-19 — `create_annotation` over MCP |
+> **Lead with the differentiator.** Every other entry in this track points Grafana at its own
+> latency; this one points it at the shoot. An earlier draft opened on the architecture diagram
+> and had the Sentinel *posting* an alert to Grafana — the direction the product no longer works
+> in. Grafana fires; the Sentinel reads.
 
-**Grafana features that must be visible on screen**, because the track is judged on runtime
-use and a narrator's claim is not evidence:
+The seven shots as recorded. Word-for-word narration in
+[`demo/video/narration.md`](video/narration.md), what is on screen in
+[`demo/video/shot-list.md`](video/shot-list.md).
 
-| Feature | Shot | Why it is not optional |
+| Shot | On screen | Grafana evidence it carries |
 |---|---|---|
-| Mission Control dashboard | 0:00 | The `shoot_*` panels are the "we observe the shoot, not the app" thesis |
-| An alert rule in the firing state | 0:50 | Proves Grafana **starts** the loop |
-| The MCP call in the terminal | 0:50 | `tools/call alerting_manage_rules` — the qualifying use, on screen |
-| An annotation appearing on the timeline | 2:45 | Proves the integration is **bidirectional**, not read-only. This was cut from an earlier draft; it is back on purpose |
+| **1 · 0:00** | Public Mission Control dashboard | The `shoot_*` panels: the observed system is the shoot, not the app |
+| **2 · 0:22** | "Ask your shoot" answering a budget question | `query_prometheus` printed beneath the answer |
+| **3 · 0:42** | Gemini's typed scene table, then the board | — |
+| **4 · 1:04** | The firing alert on a page needing no account, then the Sentinel reading it back in a terminal | **A rule in `firing`, and the MCP call that reads it** — the qualifying runtime use, on screen |
+| **5 · 1:37** | Orchestrator routing, then two costed options | — |
+| **6 · 2:06** | An agent's commit refused by the service | — |
+| **7 · 2:30** | Producer approves, board attribution, audit trail | — |
 
-Optional if time allows, and worth it: "Ask your shoot" answering one question, with the
-`query_prometheus` call shown beneath the answer.
+> **What an earlier draft promised and the video does not show.** The closing shot was to end on
+> the decision *appearing as an annotation on the Grafana timeline*, billed as proof the
+> integration is bidirectional. It is not there, because the system does not do it: annotations
+> are written by the Sentinel when it **detects disruptions**
+> (`agents/sentinel/sentinel_agent.py`), and nothing under `src/` calls the annotations API, so
+> approving a schedule writes none. Shot 7 closes on the audit trail instead.
+>
+> The bidirectional claim still holds — `create_annotation` runs for real on the disruption path
+> — but not at the moment that draft claimed it, and the narration no longer says it does.
 
 ---
 
