@@ -311,7 +311,7 @@ else
             rehearsalMessage =
                 $"{verb}. v{board.VersionNumber} committed: {board.Metrics.TotalDays} days, "
                 + $"worst day visits {worstDay} location{(worstDay == 1 ? "" : "s")}, "
-                + $"{board.Metrics.EstimatedCostUsd:C0}. "
+                + $"{board.Metrics.EstimatedCostUsd.ToString("C0", Culture)}. "
                 + (worstDay > 2
                     ? "Grafana evaluates every minute and the rule fires after five, so give it that long."
                     : "The unit-hopping rule has nothing to fire on now.");

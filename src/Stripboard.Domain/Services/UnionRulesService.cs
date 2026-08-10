@@ -50,11 +50,12 @@ public class UnionRulesService
         if (restDuration < _agreement.MinimumTurnaround)
         {
             var hoursFormatted = restDuration.TotalHours.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            var minimumFormatted = _agreement.MinimumTurnaround.TotalHours.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
             return new Anomaly(
                 id: Guid.NewGuid(),
                 severity: AnomalySeverity.Critical,
                 type: AnomalyType.TurnaroundViolation,
-                message: $"Turnaround violation between Day {previousDay.DayNumber} and Day {currentDay.DayNumber}: rest duration was {hoursFormatted}h (minimum required is {_agreement.MinimumTurnaround.TotalHours:F2}h under {_agreement.Name}).",
+                message: $"Turnaround violation between Day {previousDay.DayNumber} and Day {currentDay.DayNumber}: rest duration was {hoursFormatted}h (minimum required is {minimumFormatted}h under {_agreement.Name}).",
                 sceneIds: currentDay.StripIds
             );
         }
