@@ -34,8 +34,9 @@ costed options, approve as Producer, read the audit trail. See
 [ADR-011](adr/ADR-011-blazor-server-on-cloud-run.md) for what Blazor Server needs from Cloud
 Run.
 
-It scales to zero while the hackathon credits are pending, so the **first** request may take a
-few seconds. Everything after that is warm. See *Stopping the paid services* below.
+It scales to zero on purpose, so the **first** request may take a few seconds. Everything after
+that is warm. Keeping an instance always up costs money around the clock and buys nothing for a
+judge who visits once; the cold start is the right trade. See *Stopping the paid services* below.
 
 **Live Grafana dashboard, no account needed:
 <https://pinkcorridor3522.grafana.net/public-dashboards/1e372a04e0974e1fa34afb2e143957c3>** —
@@ -74,8 +75,8 @@ replan. Nobody is watching a screen when it happens.
    │ "Shoot Mission Control" · 4 alert rules over shoot_* metrics         │
    │ grafana/mcp-grafana, run as a sidecar we control — 73 tools          │
    └──▲─────────────────────────────────────────────────────────────┬─────┘
-      │ 6  OTLP: metrics about the SHOOT & MCP create_annotation    │ 1  a rule
-      │    (timeline decision written back)                         │    fires
+      │ 6  OTLP: metrics about the SHOOT. The sentinel writes       │ 1  a rule
+      │    disruptions back as annotations, over MCP                │    fires
       │                                                             ▼
    ┌──┴─────────────────────────┐            ┌──────────────────────┬─────┐
    │ Blazor UI              [✓] │            │ Conflict Sentinel      [✓] │
@@ -120,13 +121,16 @@ flowchart TD
     Solver -- "4. Costed options & deltas" --> Orchestrator
     Orchestrator -- "Proposes options" --> Blazor
     Blazor -- "5. Producer approves commit (403 for agents)" --> Blazor
-    Blazor -- "6. OTLP metrics & MCP create_annotation" --> Grafana
+    Blazor -- "6. OTLP metrics about the shoot" --> Grafana
+    Sentinel -- "Disruptions written back: MCP create_annotation" --> Grafana
 ```
 
 The governance step is drawn as an arrow rather than a note because it is one: an agent may
 call `/api/schedule/commit` and the service answers **403** for every identity but a human
-Producer. Commit approval triggers `create_annotation` over MCP to write the decision back to
-Grafana Cloud, closing the loop.
+Producer. What is written back to Grafana over MCP is the **disruption**: the Conflict Sentinel
+publishes it as an annotation with `create_annotation`, so the timeline shows what happened to
+the shoot. The approval itself is recorded in the audit trail, not in Grafana — the sentinel
+raised it, an agent proposed it, a human decided, and all three are on a chain nothing rewrites.
 
 Design principles the implementation is being held to:
 
@@ -446,9 +450,9 @@ what it adds.
 
 > Verified locally on Windows with the .NET 10 SDK and Python 3.12. The cloud path is
 > scripted and used daily — `infra/deploy-web.sh`, `infra/deploy-sentinel.sh`,
-> `infra/grafana/provision-*.py` — with the exception of Agent Engine, which is written and
-> deliberately unrun. **This has not been reproduced on a clean machine yet** (EV-31), so
-> treat it as instructions rather than as a guarantee.
+> `agents/deploy_agent_engine.py`, `infra/grafana/provision-*.py`. **This has not been
+> reproduced on a clean machine yet** (EV-31), so treat it as instructions rather than as a
+> guarantee.
 
 ```bash
 git clone https://github.com/hvaler/stripboard-dev.git && cd stripboard-dev
@@ -598,12 +602,19 @@ export STRIPBOARD_URL=http://localhost:5164        # or the deployed Cloud Run U
 python demo/run_orchestrator.py
 ```
 
-Deploying the orchestrator to Vertex AI Agent Engine is written but deliberately not run:
+The orchestrator is deployed to Vertex AI Agent Engine — `stripboard-line-producer`, in
+`europe-west1`, running as `sa-orchestrator`. It took five attempts, and each failure is in
+[ADR-018](adr/ADR-018-orchestration-and-delegated-authority.md).
 
 ```bash
 python agents/deploy_agent_engine.py            # preflight only; creates nothing
 python agents/deploy_agent_engine.py --deploy   # creates a billed Agent Engine instance
 ```
+
+What closes this is not that it runs. It is that a remote commit attempt is refused naming
+`sa-orchestrator@stripboard-hack.iam.gserviceaccount.com` — the principal Google read from the
+OIDC token, not the string the prompt sent ([EVIDENCE §10](docs/EVIDENCE.md)). No credential is
+packaged with the agent: the container mints its own identity, or it authenticates as nobody.
 
 ### Grafana MCP integration
 

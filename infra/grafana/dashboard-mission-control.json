@@ -1,7 +1,7 @@
 {
   "uid": "stripboard-mission-control",
   "title": "Shoot Mission Control — Stripboard",
-  "description": "The shoot as an observable system: days, cost burn, company moves, schedule risk and cast idle time. These are production signals, not application signals — request latency lives in Application Observability.",
+  "description": "The shoot as an observable system: days, cost burn, company moves, schedule risk and cast idle time. These are production signals, not application signals — request latency lives in Application Observability.\n\nNOTE ON STALENESS: the stat panels read the last known value across the selected range (max_over_time), not the last five minutes. The web service scales to zero when nobody is using it and nothing exports while it sleeps, so an instant query renders 'No data' on a system that is perfectly healthy — which is the one thing a dashboard must never do. A figure here is the shoot's last recorded state; widen or narrow the range to see how recent.",
   "tags": [
     "stripboard",
     "production"
@@ -10,7 +10,7 @@
   "schemaVersion": 39,
   "refresh": "30s",
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
   "templating": {
@@ -60,14 +60,15 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none"
+          "unit": "none",
+          "noValue": "no data in this range"
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max(shoot_days_total)",
+          "expr": "max(max_over_time(shoot_days_total[$__range]))",
           "instant": true,
           "legendFormat": "days"
         }
@@ -91,14 +92,15 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
-          "decimals": 0
+          "decimals": 0,
+          "noValue": "no data in this range"
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max(shoot_cost_estimate_usd)",
+          "expr": "max(max_over_time(shoot_cost_estimate_usd[$__range]))",
           "instant": true,
           "legendFormat": "cost"
         }
@@ -138,14 +140,15 @@
                 "value": 12
               }
             ]
-          }
+          },
+          "noValue": "no data in this range"
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max(shoot_company_moves)",
+          "expr": "max(max_over_time(shoot_company_moves[$__range]))",
           "instant": true,
           "legendFormat": "moves"
         }
@@ -187,14 +190,15 @@
                 "value": 70
               }
             ]
-          }
+          },
+          "noValue": "no data in this range"
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max(shoot_risk_index)",
+          "expr": "max(max_over_time(shoot_risk_index[$__range]))",
           "instant": true,
           "legendFormat": "risk"
         }
@@ -230,14 +234,15 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "noValue": "no data in this range"
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max(shoot_union_violations)",
+          "expr": "max(max_over_time(shoot_union_violations[$__range]))",
           "instant": true,
           "legendFormat": "violations"
         }
@@ -312,7 +317,8 @@
                 "value": 0.8
               }
             ]
-          }
+          },
+          "noValue": "no data in this range"
         },
         "overrides": []
       },
@@ -323,7 +329,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (actor) (shoot_cast_utilization)",
+          "expr": "max by (actor) (max_over_time(shoot_cast_utilization[$__range]))",
           "instant": true,
           "legendFormat": "{{actor}}"
         }
@@ -400,14 +406,15 @@
                 "value": 4
               }
             ]
-          }
+          },
+          "noValue": "no data in this range"
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max(shoot_locations_per_day_max)",
+          "expr": "max(max_over_time(shoot_locations_per_day_max[$__range]))",
           "instant": true,
           "legendFormat": "worst day"
         }

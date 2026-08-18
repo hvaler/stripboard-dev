@@ -36,8 +36,9 @@ Legend: ✅ verified at runtime · 🚧 partially built · ❌ not implemented
 runtime — Google Cloud AI by EV-18 (ADR-009) and the Grafana MCP server by EV-19 (ADR-010) —
 with the evidence recorded in [`docs/EVIDENCE.md`](../docs/EVIDENCE.md).
 
-**Every requirement in the table is met.** The one step left is not a requirement to satisfy but
-a form to send: the Devpost submission itself, with the video URL replacing the placeholder.
+**Every requirement in the table is met, and the Devpost entry is submitted** — description,
+repo, video and track. What remains open is one thing that was never a submission requirement:
+the Quickstart has not been reproduced on a clean machine (EV-31).
 
 ---
 
@@ -260,7 +261,10 @@ deployed (private, one service account each), so that line has moved out of this
 
 ## 5. Pre-submission gate
 
-Submit on **2026-09-06**, one day early — Devpost load at the deadline is a real risk.
+**Submitted.** The entry went in well ahead of the 2026-09-07 deadline, which was the point —
+Devpost load in the last hours is a real risk and an upload that fails then has no remedy. Devpost
+allows edits until the deadline, so anything below that is still worth improving can go in without
+resubmitting.
 
 **Eligibility and evidence**
 
@@ -276,20 +280,46 @@ Submit on **2026-09-06**, one day early — Devpost load at the deadline is a re
 **What a judge will actually click**
 
 - [ ] Hosted URL survives a full cold demo run from an external network
-- [ ] Hosted URL is **warm for the whole judging window** — `--min-instances=1` and Cloud SQL
-      on `ALWAYS`, and budgeted for. A judge who hits a 503 does not come back
-- [ ] `/api/health` reports a committed schedule before the demo
-- [ ] Public Grafana dashboard shows **data, not "No data"** — it goes empty whenever the web
-      service is scaled to zero, because nothing is exporting
-- [ ] At least one alert rule is in a state a visitor can see firing, rather than a uniformly
-      green dashboard that never shows the loop this project is about
-- [ ] Partner track selected: **Grafana**
+- [ ] **Warm the two judge-facing services on 2026-09-06**, the day before the deadline, and
+      leave them warm until the winners are announced:
+
+      ```bash
+      gcloud run services update stripboard-web      --min-instances=1 --project stripboard-hack --region europe-west1
+      gcloud run services update stripboard-sentinel --min-instances=1 --project stripboard-hack --region europe-west1
+      ```
+
+      **The sentinel is the non-obvious one.** The amber alert strip on the front page is served
+      by it, read back from Grafana over MCP on every page load. Cold, it has to start a
+      container, a sidecar and an MCP handshake; the client waits thirty seconds and then gives
+      up **silently**, so a judge's first page renders with no strip and reads as *no alerts are
+      firing* — the opposite of the thing this project is about.
+
+      The four `stripboard-mcp-*` services stay at 0 on purpose: they are private, only the
+      orchestrator reaches them during a replan, and a few seconds of cold start there is
+      invisible. Cloud SQL stays on `ALWAYS`, which it already is, so there is no database cold
+      start to worry about.
+
+      **Why the 6th and not today.** An always-on instance with CPU always allocated (which
+      Blazor Server needs — ADR-011) is billed for every second it exists, not per request. Three
+      weeks of that buys nothing while nobody is judging. Why not the 7th: a day of margin in
+      case a redeploy misbehaves. The €90 and €5 budget alerts are already configured; watch the
+      25% one after switching.
+- [x] `/api/health` reports a committed schedule before the demo — verified 2026-08-18:
+      `{"status":"ok","versionNumber":24,"isCommitted":true,"days":4,"scenes":14}`
+- [x] Public Grafana dashboard shows **data, not "No data"** — verified 2026-08-18 by querying
+      the series the panels draw: `shoot_days_total` 4, `shoot_cost_estimate_usd` 29600,
+      `shoot_risk_index` 52, `shoot_cast_utilization` 12 series. It goes empty whenever the web
+      service is scaled to zero, because nothing is exporting, so this is worth re-checking
+- [x] At least one alert rule is visibly firing — verified 2026-08-18 against
+      `/api/prometheus/grafana/api/v1/rules`: **Cast paid to wait** is `firing`, the other three
+      `inactive`. One firing rule is the point; a uniformly green board never shows the loop
+- [x] Partner track selected: **Grafana**
 
 **Submission artefacts**
 
-- [ ] Video ≤ 3:00, public, English subtitles
+- [x] Video ≤ 3:00, public, English subtitles — 2:43, verified public and captioned (EV-32)
 - [ ] Quickstart reproduced on a clean machine
-- [ ] Devpost form complete: description, repo, video, track
+- [x] Devpost form complete: description, repo, video, track
 
 ### Before recording, restart what was scaled down
 
